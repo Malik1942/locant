@@ -44,6 +44,8 @@ final class FloatingBall {
     var onMoved: ((CGPoint) -> Void)?
     /// A ring segment was chosen; `clipboardOnly` when ⌥ was held.
     var onAction: ((Ring.Segment, Bool) -> Void)?
+    /// v0.8.1 R59: taps as the ring opens and as the pointer crosses into another segment.
+    var feedback: Feedback?
     /// R29: each segment's hotkey, shown beside its name on the ring.
     var ringHints: [Ring.Segment: String] = [:] {
         didSet { ring.hints = ringHints }

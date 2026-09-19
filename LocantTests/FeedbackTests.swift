@@ -4,6 +4,10 @@ import XCTest
 
 @MainActor
 final class FeedbackTests: XCTestCase {
+    /// The clock `Feedback.now` reads. Held here, not in a local: the closure is sendable, and a
+    /// local it captures must not change afterwards.
+    private var clock: TimeInterval = 100
+
     // v0.8.1 R59: one tap per 80 ms, measured from the last tap let through; either side of the edge.
     func testTapGateSpacesTapsEightyMillisecondsApart() {
         var gate = TapGate(spacing: 0.080)
@@ -73,5 +77,55 @@ final class FeedbackTests: XCTestCase {
         XCTAssertFalse(outline.moved(to: card.offsetBy(dx: 0, dy: -2)), "lifted 2 pt")
         XCTAssertFalse(outline.moved(to: card), "settled back")
         XCTAssertTrue(outline.moved(to: card.offsetBy(dx: 3, dy: 0)), "3 pt is a move")
+    }
+
+    // R61: Trackpad taps is read at the moment of each tap. R59: the gate spaces them 80 ms.
+    func testTapsFollowTheSwitchAndTheGate() {
+        let preferences = Preferences(defaults: isolatedDefaults())
+        let feedback = Feedback(preferences: preferences, bundle: Bundle(for: FeedbackTests.self))
+        var tapped: [NSHapticFeedbackManager.FeedbackPattern] = []
+        feedback.now = { self.clock }
+        feedback.perform = { tapped.append($0) }
+        feedback.tap(.alignment)
+        clock += 0.050
+        feedback.tap(.alignment) // inside 80 ms: dropped
+        clock += 0.040
+        feedback.tap(.levelChange) // 90 ms after the first
+        preferences.trackpadTaps = false
+        clock += 0.200
+        feedback.tap(.generic) // switched off
+        preferences.trackpadTaps = true
+        clock += 0.200
+        feedback.tap(.generic)
+        XCTAssertEqual(tapped, [.alignment, .levelChange, .generic])
+    }
+
+    // R59: a click is felt already, so the gate stays shut for 80 ms after it.
+    func testAClickHoldsTheGate() {
+        let feedback = Feedback(preferences: Preferences(defaults: isolatedDefaults()), bundle: Bundle(for: FeedbackTests.self))
+        var taps = 0
+        feedback.now = { self.clock }
+        feedback.perform = { _ in taps += 1 }
+        feedback.clicked()
+        clock += 0.050
+        feedback.tap(.alignment)
+        XCTAssertEqual(taps, 0)
+        clock += 0.040
+        feedback.tap(.alignment)
+        XCTAssertEqual(taps, 1)
+    }
+
+    // R60: with no sound files (the test bundle has none) nothing loads and nothing plays.
+    func testMissingSoundsPlayNothing() {
+        let bundle = Bundle(for: FeedbackTests.self)
+        for sound in Feedback.Sound.allCases {
+            XCTAssertNil(Feedback.url(for: sound, in: bundle))
+        }
+        let feedback = Feedback(preferences: Preferences(defaults: isolatedDefaults()), bundle: bundle)
+        var played = 0
+        feedback.playSound = { _ in played += 1 }
+        feedback.play(.landed)
+        feedback.play(.missed)
+        XCTAssertEqual(played, 0)
     }
 }

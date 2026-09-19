@@ -41,6 +41,8 @@ final class AppState {
     @ObservationIgnored private let toast = Toast()
     @ObservationIgnored private var hotkeys: HotkeyMonitor?
     @ObservationIgnored private var ball: FloatingBall?
+    /// v0.8.1 R59, R60: taps and sounds; made in `start()`, before the ball that shares it.
+    @ObservationIgnored private var feedback: Feedback?
     @ObservationIgnored private var context: CaptureContext?
     @ObservationIgnored private var windows: [Geometry.WindowRecord] = []
     @ObservationIgnored private var hoverTask: Task<Void, Never>?
@@ -87,6 +89,7 @@ final class AppState {
     var captureDirectory: URL { preferences.captureFolderURL }
 
     func start() {
+        feedback = Feedback(preferences: preferences)
         Task.detached { [weak self] in
             let teams = CodeSigning.userTeamIDs()
             await MainActor.run { self?.userTeamIDs = teams }
@@ -161,6 +164,7 @@ final class AppState {
             newBall.onMoved = { [weak self] origin in self?.preferences.ballPosition = origin }
             newBall.onAction = { [weak self] segment, clipboardOnly in self?.beginRingAction(segment, clipboardOnly: clipboardOnly) }
             newBall.ringHints = ringHints()
+            newBall.feedback = feedback
             newBall.show(firstLaunch: firstLaunch)
             ball = newBall
         } else {
