@@ -473,6 +473,7 @@ final class AppState {
             endColorPick()
             let cursor = Geometry.cgPoint(fromAppKit: NSEvent.mouseLocation, primaryHeight: SelectionOverlay.currentPrimaryHeight())
             toast.show(HudText.copied(identifier: text), near: CGRect(origin: cursor, size: .zero))
+            feedback?.play(.landed)
         }
         session.onCancel = { [weak self] in self?.endColorPick() }
         colorSession = session
@@ -932,27 +933,27 @@ final class AppState {
                     }
                     PasteboardWriter.write(png: image.png)
                     let size = "\(MarkdownBuilder.number(image.widthPt))×\(MarkdownBuilder.number(image.heightPt))"
-                    finishOneShot(HudText.plain(optionHeld ? "Snapped · \(size) · clipboard only" : "Snapped · \(size)"), near: crop)
+                    finishOneShot(HudText.plain(optionHeld ? "Snapped · \(size) · clipboard only" : "Snapped · \(size)"), near: crop, sound: .landed)
                 case .text:
                     let lines = try await OCR.text(inPNG: image.png)
                     guard !lines.isEmpty else {
-                        finishOneShot(HudText.plain("No text found"), near: crop)
+                        finishOneShot(HudText.plain("No text found"), near: crop, sound: .missed)
                         return
                     }
                     PasteboardWriter.write(string: lines.joined(separator: "\n"))
-                    finishOneShot(HudText.plain("Copied · \(lines.count) \(lines.count == 1 ? "line" : "lines")"), near: crop)
+                    finishOneShot(HudText.plain("Copied · \(lines.count) \(lines.count == 1 ? "line" : "lines")"), near: crop, sound: .landed)
                 case .cut:
                     let normalized = CGPoint(x: (point.x - crop.minX) / crop.width, y: (point.y - crop.minY) / crop.height)
                     let subject = try await Cutout.subject(inPNG: image.png, at: normalized, wholeRegion: fromRegion)
                     guard let subject else {
-                        finishOneShot(HudText.plain("No subject found"), near: crop)
+                        finishOneShot(HudText.plain("No subject found"), near: crop, sound: .missed)
                         return
                     }
                     if !optionHeld {
                         try store.writeImage(png: subject, fileName: Cutout.fileName(appName: appName, id: id), appName: appName, tag: "cut")
                     }
                     PasteboardWriter.write(png: subject)
-                    finishOneShot(HudText.plain(optionHeld ? "Cut · clipboard only" : "Cut"), near: crop)
+                    finishOneShot(HudText.plain(optionHeld ? "Cut · clipboard only" : "Cut"), near: crop, sound: .landed)
                 case .point:
                     reset()
                 }
@@ -962,9 +963,10 @@ final class AppState {
         }
     }
 
-    private func finishOneShot(_ text: NSAttributedString, near rect: CGRect) {
+    private func finishOneShot(_ text: NSAttributedString, near rect: CGRect, sound: Feedback.Sound) {
         reset()
         toast.show(text, near: rect)
+        feedback?.play(sound) // v0.8.1 R60
     }
 
     /// R6/R7/R8: only Enter writes. Files first, clipboard last.
@@ -1029,6 +1031,7 @@ final class AppState {
                 } else {
                     toast.show(HudText.copied(identifier: element?.identifier), near: anchor)
                 }
+                feedback?.play(.landed)
                 // v0.8.1 R63: with the option on, the hint about fetching over MCP stays unspent.
                 if preferences.pastesIntoAgent {
                     await pasteIntoAgent(near: anchor)
@@ -1082,6 +1085,7 @@ final class AppState {
         reset()
         let rect = anchor ?? Self.mainScreenCenterCG()
         toast.show(HudText.plain(error.message), near: rect)
+        feedback?.play(.missed) // v0.8.1 R60
         switch error {
         case .noAccessibilityPermission: openSettingsOnce(pane: "Privacy_Accessibility")
         case .noScreenRecordingPermission: openSettingsOnce(pane: "Privacy_ScreenCapture")
