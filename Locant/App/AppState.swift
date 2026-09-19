@@ -53,6 +53,8 @@ final class AppState {
     /// What Option cycles through for the hovered spot (see `HitRefiner.selectionLevels`).
     @ObservationIgnored private var levels: [ResolvedElement?] = []
     @ObservationIgnored private var levelIndex = 0
+    /// v0.8.1 R59: whether the drawn outline moved since the last redraw; reset with each session.
+    @ObservationIgnored private var outlineMoves = OutlineMoves()
     @ObservationIgnored private var lockedElement: ResolvedElement?
     @ObservationIgnored private var lockedElements: [RegionElement]?
     @ObservationIgnored private var lockedNearby: [RegionElement]?
@@ -595,22 +597,25 @@ final class AppState {
     /// last small element sticks while the cursor stays near it, so gaps do not flip to the big group.
     private func drainHover() async {
         defer { hoverTask = nil }
-        while phase == .hovering, let point = pendingHover {
+        while phase == .hovering, !Task.isCancelled, let point = pendingHover {
             pendingHover = nil
             if action == .snap || action == .cut {
                 // Window under the cursor, no accessibility needed.
                 lastHoverPoint = point
-                if let window = Geometry.windowOwner(at: point, windows: windows, excludingPID: ownPID) {
+                let window = Geometry.windowOwner(at: point, windows: windows, excludingPID: ownPID)
+                let drawn: Bool
+                if let window {
                     let name = NSRunningApplication(processIdentifier: window.ownerPID)?.localizedName ?? "window"
-                    overlay.setHighlight(window.bounds, readout: Readout(role: "window", identifier: nil, suffix: name, isFallback: false), around: point)
+                    drawn = overlay.setHighlight(window.bounds, readout: Readout(role: "window", identifier: nil, suffix: name, isFallback: false), around: point)
                 } else {
-                    overlay.setHighlight(nil, readout: .describing(nil), around: point)
+                    drawn = overlay.setHighlight(nil, readout: .describing(nil), around: point)
                 }
+                if drawn, outlineMoves.moved(to: window?.bounds) { feedback?.tap(.alignment) }
                 try? await Task.sleep(for: .milliseconds(33))
                 continue
             }
             let fresh = await reader.snapshot(at: point, candidates: windowCandidates(at: point), fallbackPID: context?.frontPID ?? 0)
-            guard phase == .hovering else { return }
+            guard phase == .hovering, !Task.isCancelled else { return }
             let freshLevels = fresh.map { HitRefiner.selectionLevels(for: $0, at: point) } ?? []
             let freshElement = freshLevels.first ?? nil
             let freshIsVague = freshElement.map { ElementResolver.containerRoles.contains($0.role) } ?? true
@@ -633,20 +638,28 @@ final class AppState {
         levels.indices.contains(levelIndex) ? levels[levelIndex] : lastHoverElement
     }
 
-    private func renderHover() {
+    /// v0.8.1 R59: a drawn outline that moved taps `.alignment`. Option's `step` taps `.levelChange`
+    /// instead, and the move it causes is not also a tap.
+    private func renderHover(step: Bool = false) {
         let element = selectedElement()
         var readout = Readout.describing(element)
         if levelIndex > 0 {
             readout.suffix = [readout.suffix, "↑\(levelIndex)"].compactMap { $0 }.joined(separator: " · ")
         }
-        overlay.setHighlight(element?.frame.cgRect, readout: readout, around: lastHoverPoint)
+        guard overlay.setHighlight(element?.frame.cgRect, readout: readout, around: lastHoverPoint) else { return }
+        let moved = outlineMoves.moved(to: element?.frame.cgRect)
+        if step {
+            feedback?.tap(.levelChange)
+        } else if moved {
+            feedback?.tap(.alignment)
+        }
     }
 
     /// Option while hovering: cluster, parent, grandparent, … then back to the element.
     private func optionPressed() {
         guard phase == .hovering, levels.count > 1 else { return }
         levelIndex = (levelIndex + 1) % levels.count
-        renderHover()
+        renderHover(step: true)
     }
 
     /// R3: the on-screen windows under the point, front to back, in every layer. The reader asks
@@ -753,6 +766,7 @@ final class AppState {
     private func click(_ point: CGPoint, shift: Bool) {
         guard phase == .hovering, context != nil else { return }
         toast.hide()
+        feedback?.clicked() // v0.8.1 R59: the trackpad just clicked; nothing taps for 80 ms
         if shift, action == .point {
             pin(at: point)
             return
@@ -1056,6 +1070,7 @@ final class AppState {
         lastHoverElement = nil
         levels = []
         levelIndex = 0
+        outlineMoves = OutlineMoves()
         context = nil
         windows = []
         overlay.dismiss()

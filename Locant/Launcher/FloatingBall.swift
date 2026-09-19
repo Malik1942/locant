@@ -331,12 +331,17 @@ final class FloatingBall {
             self.ringOpen = true
             self.dockTask?.cancel()
             self.ring.open(at: self.discCenter)
+            self.feedback?.tap(.generic)
         }
     }
 
+    /// v0.8.1 R59: every segment, and the center, is a detent.
     func pressMoved(to point: CGPoint) {
         guard ringOpen else { return }
-        ring.hover(at: point, optionHeld: NSEvent.modifierFlags.contains(.option))
+        let before = ring.hovered
+        if ring.hover(at: point, optionHeld: NSEvent.modifierFlags.contains(.option)) != before {
+            feedback?.tap(.alignment)
+        }
     }
 
     /// Returns true when the release was handled by the ring (chosen or cancelled).

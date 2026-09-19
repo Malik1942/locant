@@ -188,16 +188,20 @@ final class SelectionOverlay {
     }
 
     /// Highlights `frame` (CG points). A nil frame shows the fallback square around `point`.
-    func setHighlight(_ frame: CGRect?, readout: Readout, around point: CGPoint) {
+    /// v0.8.1 R59: true when an outline was drawn.
+    @discardableResult
+    func setHighlight(_ frame: CGRect?, readout: Readout, around point: CGPoint) -> Bool {
         let rect = Geometry.appKitRect(fromCG: frame ?? Self.fallbackRect(around: point), primaryHeight: primaryHeight)
         let target = panel(containing: rect)
+        var drawn = false
         for panel in panels {
             if panel === target {
-                panel.contentOverlay.showHighlight(screenRect: rect, readout: readout)
+                drawn = panel.contentOverlay.showHighlight(screenRect: rect, readout: readout)
             } else {
                 panel.contentOverlay.hideHighlight()
             }
         }
+        return drawn
     }
 
     /// R6: the note field anchored to the element's bottom edge. The highlight stays.
@@ -590,8 +594,10 @@ final class OverlayContentView: NSView, NSTextFieldDelegate {
 
     func lock() { locked = true }
 
-    func showHighlight(screenRect: CGRect, readout: Readout) {
-        guard let window, !isDragging, !isAdjusting else { return }
+    /// v0.8.1 R59: false when nothing was drawn (a frame is being dragged or adjusted), so no tap marks it.
+    @discardableResult
+    func showHighlight(screenRect: CGRect, readout: Readout) -> Bool {
+        guard let window, !isDragging, !isAdjusting else { return false }
         let local = convert(window.convertFromScreen(screenRect), from: nil)
         highlight.isFallback = readout.isFallback
         label.set(HudText.readout(readout))
@@ -611,6 +617,7 @@ final class OverlayContentView: NSView, NSTextFieldDelegate {
             }
         }
         highlight.needsDisplay = true
+        return true
     }
 
     func hideHighlight() {
