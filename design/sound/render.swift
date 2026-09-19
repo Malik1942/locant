@@ -1,6 +1,6 @@
 import Accelerate
 import Foundation
-// Renders Locant's two interface sounds, `landed` and `missed` (specs/v0.8.1.md R61).
+// Renders Locant's two interface sounds, `landed` and `missed` (specs/v0.8.1.md R60).
 // A sound is a few decaying partials plus a touch of filtered noise for the mallet, under a 2 ms
 // raised-cosine attack and a short fade at the end. Every number that shapes a set is below;
 // change one, re-render, listen.
@@ -23,38 +23,38 @@ struct Material {
 }
 
 let sets = [
-    // A small glass struck lightly: modes near 1 : 2.4 : 4.5, a twin of the fundamental a few
-    // hertz away for the shimmer, the longest ring of the three, a faint tick for the touch.
+    // A small glass struck lightly: modes near 1 : 2.4 : 4.5, a twin of the fundamental two or
+    // three hertz away, slow enough to shimmer rather than wobble, and a light tick for the touch.
     Material(name: "glass", partials: [
-        Partial(ratio: 1.0, gain: 1.0, decay: 0.100),
-        Partial(ratio: 1.009, gain: 0.45, decay: 0.100),
-        Partial(ratio: 2.43, gain: 0.30, decay: 0.060),
-        Partial(ratio: 4.55, gain: 0.08, decay: 0.030),
-    ], touch: 0.25, touchLow: 2_000, touchHigh: 5_000, touchDecay: 0.002),
+        Partial(ratio: 1.0, gain: 1.0, decay: 0.075),
+        Partial(ratio: 1.0035, gain: 0.25, decay: 0.075),
+        Partial(ratio: 2.43, gain: 0.30, decay: 0.045),
+        Partial(ratio: 4.55, gain: 0.10, decay: 0.022),
+    ], touch: 0.6, touchLow: 2_000, touchHigh: 5_000, touchDecay: 0.004),
     // A soft marimba bar: the fundamental and the bar's tuned fourth mode, a short wooden knock.
     Material(name: "wood", partials: [
-        Partial(ratio: 1.0, gain: 1.0, decay: 0.070),
-        Partial(ratio: 4.0, gain: 0.16, decay: 0.018),
-    ], touch: 0.9, touchLow: 600, touchHigh: 2_500, touchDecay: 0.003),
+        Partial(ratio: 1.0, gain: 1.0, decay: 0.055),
+        Partial(ratio: 4.0, gain: 0.20, decay: 0.022),
+    ], touch: 1.0, touchLow: 600, touchHigh: 2_500, touchDecay: 0.004),
     // A felt hammer on a string: harmonic partials stretched slightly, the upper ones soft and
     // short, a second string a hair sharp as in a piano's unison, a muffled thump.
     Material(name: "felt", partials: [
-        Partial(ratio: 1.0, gain: 1.0, decay: 0.090),
-        Partial(ratio: 1.0015, gain: 0.6, decay: 0.090),
-        Partial(ratio: 2 * (1 + 0.0003 * 4).squareRoot(), gain: 0.30, decay: 0.060),
-        Partial(ratio: 3 * (1 + 0.0003 * 9).squareRoot(), gain: 0.10, decay: 0.040),
-        Partial(ratio: 4 * (1 + 0.0003 * 16).squareRoot(), gain: 0.04, decay: 0.030),
+        Partial(ratio: 1.0, gain: 1.0, decay: 0.070),
+        Partial(ratio: 1.0015, gain: 0.6, decay: 0.070),
+        Partial(ratio: 2 * (1 + 0.0003 * 4).squareRoot(), gain: 0.40, decay: 0.045),
+        Partial(ratio: 3 * (1 + 0.0003 * 9).squareRoot(), gain: 0.16, decay: 0.030),
+        Partial(ratio: 4 * (1 + 0.0003 * 16).squareRoot(), gain: 0.07, decay: 0.022),
     ], touch: 0.8, touchLow: 500, touchHigh: 1_200, touchDecay: 0.005),
 ]
 
-// The figure (R61): `landed` rises a fourth, onsets 70 ms apart, the second note 2 dB softer;
+// The figure (R60): `landed` rises a fourth, onsets 70 ms apart, the second struck 2 dB softer;
 // `missed` is one note a minor third below landed's first, its upper partials damped twice as
 // fast, 3 dB quieter. Same pitches in every set, so a comparison hears the material only.
 let landedPitches = (659.26, 880.00) // E5, A5
 let missedPitch = 554.37 // C#5
 let secondGain = pow(10, -2.0 / 20)
 let secondOnset = 0.070
-let landedLength = 0.250, missedLength = 0.200
+let landedLength = 0.250, missedLength = 0.250
 let missedDamping = 2.0
 let landedPeak = -18.0, missedPeak = -21.0 // dBFS
 let attack = 0.002, fadeOut = 0.040
