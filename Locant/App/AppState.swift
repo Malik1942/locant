@@ -526,6 +526,11 @@ final class AppState {
         }
     }
 
+    /// v0.8.1 R61: turning Sounds on plays `landed` once, as Sound settings plays an alert.
+    func previewSound() {
+        feedback?.play(.landed)
+    }
+
     /// Settings › General "Locant Help": the same page, any time.
     func showHelp() {
         help.show(state: self)

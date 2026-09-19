@@ -195,6 +195,21 @@ struct GeneralSettings: View {
                 .disabled(!preferences.ballEnabled)
             }
             Section {
+                Toggle(isOn: $preferences.trackpadTaps) {
+                    Text("Trackpad taps")
+                    Text("A light tap under your finger when the outline moves to a new element, when the ring opens, and between its segments. Needs a Force Touch trackpad.")
+                }
+                .toggleStyle(.switch)
+                Toggle(isOn: $preferences.sounds) {
+                    Text("Sounds")
+                    Text("A soft sound when a capture reaches the clipboard, a lower one when nothing did. Follows Play user interface sound effects in Sound settings.")
+                }
+                .toggleStyle(.switch)
+                .onChange(of: preferences.sounds) { _, on in
+                    if on { state.previewSound() }
+                }
+            }
+            Section {
                 Toggle(isOn: $preferences.checksForUpdates) {
                     Text("Check for updates")
                     Text("Once a day, Locant asks GitHub for the newest release. The request carries the version number and nothing about you or your captures.")
