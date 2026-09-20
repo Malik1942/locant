@@ -624,7 +624,7 @@ Replace `pressMoved(to:)` (from `func pressMoved(to point: CGPoint) {` through i
 
 `pressEnded(at:)` is unchanged: the release is a click, and a click never taps.
 
-- [ ] **Step 9: Check that no click path taps.** `grep -n "feedback?.tap\|feedback?.clicked" Locant/App/AppState.swift Locant/Launcher/FloatingBall.swift` → six lines: `.alignment` in `drainHover`, `.levelChange` and `.alignment` in `renderHover`, `.clicked()` in `click`, `.generic` in `pressBegan`, `.alignment` in `pressMoved`. None in `pin`, `confirmSetIfAny`, `region`, `pressEnded`, `clicked`.
+- [ ] **Step 9: Check that no click path taps.** The overlay's three taps go through `AppState.tapOutline`, which drops one while the trackpad's button is down (a lookup that started before the press must not tap after it). `grep -n "tapOutline\|feedback?.tap\|feedback?.clicked" Locant/App/AppState.swift Locant/Launcher/FloatingBall.swift` → eight lines: `tapOutline(.alignment)` in `drainHover`, `tapOutline`'s own declaration and the `feedback?.tap` inside it, `tapOutline(.levelChange)` and `tapOutline(.alignment)` in `renderHover`, `.clicked()` in `click`, `.generic` in `pressBegan`, `.alignment` in `pressMoved`. The ring's two keep calling `feedback?.tap` directly: it is used with the button held down. None in `pin`, `confirmSetIfAny`, `region`, `pressEnded`, `clicked`.
 - [ ] **Step 10: Run all tests.** Expected: `** TEST SUCCEEDED **`; the warnings grep on that output prints nothing.
 - [ ] **Step 11: Commit**
 
