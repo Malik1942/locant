@@ -616,7 +616,7 @@ final class AppState {
                 } else {
                     drawn = overlay.setHighlight(nil, readout: .describing(nil), around: point)
                 }
-                if drawn, outlineMoves.moved(to: window?.bounds) { feedback?.tap(.alignment) }
+                if drawn, outlineMoves.moved(to: window?.bounds) { tapOutline(.alignment) }
                 try? await Task.sleep(for: .milliseconds(33))
                 continue
             }
@@ -644,6 +644,13 @@ final class AppState {
         levels.indices.contains(levelIndex) ? levels[levelIndex] : lastHoverElement
     }
 
+    /// v0.8.1 R59: never a tap on a click, including one the trackpad is still holding down: a
+    /// hover lookup that started before the press must not tap after it.
+    private func tapOutline(_ pattern: NSHapticFeedbackManager.FeedbackPattern) {
+        guard NSEvent.pressedMouseButtons & 1 == 0 else { return }
+        feedback?.tap(pattern)
+    }
+
     /// v0.8.1 R59: a drawn outline that moved taps `.alignment`. Option's `step` taps `.levelChange`
     /// instead, and the move it causes is not also a tap.
     private func renderHover(step: Bool = false) {
@@ -655,9 +662,9 @@ final class AppState {
         guard overlay.setHighlight(element?.frame.cgRect, readout: readout, around: lastHoverPoint) else { return }
         let moved = outlineMoves.moved(to: element?.frame.cgRect)
         if step {
-            feedback?.tap(.levelChange)
+            tapOutline(.levelChange)
         } else if moved {
-            feedback?.tap(.alignment)
+            tapOutline(.alignment)
         }
     }
 
