@@ -92,11 +92,11 @@ final class FeedbackTests: XCTestCase {
         clock += 0.040
         feedback.tap(.levelChange) // 90 ms after the first
         preferences.trackpadTaps = false
-        clock += 0.200
-        feedback.tap(.generic) // switched off
+        clock += 0.090
+        feedback.tap(.generic) // switched off, and it leaves the gate alone: it never reached it
         preferences.trackpadTaps = true
-        clock += 0.200
-        feedback.tap(.generic)
+        clock += 0.010
+        feedback.tap(.generic) // 100 ms after the last tap that played, 10 after the switched-off one
         XCTAssertEqual(tapped, [.alignment, .levelChange, .generic])
     }
 
