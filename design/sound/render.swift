@@ -1,9 +1,11 @@
 import Accelerate
 import Foundation
 // Renders Locant's two interface sounds, `landed` and `missed` (specs/v0.8.1.md R60).
-// A sound is a few decaying partials plus a touch of filtered noise for the mallet, under a 2 ms
-// raised-cosine attack and a short fade at the end. Every number that shapes a set is below;
-// change one, re-render, listen.
+// A sound is one strike of a wooden bar: the mallet's contact (filtered noise) and the bar's modes
+// decaying under it, with a 2 ms raised-cosine attack and a short fade at the end. One strike, no
+// melody: two notes a fixed interval apart read as a device connecting, not as a capture landing.
+// `missed` is the same object struck lower and damped, so it reads as nothing landing.
+// Every number that shapes a set is below; change one, re-render, listen.
 //
 //   swiftc -O design/sound/render.swift -o design/sound/render
 //   design/sound/render candidates <folder>   every set as WAV, for listening
@@ -11,51 +13,66 @@ import Foundation
 
 let rate = 48_000.0
 
-/// One mode of the struck object: a multiple of the note's pitch, its level, and the time
+/// One mode of the struck object: a multiple of the strike's pitch, its level, and the time
 /// constant of its exponential decay in seconds.
 struct Partial { var ratio, gain, decay: Double }
 
-/// A material: the modes a strike excites and the mallet's touch, a burst of noise in a band.
+/// One strike: when it lands, its pitch and level, and how much harder its upper modes are damped.
+struct Strike { var pitch, gain, onset, damping: Double }
+
+/// A set: the modes a strike excites, the mallet's contact, and the two sounds made from it.
 struct Material {
     var name: String
     var partials: [Partial]
     var touch, touchLow, touchHigh, touchDecay: Double
+    var landed, missed: [Strike]
+    var landedLength, missedLength: Double
 }
 
+// The same pitches in every set, so a comparison hears the object and not the note: G5 for
+// `landed`, C5 a fifth below for `missed`, both well inside the 500 Hz to 5 kHz band.
+let landedPitch = 783.99, missedPitch = 523.25
+let missedDamping = 2.0
+
 let sets = [
-    // A small glass struck lightly: modes near 1 : 2.4 : 4.5, a twin of the fundamental two or
-    // three hertz away, slow enough to shimmer rather than wobble, and a light tick for the touch.
-    Material(name: "glass", partials: [
-        Partial(ratio: 1.0, gain: 1.0, decay: 0.075),
-        Partial(ratio: 1.0035, gain: 0.25, decay: 0.075),
-        Partial(ratio: 2.43, gain: 0.30, decay: 0.045),
-        Partial(ratio: 4.55, gain: 0.10, decay: 0.022),
-    ], touch: 0.6, touchLow: 2_000, touchHigh: 5_000, touchDecay: 0.004),
-    // A soft marimba bar: the fundamental and the bar's tuned fourth mode, a short wooden knock.
-    Material(name: "wood", partials: [
+    // A soft marimba bar under a felt mallet: the tuned fourth mode flashes, the fundamental sings
+    // briefly. The most tonal of the four.
+    Material(name: "tap", partials: [
         Partial(ratio: 1.0, gain: 1.0, decay: 0.055),
         Partial(ratio: 4.0, gain: 0.20, decay: 0.022),
-    ], touch: 1.0, touchLow: 600, touchHigh: 2_500, touchDecay: 0.004),
-    // A felt hammer on a string: harmonic partials stretched slightly, the upper ones soft and
-    // short, a second string a hair sharp as in a piano's unison, a muffled thump.
-    Material(name: "felt", partials: [
-        Partial(ratio: 1.0, gain: 1.0, decay: 0.070),
-        Partial(ratio: 1.0015, gain: 0.6, decay: 0.070),
-        Partial(ratio: 2 * (1 + 0.0003 * 4).squareRoot(), gain: 0.40, decay: 0.045),
-        Partial(ratio: 3 * (1 + 0.0003 * 9).squareRoot(), gain: 0.16, decay: 0.030),
-        Partial(ratio: 4 * (1 + 0.0003 * 16).squareRoot(), gain: 0.07, decay: 0.022),
-    ], touch: 0.8, touchLow: 500, touchHigh: 1_200, touchDecay: 0.005),
+    ], touch: 1.0, touchLow: 600, touchHigh: 2_500, touchDecay: 0.004,
+       landed: [Strike(pitch: landedPitch, gain: 1, onset: 0, damping: 1)],
+       missed: [Strike(pitch: missedPitch, gain: 1, onset: 0, damping: missedDamping)],
+       landedLength: 0.200, missedLength: 0.200),
+    // Mostly the mallet: a short wooden knock with just enough pitch to place it. The most
+    // physical of the four, and the shortest.
+    Material(name: "knock", partials: [
+        Partial(ratio: 1.0, gain: 0.45, decay: 0.028),
+        Partial(ratio: 4.0, gain: 0.10, decay: 0.012),
+    ], touch: 2.4, touchLow: 500, touchHigh: 3_000, touchDecay: 0.005,
+       landed: [Strike(pitch: landedPitch, gain: 1, onset: 0, damping: 1)],
+       missed: [Strike(pitch: missedPitch, gain: 1, onset: 0, damping: missedDamping)],
+       landedLength: 0.130, missedLength: 0.130),
+    // Something set down on a wooden surface: the same contact, then a longer, softer body under it.
+    Material(name: "place", partials: [
+        Partial(ratio: 1.0, gain: 1.0, decay: 0.085),
+        Partial(ratio: 4.0, gain: 0.12, decay: 0.018),
+    ], touch: 1.2, touchLow: 500, touchHigh: 2_200, touchDecay: 0.0045,
+       landed: [Strike(pitch: landedPitch, gain: 1, onset: 0, damping: 1)],
+       missed: [Strike(pitch: missedPitch, gain: 1, onset: 0, damping: missedDamping)],
+       landedLength: 0.250, missedLength: 0.220),
+    // Two strikes of the same bar, 45 ms apart, the second 4 dB softer: a "tok-tok" that confirms
+    // without ever becoming an interval. `missed` stays one strike, so the two never trade places.
+    Material(name: "double", partials: [
+        Partial(ratio: 1.0, gain: 1.0, decay: 0.045),
+        Partial(ratio: 4.0, gain: 0.20, decay: 0.020),
+    ], touch: 1.0, touchLow: 600, touchHigh: 2_500, touchDecay: 0.004,
+       landed: [Strike(pitch: landedPitch, gain: 1, onset: 0, damping: 1),
+                Strike(pitch: landedPitch, gain: pow(10, -4.0 / 20), onset: 0.045, damping: 1)],
+       missed: [Strike(pitch: missedPitch, gain: 1, onset: 0, damping: missedDamping)],
+       landedLength: 0.220, missedLength: 0.180),
 ]
 
-// The figure (R60): `landed` rises a fourth, onsets 70 ms apart, the second struck 2 dB softer;
-// `missed` is one note a minor third below landed's first, its upper partials damped twice as
-// fast, 3 dB quieter. Same pitches in every set, so a comparison hears the material only.
-let landedPitches = (659.26, 880.00) // E5, A5
-let missedPitch = 554.37 // C#5
-let secondGain = pow(10, -2.0 / 20)
-let secondOnset = 0.070
-let landedLength = 0.250, missedLength = 0.250
-let missedDamping = 2.0
 let landedPeak = -18.0, missedPeak = -21.0 // dBFS
 let attack = 0.002, fadeOut = 0.040
 
@@ -95,10 +112,9 @@ struct Biquad {
     }
 }
 
-/// One strike of `material` at `pitch`, added into `buffer` from `onset` seconds. `damping`
-/// shortens every partial above the fundamental's family.
-func strike(_ material: Material, pitch: Double, gain: Double, onset: Double, damping: Double, seed: UInt64, into buffer: inout [Double]) {
-    let start = Int((onset * rate).rounded())
+/// One strike of `material`, added into `buffer` from its onset.
+func play(_ strike: Strike, of material: Material, seed: UInt64, into buffer: inout [Double]) {
+    let start = Int((strike.onset * rate).rounded())
     var noise = SplitMix64(state: seed)
     var high = Biquad(cutoff: material.touchLow, lowPass: false)
     var low = Biquad(cutoff: material.touchHigh, lowPass: true)
@@ -106,22 +122,20 @@ func strike(_ material: Material, pitch: Double, gain: Double, onset: Double, da
         let t = Double(i - start) / rate
         var sample = 0.0
         for partial in material.partials {
-            let decay = partial.ratio < 1.5 ? partial.decay : partial.decay / damping
-            sample += partial.gain * exp(-t / decay) * sin(2 * .pi * pitch * partial.ratio * t)
+            let decay = partial.ratio < 1.5 ? partial.decay : partial.decay / strike.damping
+            sample += partial.gain * exp(-t / decay) * sin(2 * .pi * strike.pitch * partial.ratio * t)
         }
         sample += material.touch * low.process(high.process(noise.next())) * exp(-t / material.touchDecay)
         let rise = t < attack ? 0.5 - 0.5 * cos(.pi * t / attack) : 1
-        buffer[i] += gain * rise * sample
+        buffer[i] += strike.gain * rise * sample
     }
 }
 
 func render(_ material: Material, landed: Bool) -> [Float] {
-    var buffer = [Double](repeating: 0, count: Int(((landed ? landedLength : missedLength) * rate).rounded()))
-    if landed {
-        strike(material, pitch: landedPitches.0, gain: 1, onset: 0, damping: 1, seed: 1, into: &buffer)
-        strike(material, pitch: landedPitches.1, gain: secondGain, onset: secondOnset, damping: 1, seed: 2, into: &buffer)
-    } else {
-        strike(material, pitch: missedPitch, gain: 1, onset: 0, damping: missedDamping, seed: 3, into: &buffer)
+    let length = landed ? material.landedLength : material.missedLength
+    var buffer = [Double](repeating: 0, count: Int((length * rate).rounded()))
+    for (index, strike) in (landed ? material.landed : material.missed).enumerated() {
+        play(strike, of: material, seed: UInt64(index + 1), into: &buffer)
     }
     // The tail fades to exactly zero, so the file ends without a click.
     let fadeStart = buffer.count - Int((fadeOut * rate).rounded())
