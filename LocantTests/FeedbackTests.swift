@@ -115,6 +115,20 @@ final class FeedbackTests: XCTestCase {
         XCTAssertEqual(taps, 1)
     }
 
+    // R59: only an outline actually drawn counts. An overlay that is not showing has no panel to
+    // draw in, so it says false and nothing taps.
+    func testAnOverlayWithNoPanelsDrawsNoOutline() {
+        let overlay = SelectionOverlay()
+        XCTAssertFalse(overlay.setHighlight(nil, readout: .describing(nil), around: .zero))
+    }
+
+    // R59: the same rule one layer down, where a drag or an adjustment also stops the drawing:
+    // a content view with no window draws nothing, and says so.
+    func testAContentViewWithNoWindowDrawsNoOutline() {
+        let view = OverlayContentView(frame: .zero)
+        XCTAssertFalse(view.showHighlight(screenRect: .zero, readout: .describing(nil)))
+    }
+
     // R60: with no sound files (the test bundle has none) nothing loads and nothing plays.
     func testMissingSoundsPlayNothing() {
         let bundle = Bundle(for: FeedbackTests.self)
