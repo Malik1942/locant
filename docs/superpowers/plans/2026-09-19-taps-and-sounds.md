@@ -36,17 +36,17 @@ The branch was rebased onto `origin/main` at `edf1986` (PR #38 paste into the ag
 
 ### Task 1: The sound renderer and three candidate sets (closes nothing yet; Task 8 closes spec slot 1)
 
-**Status:** renderer `cecb7bb`, tuned after review `8d7c86d`; candidates rendered, measured, and published for listening (https://claude.ai/artifact/UHh3hJEj4kBn9ArZ8djZ23, version 2). Remaining: Malik names a set.
+**Status:** renderer `cecb7bb`, tuned `8d7c86d`, rebuilt around one strike `8e4fbbd`, retuned against the macOS corpus `eb7376d`; candidates rendered, measured, and published for listening (https://claude.ai/artifact/UHh3hJEj4kBn9ArZ8djZ23, version 4). Remaining: Malik names a set.
 
 **Files:**
 - Create: `design/sound/render.swift` (done), `.gitignore` line `design/sound/render` (done)
 
 **Interfaces:**
-- Produces: `design/sound/render candidates <folder>` (WAV per set and sound) and `design/sound/render ship <glass|wood|felt>` (writes `Locant/Feedback/Sounds/landed.caf` and `missed.caf`, run from the repo root). Every parameter is in `sets` and the constants below it in `render.swift`.
+- Produces: `design/sound/render candidates <folder>` (WAV per set and sound) and `design/sound/render ship <bar|room|chime>` (writes `Locant/Feedback/Sounds/landed.caf` and `missed.caf`, run from the repo root). Every parameter is in `sets` and the constants below it in `render.swift`.
 
-- [x] **Step 1: Write `design/sound/render.swift`**: modal synthesis, SplitMix64 noise through RBJ biquads for the mallet, 2 ms raised-cosine attack, 40 ms raised-cosine fade to zero, peak normalization, 24-bit WAV writer, `afconvert` to CAF, a 16 384-point DFT for the band share.
-- [x] **Step 2: Tune after review**: glass twin 1.009/0.45 → 1.0035/0.25 (the 6–8 Hz wobble is gone, no re-swell over 0.6 dB); every decay shortened so the tail is 20 to 33 dB down when the fade starts (it was 14 to 21); audible mallets on glass (touch 0.6, 4 ms) and wood (1.0, 4 ms); richer felt harmonics; `missed` 250 ms.
-- [x] **Step 3: Render and measure**
+- [x] **Step 1: Write `design/sound/render.swift`**: modal synthesis, SplitMix64 noise through RBJ biquads for the mallet, a raised-cosine attack, a raised-cosine fade to zero, peak normalization, 24-bit WAV writer, `afconvert` to CAF, a 16 384-point DFT for the band share, and a convolved short room.
+- [x] **Step 2: Two rounds of listening.** The first candidates (glass, wood, felt; two notes rising a fourth) read to Malik as a Windows device connect and disconnect, so the melody went: one strike only. The wooden strike at G5 then read as sharp and not premium.
+- [x] **Step 3: Retune against macOS's own sounds.** A measurement of 45 macOS interface sounds (`$SCRATCH/apple-corpus`) said why: 784 Hz against a confirmation median of 526 Hz; a bare sine after the first 20 ms; a fade cutting a tone still at −26 dB; 130 to 250 ms against a confirmation range of 420 to 755 ms. Now: one strike at G4 (392 Hz, the pitch of macOS's screenshot sound), modes 1 : 4 : 10, a 5 to 8 ms attack, 450 to 700 ms so the ring finishes, peaks −15 and −18 dBFS, nothing above 4 kHz.
 
 ```bash
 swiftc -O design/sound/render.swift -o design/sound/render
@@ -54,12 +54,12 @@ design/sound/render candidates "$SCRATCH/candidates"
 ```
 
 ```
-glass-landed   250 ms   peak  -18.0 dBFS   rms  -29.5 dBFS   500 Hz–5 kHz  99.9 %
-glass-missed   250 ms   peak  -21.0 dBFS   rms  -34.1 dBFS   500 Hz–5 kHz  99.0 %
-wood-landed    250 ms   peak  -18.0 dBFS   rms  -29.3 dBFS   500 Hz–5 kHz  99.8 %
-wood-missed    250 ms   peak  -21.0 dBFS   rms  -34.4 dBFS   500 Hz–5 kHz  98.7 %
-felt-landed    250 ms   peak  -18.0 dBFS   rms  -28.6 dBFS   500 Hz–5 kHz  99.9 %
-felt-missed    250 ms   peak  -21.0 dBFS   rms  -33.2 dBFS   500 Hz–5 kHz  99.0 %
+bar-landed    650 ms   peak -15.0 dBFS   rms -32.2 dBFS   200 Hz–4 kHz  99.9 %   tail at fade -70.2 dB
+bar-missed    450 ms   peak -18.0 dBFS   rms -34.8 dBFS   200 Hz–4 kHz  99.1 %   tail at fade -67.5 dB
+room-landed   700 ms   peak -15.0 dBFS   rms -32.3 dBFS   200 Hz–4 kHz  99.9 %   tail at fade -75.8 dB
+room-missed   500 ms   peak -18.0 dBFS   rms -35.9 dBFS   200 Hz–4 kHz  98.8 %   tail at fade -74.7 dB
+chime-landed  700 ms   peak -15.0 dBFS   rms -31.6 dBFS   200 Hz–4 kHz 100.0 %   tail at fade -70.9 dB
+chime-missed  480 ms   peak -18.0 dBFS   rms -35.1 dBFS   200 Hz–4 kHz  99.6 %   tail at fade -68.4 dB
 ```
 
 - [ ] **Step 4: Malik names a set** (or asks for changes: edit `sets`, re-render, rebuild the page, republish). Task 8 needs the name.
