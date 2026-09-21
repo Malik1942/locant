@@ -18,7 +18,7 @@
 - One `@Observable` `AppState`, no other singletons: `Feedback` is created in `AppState.start()` and handed to the ball.
 - Taps: `NSHapticFeedbackManager.defaultPerformer.perform(_:performanceTime: .drawCompleted)`; patterns `.alignment` (outline moves, ring segments), `.levelChange` (Option), `.generic` (ring opens); at most one per 80 ms (`DesignTokens.hover`); only for an outline actually drawn; an edge shift of 2 pt or less is not a move; never on a click, and a click on the overlay holds the gate for 80 ms.
 - Sounds: `landed`, `missed`; mono, 48 kHz, 24-bit linear PCM CAF, at most 700 ms (retuned Sep 20 against the macOS corpus); `landed` peaks at −15 dBFS ± 1 dB, `missed` 3 dB lower; played with `AudioServicesPlaySystemSoundWithCompletion`; `kAudioServicesPropertyIsUISound` left at its default.
-- Settings copy, verbatim: "Trackpad taps" / "A light tap under your finger when the outline moves to a new element, when the ring opens, and between its segments. Needs a Force Touch trackpad." and "Sounds" / "A soft sound when a capture reaches the clipboard, a lower one when nothing did. Follows Play user interface sound effects in Sound settings."
+- Settings copy, verbatim: "Trackpad taps" / "A light tap under your finger when the outline moves to a new element, when the ring opens and between its segments, and when a capture lands. Needs a Force Touch trackpad." and "Sounds" / "A soft sound when a capture reaches the clipboard, a lower one when nothing did. Follows Play user interface sound effects in Sound settings."
 - `docs/CLAUDE.md`: commit messages `area: what changed`, one intent each; never commit without a green build; match the surrounding comment density; doc comments cite the requirement (`v0.8.1 R59`); do not reformat untouched code; the README is written in the last slot.
 - Build and test commands (from the worktree root; `build/` is git-ignored):
   - Build: `xcodebuild -project Locant.xcodeproj -scheme Locant -configuration Debug -derivedDataPath build/dd build 2>&1 | tail -3` → ends with `** BUILD SUCCEEDED **`
@@ -781,23 +781,26 @@ git commit -m "settings: Trackpad taps and Sounds under the ball; turning Sounds
 
 ---
 
-### Task 8: Ship the chosen set (R60; closes spec slot 1; needs Malik's pick)
+### Task 8: Ship the Room set, and let a capture mark itself in both channels (R59, R60, R61; closes spec slot 1)
 
-Steps 3 and 5 need only the pick and can run as soon as Malik names a set; Steps 1, 2, 4 need `Feedback` (Task 4).
+Malik chose **Room** on Sep 20 after the fourth listening round, and asked for the sound and the tap to be one event.
 
 **Files:**
 - Create: `Locant/Feedback/Sounds/landed.caf`, `Locant/Feedback/Sounds/missed.caf` (rendered, never hand-made)
 - Create: `design/sound/README.md`
+- Modify: `Locant/Feedback/Feedback.swift` (`play` fires the tap with the sound)
+- Modify: `Locant/App/SettingsView.swift` (the "Trackpad taps" detail gains "and when a capture lands")
 - Test: `LocantTests/FeedbackTests.swift`
 
 **Interfaces:**
-- Consumes: `design/sound/render ship <set>` (Task 1); `Feedback.Sound`, `Feedback.url(for:in:)`, `Feedback.playSound` (Task 4).
+- Consumes: `design/sound/render ship room` (Task 1); `Feedback.Sound`, `Feedback.url(for:in:)`, `Feedback.perform`, `Feedback.playSound`, `Feedback.now` (Task 4); `TapGate.hold(at:)` (Task 2).
+- Produces: `Feedback.play(_:)` now plays the sound and performs the paired tap, each behind its own switch.
 
 - [ ] **Step 1: Write the failing tests** (add `import AudioToolbox` under `import CoreGraphics` in `FeedbackTests.swift`, then append inside the class):
 
 ```swift
-    // R60: both sounds ship: mono, 48 kHz, 24-bit, at most 250 ms, and they load as system sounds.
-    func testSoundsShipShortAndLoadAsSystemSounds() throws {
+    // R60: both sounds ship: mono, 48 kHz, 24-bit, no longer than 700 ms, and they load as system sounds.
+    func testSoundsShipAndLoadAsSystemSounds() throws {
         for sound in Feedback.Sound.allCases {
             let url = try XCTUnwrap(Feedback.url(for: sound, in: .main), "\(sound).caf is not in the app bundle")
             var fileID: AudioFileID?
@@ -820,67 +823,114 @@ Steps 3 and 5 need only the pick and can run as soon as Malik names a set; Steps
         }
     }
 
-    // R61: Sounds is read at the moment of each sound; landed and missed are two sounds.
-    func testSoundsFollowTheSwitch() {
+    // R59, R60: a capture is one event in two channels. Each channel follows its own switch; the
+    // capture's tap ignores the 80 ms ratchet gate and then holds it, so no outline tap crowds it.
+    func testACaptureMarksItselfInBothChannels() {
         let preferences = Preferences(defaults: isolatedDefaults())
         let feedback = Feedback(preferences: preferences)
+        var clock: TimeInterval = 100
+        var tapped: [NSHapticFeedbackManager.FeedbackPattern] = []
         var played: [SystemSoundID] = []
+        feedback.now = { clock }
+        feedback.perform = { tapped.append($0) }
         feedback.playSound = { played.append($0) }
+
+        feedback.tap(.alignment)
+        clock += 0.010
         feedback.play(.landed)
+        XCTAssertEqual(tapped, [.alignment, .generic], "the capture's mark does not wait for the gate")
+        XCTAssertEqual(played.count, 1)
+
+        clock += 0.010
+        feedback.tap(.alignment)
+        XCTAssertEqual(tapped.count, 2, "the mark holds the gate, so the next outline tap is dropped")
+
+        clock += 0.200
         preferences.sounds = false
         feedback.play(.missed)
+        XCTAssertEqual(tapped.last, .levelChange, "with Sounds off the capture still marks itself")
+        XCTAssertEqual(played.count, 1)
+
+        clock += 0.200
         preferences.sounds = true
-        feedback.play(.missed)
+        preferences.trackpadTaps = false
+        feedback.play(.landed)
+        XCTAssertEqual(tapped.count, 3, "with Trackpad taps off the capture only sounds")
         XCTAssertEqual(played.count, 2)
-        XCTAssertNotEqual(played.first, played.last)
+        XCTAssertNotEqual(played.first, played.last, "landed and missed are two sounds")
     }
 ```
 
-- [ ] **Step 2: Run to see them fail.** One-class command. Expected: `testSoundsShipShortAndLoadAsSystemSounds` fails with "landed.caf is not in the app bundle" and `testSoundsFollowTheSwitch` with `XCTAssertEqual failed: ("0") is not equal to ("2")`.
-- [ ] **Step 3: Render the chosen set** (`<set>` is Malik's pick: `glass`, `wood`, or `felt`):
+- [ ] **Step 2: Run to see them fail.** One-class command. Expected: `testSoundsShipAndLoadAsSystemSounds` fails with "landed.caf is not in the app bundle", and `testACaptureMarksItselfInBothChannels` fails on the first assertion because `play` performs no tap yet.
+
+- [ ] **Step 3: Pair the two channels.** In `Locant/Feedback/Feedback.swift`, replace `play(_:)` with
+
+```swift
+    /// R60: one event in two channels — the sound and a tap of its own, fired together, the way
+    /// Apple pairs audio with haptics. Each channel follows its own switch. This tap marks the
+    /// capture rather than a move of the outline, so it does not wait for the ratchet gate; it
+    /// holds the gate instead, keeping the next outline tap 80 ms clear of it.
+    func play(_ sound: Sound) {
+        if preferences.sounds, let id = soundIDs[sound] { playSound(id) }
+        guard preferences.trackpadTaps else { return }
+        gate.hold(at: now())
+        perform(sound == .landed ? .generic : .levelChange)
+    }
+```
+
+- [ ] **Step 4: The Settings line.** In `Locant/App/SettingsView.swift`, in the "Trackpad taps" toggle, replace the detail string with
+`"A light tap under your finger when the outline moves to a new element, when the ring opens and between its segments, and when a capture lands. Needs a Force Touch trackpad."`
+
+- [ ] **Step 5: Render the chosen set**
 
 ```bash
 swiftc -O design/sound/render.swift -o design/sound/render
-design/sound/render ship <set>
+design/sound/render ship room
 afinfo Locant/Feedback/Sounds/landed.caf | grep -E "Data format|estimated duration"
 afinfo Locant/Feedback/Sounds/missed.caf | grep -E "Data format|estimated duration"
 ```
 
-Expected: two report lines from the script (`landed` at −15.0 dBFS and `missed` at −18.0, each with its tail 60 dB or more below peak where the fade starts), and `afinfo` shows `1 ch, 48000 Hz, … 24-bit little-endian signed integer` with the duration the set's row in Task 1 gives.
+Expected: `room landed  700 ms  peak -15.0 dBFS … tail at fade -75.8 dB` and `room missed  500 ms  peak -18.0 dBFS … tail at fade -74.7 dB`; `afinfo` shows `1 ch, 48000 Hz, … 24-bit little-endian signed integer`, durations 0.7 and 0.5.
 
-- [ ] **Step 4: Run the tests.** Expected: 12 `FeedbackTests` pass; then all tests → `** TEST SUCCEEDED **`; `find build/dd/Build/Products/Debug/Locant.app -name "*.caf"` lists `Contents/Resources/landed.caf` and `missed.caf`.
-- [ ] **Step 5: Write `design/sound/README.md`**, with `<Set>` and the two measurement lines filled from the `ship` output:
+- [ ] **Step 6: Run the tests.** One-class command → every `FeedbackTests` test passes; then all tests → `** TEST SUCCEEDED **`; `find build/dd/Build/Products/Debug/Locant.app -name "*.caf"` lists `Contents/Resources/landed.caf` and `missed.caf`.
+- [ ] **Step 7: Write `design/sound/README.md`**, with the two measurement lines filled from the `ship` output:
 
 ````markdown
 # Locant sounds
 
 `landed` plays when a capture reaches the clipboard, `missed` when nothing did (`specs/v0.8.1.md` R60).
 Both are rendered by `render.swift`, never edited by hand; the shipped pair is in `Locant/Feedback/Sounds/`.
+Each also fires a trackpad tap in the same turn, so a capture marks itself in both channels.
 
-- Chosen Sep 19, 2026 by ear from three sets (Glass, Wood, Felt): **<Set>**.
-- The figure is the same in every set: `landed` is one strike at G4 (392 Hz), the pitch of macOS's own
-  screenshot sound; `missed` is the same bar struck a fifth lower (C4) and damped, so it stops sooner. Each
-  file is at least 1.25 times its own T60 and fades to zero over its last 80 ms, so the ring finishes.
-- Every parameter is in `sets` and the constants under it in `render.swift`. Change one, then:
+- Chosen Sep 20, 2026 by ear, in the fourth listening round: **Room** — a tuned marimba bar with a little
+  air under it. The rounds before it failed for reasons worth keeping: a two-note rising figure read as a
+  Windows device connecting, and a dry wooden strike at G5 read as sharp and cheap.
+- The figure: one strike at G4 (392 Hz), the pitch macOS tunes its own screenshot sound to; `missed` is the
+  same bar struck a fifth lower (C4) and damped, so it stops sooner as well as sounding lower.
+- The numbers come from measuring 45 macOS interface sounds (Sep 20, 2026): confirmations run 420 to 755 ms,
+  stand about 64 dB below peak when their fade begins, peak between −15.4 and −7.4 dBFS, and hold essentially
+  nothing above 4 kHz. Every parameter is in `sets` and the constants under it in `render.swift`:
 
 ```bash
 swiftc -O design/sound/render.swift -o design/sound/render
 design/sound/render candidates /tmp/locant-sounds   # every set as WAV, to listen
-design/sound/render ship <set>                       # into Locant/Feedback/Sounds as CAF
+design/sound/render ship room                        # into Locant/Feedback/Sounds as CAF
 ```
 
-Measured when shipped (the script's own report; macOS's Tink peaks at −8.8 dBFS and Pop at −11.1):
+Measured when shipped (the script's own report):
 
 ```
-<the two lines printed by `render ship`>
+<the two lines printed by `render ship room`>
 ```
 ````
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 8: Commit**, in two commits, one intent each
 
 ```bash
-git add Locant/Feedback/Sounds/landed.caf Locant/Feedback/Sounds/missed.caf design/sound/README.md LocantTests/FeedbackTests.swift
-git commit -m "feedback: the <set> set ships as landed and missed"
+git add Locant/Feedback/Feedback.swift Locant/App/SettingsView.swift LocantTests/FeedbackTests.swift
+git commit -m "feedback: a capture marks itself in both channels, the sound and a tap together"
+git add Locant/Feedback/Sounds/landed.caf Locant/Feedback/Sounds/missed.caf design/sound/README.md
+git commit -m "feedback: the Room set ships as landed and missed"
 ```
 
 ---
