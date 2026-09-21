@@ -52,6 +52,8 @@ final class Feedback {
     /// Apple pairs audio with haptics. Each channel follows its own switch. This tap marks the
     /// capture rather than a move of the outline, so it does not wait for the ratchet gate; it
     /// holds the gate instead, keeping the next outline tap 80 ms clear of it.
+    /// `kAudioServicesPropertyIsUISound` stays at its default, so the system keeps the sound
+    /// silent while Play user interface sound effects is off.
     func play(_ sound: Sound) {
         if preferences.sounds, let id = soundIDs[sound] { playSound(id) }
         guard preferences.trackpadTaps else { return }
