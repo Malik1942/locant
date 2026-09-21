@@ -1,3 +1,4 @@
+import AudioToolbox
 import CoreGraphics
 import XCTest
 @testable import Locant
@@ -141,5 +142,66 @@ final class FeedbackTests: XCTestCase {
         feedback.play(.landed)
         feedback.play(.missed)
         XCTAssertEqual(played, 0)
+    }
+
+    // R60: both sounds ship: mono, 48 kHz, 24-bit, no longer than 700 ms, and they load as system sounds.
+    func testSoundsShipAndLoadAsSystemSounds() throws {
+        for sound in Feedback.Sound.allCases {
+            let url = try XCTUnwrap(Feedback.url(for: sound, in: .main), "\(sound).caf is not in the app bundle")
+            var fileID: AudioFileID?
+            XCTAssertEqual(AudioFileOpenURL(url as CFURL, .readPermission, kAudioFileCAFType, &fileID), 0)
+            let file = try XCTUnwrap(fileID)
+            defer { AudioFileClose(file) }
+            var duration: Float64 = 0
+            var size = UInt32(MemoryLayout<Float64>.size)
+            XCTAssertEqual(AudioFileGetProperty(file, kAudioFilePropertyEstimatedDuration, &size, &duration), 0)
+            XCTAssertLessThanOrEqual(duration, 0.700, "\(sound) runs \(duration) s")
+            var format = AudioStreamBasicDescription()
+            size = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
+            XCTAssertEqual(AudioFileGetProperty(file, kAudioFilePropertyDataFormat, &size, &format), 0)
+            XCTAssertEqual(format.mSampleRate, 48_000)
+            XCTAssertEqual(format.mChannelsPerFrame, 1)
+            XCTAssertEqual(format.mBitsPerChannel, 24)
+            var id: SystemSoundID = 0
+            XCTAssertEqual(AudioServicesCreateSystemSoundID(url as CFURL, &id), kAudioServicesNoError)
+            AudioServicesDisposeSystemSoundID(id)
+        }
+    }
+
+    // R59, R60: a capture is one event in two channels. Each channel follows its own switch; the
+    // capture's tap ignores the 80 ms ratchet gate and then holds it, so no outline tap crowds it.
+    func testACaptureMarksItselfInBothChannels() {
+        let preferences = Preferences(defaults: isolatedDefaults())
+        let feedback = Feedback(preferences: preferences)
+        var clock: TimeInterval = 100
+        var tapped: [NSHapticFeedbackManager.FeedbackPattern] = []
+        var played: [SystemSoundID] = []
+        feedback.now = { clock }
+        feedback.perform = { tapped.append($0) }
+        feedback.playSound = { played.append($0) }
+
+        feedback.tap(.alignment)
+        clock += 0.010
+        feedback.play(.landed)
+        XCTAssertEqual(tapped, [.alignment, .generic], "the capture's mark does not wait for the gate")
+        XCTAssertEqual(played.count, 1)
+
+        clock += 0.010
+        feedback.tap(.alignment)
+        XCTAssertEqual(tapped.count, 2, "the mark holds the gate, so the next outline tap is dropped")
+
+        clock += 0.200
+        preferences.sounds = false
+        feedback.play(.missed)
+        XCTAssertEqual(tapped.last, .levelChange, "with Sounds off the capture still marks itself")
+        XCTAssertEqual(played.count, 1)
+
+        clock += 0.200
+        preferences.sounds = true
+        preferences.trackpadTaps = false
+        feedback.play(.missed)
+        XCTAssertEqual(tapped.count, 3, "with Trackpad taps off the capture only sounds")
+        XCTAssertEqual(played.count, 2)
+        XCTAssertNotEqual(played.first, played.last, "landed and missed are two sounds")
     }
 }

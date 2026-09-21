@@ -197,7 +197,7 @@ struct GeneralSettings: View {
             Section {
                 Toggle(isOn: $preferences.trackpadTaps) {
                     Text("Trackpad taps")
-                    Text("A light tap under your finger when the outline moves to a new element, when the ring opens, and between its segments. Needs a Force Touch trackpad.")
+                    Text("A light tap under your finger when the outline moves to a new element, when the ring opens and between its segments, and when a capture lands. Needs a Force Touch trackpad.")
                 }
                 .toggleStyle(.switch)
                 Toggle(isOn: $preferences.sounds) {

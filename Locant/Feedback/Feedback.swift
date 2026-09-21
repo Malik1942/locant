@@ -48,11 +48,15 @@ final class Feedback {
         gate.hold(at: now())
     }
 
-    /// R60: at once, with the toast. `kAudioServicesPropertyIsUISound` stays at its default, so
-    /// the system keeps it silent while Play user interface sound effects is off.
+    /// R60: one event in two channels — the sound and a tap of its own, fired together, the way
+    /// Apple pairs audio with haptics. Each channel follows its own switch. This tap marks the
+    /// capture rather than a move of the outline, so it does not wait for the ratchet gate; it
+    /// holds the gate instead, keeping the next outline tap 80 ms clear of it.
     func play(_ sound: Sound) {
-        guard preferences.sounds, let id = soundIDs[sound] else { return }
-        playSound(id)
+        if preferences.sounds, let id = soundIDs[sound] { playSound(id) }
+        guard preferences.trackpadTaps else { return }
+        gate.hold(at: now())
+        perform(sound == .landed ? .generic : .levelChange)
     }
 
     /// The rendered file (`design/sound/render ship`); Xcode copies it flat into Resources.
