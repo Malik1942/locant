@@ -1,0 +1,39 @@
+name: Something broke
+description: Locant did the wrong thing, or nothing at all
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you pointed at, and what Locant gave you.
+      placeholder: |
+        I pointed at the Send button in Mail. The overlay named the whole toolbar instead of the button.
+    validations:
+      required: true
+  - type: input
+    id: app
+    attributes:
+      label: Which app were you pointing at
+      placeholder: Mail, Figma, Chrome, the iOS Simulator
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Locant version
+      description: The menu bar icon, then About.
+      placeholder: 0.8.0
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version and chip
+      placeholder: 15.6, Apple silicon
+  - type: textarea
+    id: payload
+    attributes:
+      label: The payload, if you still have it
+      description: Paste what Locant copied. Take out anything private first.
+      render: markdown

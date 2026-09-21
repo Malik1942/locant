@@ -1,0 +1,29 @@
+name: An app it reads badly
+description: The capture was thin or wrong in a particular app
+labels: [enhancement]
+body:
+  - type: input
+    id: app
+    attributes:
+      label: Which app
+      placeholder: Slack, Blender, Spotify, a web app
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you wanted the capture to carry
+      placeholder: The identifier of the button, not only the image.
+    validations:
+      required: true
+  - type: textarea
+    id: got
+    attributes:
+      label: What it carried instead
+      description: Paste the payload if you have it.
+      render: markdown
+  - type: input
+    id: version
+    attributes:
+      label: Locant version
+      placeholder: 0.8.0
