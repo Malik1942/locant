@@ -17,7 +17,7 @@
 - Frameworks: Foundation, AppKit, SwiftUI, ScreenCaptureKit, Vision, ApplicationServices, and AudioToolbox. In the app only `Locant/Feedback/Feedback.swift` imports AudioToolbox; `LocantTests/FeedbackTests.swift` uses it to check the shipped files (spec §3). No third-party packages.
 - One `@Observable` `AppState`, no other singletons: `Feedback` is created in `AppState.start()` and handed to the ball.
 - Taps: `NSHapticFeedbackManager.defaultPerformer.perform(_:performanceTime: .drawCompleted)`; patterns `.alignment` (outline moves, ring segments), `.levelChange` (Option), `.generic` (ring opens); at most one per 80 ms (`DesignTokens.hover`); only for an outline actually drawn; an edge shift of 2 pt or less is not a move; never on a click, and a click on the overlay holds the gate for 80 ms.
-- Sounds: `landed`, `missed`; mono, 48 kHz, 24-bit linear PCM CAF, at most 250 ms; `landed` peaks at −18 dBFS ± 1 dB, `missed` 3 dB lower; played with `AudioServicesPlaySystemSoundWithCompletion`; `kAudioServicesPropertyIsUISound` left at its default.
+- Sounds: `landed`, `missed`; mono, 48 kHz, 24-bit linear PCM CAF, at most 700 ms (retuned Sep 20 against the macOS corpus); `landed` peaks at −15 dBFS ± 1 dB, `missed` 3 dB lower; played with `AudioServicesPlaySystemSoundWithCompletion`; `kAudioServicesPropertyIsUISound` left at its default.
 - Settings copy, verbatim: "Trackpad taps" / "A light tap under your finger when the outline moves to a new element, when the ring opens, and between its segments. Needs a Force Touch trackpad." and "Sounds" / "A soft sound when a capture reaches the clipboard, a lower one when nothing did. Follows Play user interface sound effects in Sound settings."
 - `docs/CLAUDE.md`: commit messages `area: what changed`, one intent each; never commit without a green build; match the surrounding comment density; doc comments cite the requirement (`v0.8.1 R59`); do not reformat untouched code; the README is written in the last slot.
 - Build and test commands (from the worktree root; `build/` is git-ignored):
@@ -807,7 +807,7 @@ Steps 3 and 5 need only the pick and can run as soon as Malik names a set; Steps
             var duration: Float64 = 0
             var size = UInt32(MemoryLayout<Float64>.size)
             XCTAssertEqual(AudioFileGetProperty(file, kAudioFilePropertyEstimatedDuration, &size, &duration), 0)
-            XCTAssertLessThanOrEqual(duration, 0.250, "\(sound) runs \(duration) s")
+            XCTAssertLessThanOrEqual(duration, 0.700, "\(sound) runs \(duration) s")
             var format = AudioStreamBasicDescription()
             size = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
             XCTAssertEqual(AudioFileGetProperty(file, kAudioFilePropertyDataFormat, &size, &format), 0)
@@ -846,7 +846,7 @@ afinfo Locant/Feedback/Sounds/landed.caf | grep -E "Data format|estimated durati
 afinfo Locant/Feedback/Sounds/missed.caf | grep -E "Data format|estimated duration"
 ```
 
-Expected: two report lines from the script (`landed` and `missed`, 250 ms each, peaks −18.0 and −21.0 dBFS), and `afinfo` shows `1 ch, 48000 Hz, … 24-bit little-endian signed integer`, duration 0.25 for both.
+Expected: two report lines from the script (`landed` at −15.0 dBFS and `missed` at −18.0, each with its tail 60 dB or more below peak where the fade starts), and `afinfo` shows `1 ch, 48000 Hz, … 24-bit little-endian signed integer` with the duration the set's row in Task 1 gives.
 
 - [ ] **Step 4: Run the tests.** Expected: 12 `FeedbackTests` pass; then all tests → `** TEST SUCCEEDED **`; `find build/dd/Build/Products/Debug/Locant.app -name "*.caf"` lists `Contents/Resources/landed.caf` and `missed.caf`.
 - [ ] **Step 5: Write `design/sound/README.md`**, with `<Set>` and the two measurement lines filled from the `ship` output:
@@ -858,9 +858,9 @@ Expected: two report lines from the script (`landed` and `missed`, 250 ms each, 
 Both are rendered by `render.swift`, never edited by hand; the shipped pair is in `Locant/Feedback/Sounds/`.
 
 - Chosen Sep 19, 2026 by ear from three sets (Glass, Wood, Felt): **<Set>**.
-- The figure is the same in every set: `landed` rises a fourth (E5 to A5), onsets 70 ms apart, the second
-  struck 2 dB softer; `missed` is one C#5, its upper partials damped twice as fast, 3 dB quieter. Both last
-  250 ms and fade to zero over the last 40 ms.
+- The figure is the same in every set: `landed` is one strike at G4 (392 Hz), the pitch of macOS's own
+  screenshot sound; `missed` is the same bar struck a fifth lower (C4) and damped, so it stops sooner. Each
+  file is at least 1.25 times its own T60 and fades to zero over its last 80 ms, so the ring finishes.
 - Every parameter is in `sets` and the constants under it in `render.swift`. Change one, then:
 
 ```bash
