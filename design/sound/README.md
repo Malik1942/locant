@@ -11,7 +11,8 @@ Each also fires a trackpad tap in the same turn, so a capture marks itself in bo
   same bar struck a fifth lower (C4) and damped, so it stops sooner as well as sounding lower.
 - The numbers come from measuring 45 macOS interface sounds (Sep 20, 2026): confirmations run 420 to 755 ms,
   stand about 64 dB below peak when their fade begins, peak between −15.4 and −7.4 dBFS, and hold essentially
-  nothing above 4 kHz. Every parameter is in `sets` and the constants under it in `render.swift`:
+  nothing above 4 kHz. Every parameter is in `sets` and the constants under it in `render.swift`. Run these
+  from the repo root:
 
 ```bash
 swiftc -O design/sound/render.swift -o design/sound/render

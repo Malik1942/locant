@@ -53,10 +53,11 @@ final class Feedback {
     /// capture rather than a move of the outline, so it does not wait for the ratchet gate; it
     /// holds the gate instead, keeping the next outline tap 80 ms clear of it.
     /// `kAudioServicesPropertyIsUISound` stays at its default, so the system keeps the sound
-    /// silent while Play user interface sound effects is off.
-    func play(_ sound: Sound) {
+    /// silent while Play user interface sound effects is off. R61: a preview passes
+    /// `tapping: false`, so a switch in Settings previews its own channel and no other.
+    func play(_ sound: Sound, tapping: Bool = true) {
         if preferences.sounds, let id = soundIDs[sound] { playSound(id) }
-        guard preferences.trackpadTaps else { return }
+        guard tapping, preferences.trackpadTaps else { return }
         gate.hold(at: now())
         perform(sound == .landed ? .generic : .levelChange)
     }

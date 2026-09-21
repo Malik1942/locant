@@ -146,6 +146,24 @@ final class FeedbackTests: XCTestCase {
         XCTAssertEqual(tapped, 2, "the tap is the other channel: it plays even when the file is missing")
     }
 
+    // R61: a switch previews its own channel and no other, and a preview leaves the gate alone.
+    func testAPreviewPlaysOneChannelOnly() {
+        let feedback = Feedback(preferences: Preferences(defaults: isolatedDefaults()))
+        var tapped: [NSHapticFeedbackManager.FeedbackPattern] = []
+        var played: [SystemSoundID] = []
+        feedback.now = { self.clock }
+        feedback.perform = { tapped.append($0) }
+        feedback.playSound = { played.append($0) }
+
+        feedback.play(.landed, tapping: false)
+        XCTAssertEqual(played.count, 1, "the Sounds switch previews the sound")
+        XCTAssertTrue(tapped.isEmpty, "and not the tap")
+
+        clock += 0.010
+        feedback.tap(.alignment)
+        XCTAssertEqual(tapped, [.alignment], "a preview does not hold the gate")
+    }
+
     // R60: both sounds ship: mono, 48 kHz, 24-bit, no longer than 700 ms, and they load as system sounds.
     func testSoundsShipAndLoadAsSystemSounds() throws {
         for sound in Feedback.Sound.allCases {

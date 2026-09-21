@@ -526,9 +526,15 @@ final class AppState {
         }
     }
 
-    /// v0.8.1 R61: turning Sounds on plays `landed` once, as Sound settings plays an alert.
+    /// v0.8.1 R61: turning Sounds on plays `landed` once, as Sound settings plays an alert, and
+    /// without its tap: each switch previews its own channel and no other.
     func previewSound() {
-        feedback?.play(.landed)
+        feedback?.play(.landed, tapping: false)
+    }
+
+    /// v0.8.1 R61: turning Trackpad taps on plays one tap, the other half of the same idea.
+    func previewTap() {
+        feedback?.tap(.generic)
     }
 
     /// Settings › General "Locant Help": the same page, any time.

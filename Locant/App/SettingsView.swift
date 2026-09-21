@@ -200,6 +200,9 @@ struct GeneralSettings: View {
                     Text("A light tap under your finger when the outline moves to a new element, when the ring opens and between its segments, and when a capture lands. Needs a Force Touch trackpad.")
                 }
                 .toggleStyle(.switch)
+                .onChange(of: preferences.trackpadTaps) { _, on in
+                    if on { state.previewTap() }
+                }
                 Toggle(isOn: $preferences.sounds) {
                     Text("Sounds")
                     Text("A soft sound when a capture reaches the clipboard, a lower one when nothing did. Follows Play user interface sound effects in Sound settings.")
