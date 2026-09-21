@@ -137,11 +137,13 @@ final class FeedbackTests: XCTestCase {
             XCTAssertNil(Feedback.url(for: sound, in: bundle))
         }
         let feedback = Feedback(preferences: Preferences(defaults: isolatedDefaults()), bundle: bundle)
-        var played = 0
+        var played = 0, tapped = 0
         feedback.playSound = { _ in played += 1 }
+        feedback.perform = { _ in tapped += 1 }
         feedback.play(.landed)
         feedback.play(.missed)
         XCTAssertEqual(played, 0)
+        XCTAssertEqual(tapped, 2, "the tap is the other channel: it plays even when the file is missing")
     }
 
     // R60: both sounds ship: mono, 48 kHz, 24-bit, no longer than 700 ms, and they load as system sounds.
@@ -173,10 +175,9 @@ final class FeedbackTests: XCTestCase {
     func testACaptureMarksItselfInBothChannels() {
         let preferences = Preferences(defaults: isolatedDefaults())
         let feedback = Feedback(preferences: preferences)
-        var clock: TimeInterval = 100
         var tapped: [NSHapticFeedbackManager.FeedbackPattern] = []
         var played: [SystemSoundID] = []
-        feedback.now = { clock }
+        feedback.now = { self.clock }
         feedback.perform = { tapped.append($0) }
         feedback.playSound = { played.append($0) }
 
@@ -186,7 +187,7 @@ final class FeedbackTests: XCTestCase {
         XCTAssertEqual(tapped, [.alignment, .generic], "the capture's mark does not wait for the gate")
         XCTAssertEqual(played.count, 1)
 
-        clock += 0.010
+        clock += 0.075 // 85 ms after the outline tap, which the gate alone would let through; 75 after the mark
         feedback.tap(.alignment)
         XCTAssertEqual(tapped.count, 2, "the mark holds the gate, so the next outline tap is dropped")
 
@@ -203,5 +204,11 @@ final class FeedbackTests: XCTestCase {
         XCTAssertEqual(tapped.count, 3, "with Trackpad taps off the capture only sounds")
         XCTAssertEqual(played.count, 2)
         XCTAssertNotEqual(played.first, played.last, "landed and missed are two sounds")
+
+        clock += 0.200
+        preferences.sounds = false
+        feedback.play(.landed)
+        XCTAssertEqual(tapped.count, 3, "with both switches off the capture marks itself in neither channel")
+        XCTAssertEqual(played.count, 2)
     }
 }
