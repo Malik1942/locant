@@ -783,7 +783,7 @@ git commit -m "settings: Trackpad taps and Sounds under the ball; turning Sounds
 
 ### Task 8: Ship the Room set, and let a capture mark itself in both channels (R59, R60, R61; closes spec slot 1)
 
-Malik chose **Room** on Sep 20 after the fourth listening round, and asked for the sound and the tap to be one event.
+Malik chose **Room** on Sep 20 after the fourth listening round, and asked for the sound and the tap to be one event. Built and installed Sep 21; Room then read as not subtle enough, and after four more rounds (a softer bar, tones without a strike, warm chords, then one short quiet note) Malik chose **Tock**, which replaced Room in `Locant/Feedback/Sounds/` on Sep 21 with `render ship tock`. The steps below read "room" where the shipped set is now tock; the spec (R60) and `design/sound/README.md` carry the current figure.
 
 **Files:**
 - Create: `Locant/Feedback/Sounds/landed.caf`, `Locant/Feedback/Sounds/missed.caf` (rendered, never hand-made)
