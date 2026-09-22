@@ -49,25 +49,31 @@ func chord(_ base: Double, fifth: Double, octave: Double) -> [Note] {
 }
 
 let sets = [
-    // A warm chord, the way the startup chime and the Shortcuts completion are voiced: six
-    // harmonics falling gently, chorused two and a half cents, rising over 30 ms into a dark room.
+    // The chord from the seventh round, kept as the reference: warm, but long and full, a small
+    // ceremony. A cue that fires twenty times an hour should be shorter and quieter than this.
     Material(name: "chord", timbre: Timbre(harmonics: 6, tilt: 1.6, shine: 0.7, detuneCents: 2.5, glideCents: 6),
              attack: 0.030, decay: 0.080, room: 0.20, roomTone: 1_600, roomDecay: 0.070,
              landed: chord(root, fifth: 0.55, octave: 0.35), missed: chord(lowerRoot, fifth: 0.55, octave: 0.35), missedDamping: 1.5,
              landedLength: 0.700, missedLength: 0.500, landedPeak: -19, missedPeak: -22),
-    // The same chord as a pad: fewer, rounder harmonics, a wider chorus, a 60 ms swell and more
-    // room. The softest edge of the three; nothing in it arrives suddenly.
-    Material(name: "pad", timbre: Timbre(harmonics: 4, tilt: 2.0, shine: 0.5, detuneCents: 4, glideCents: 0),
-             attack: 0.060, decay: 0.075, room: 0.28, roomTone: 1_400, roomDecay: 0.090,
-             landed: chord(root, fifth: 0.6, octave: 0.4), missed: chord(lowerRoot, fifth: 0.6, octave: 0.4), missedDamping: 1.5,
-             landedLength: 0.700, missedLength: 0.560, landedPeak: -19, missedPeak: -22),
-    // A single plucked note, a thumb piano: eight harmonics with the upper ones gone in a moment,
-    // a small glide as the tine settles, a quick but soft rise. One note, the octave carried by the
-    // timbre rather than a second voice.
-    Material(name: "pluck", timbre: Timbre(harmonics: 8, tilt: 1.2, shine: 1.2, detuneCents: 1.5, glideCents: 10),
-             attack: 0.008, decay: 0.085, room: 0.15, roomTone: 1_600, roomDecay: 0.060,
+    // One warm note, over in 300 ms, almost dry, 4 dB quieter than the chord: the thumb-piano
+    // timbre with its upper harmonics gone at once. A tock, not a chime.
+    Material(name: "tock", timbre: Timbre(harmonics: 6, tilt: 1.4, shine: 1.3, detuneCents: 1.5, glideCents: 8),
+             attack: 0.006, decay: 0.040, room: 0.08, roomTone: 1_400, roomDecay: 0.035,
              landed: [Note(pitch: root, gain: 1)], missed: [Note(pitch: lowerRoot, gain: 1)], missedDamping: 1.5,
-             landedLength: 0.650, missedLength: 0.470, landedPeak: -19, missedPeak: -22),
+             landedLength: 0.300, missedLength: 0.260, landedPeak: -23, missedPeak: -26),
+    // The same note as a hum: rounder, a 20 ms rise so nothing arrives suddenly, a touch more
+    // room, 340 ms. The quietest onset of the three.
+    Material(name: "hum", timbre: Timbre(harmonics: 4, tilt: 2.0, shine: 0.6, detuneCents: 3, glideCents: 0),
+             attack: 0.020, decay: 0.045, room: 0.10, roomTone: 1_400, roomDecay: 0.040,
+             landed: [Note(pitch: root, gain: 1), Note(pitch: root * 2, gain: 0.25)],
+             missed: [Note(pitch: lowerRoot, gain: 1), Note(pitch: lowerRoot * 2, gain: 0.25)], missedDamping: 1.5,
+             landedLength: 0.340, missedLength: 0.290, landedPeak: -23, missedPeak: -26),
+    // The chord itself, cut to the same budget: 300 ms, -23 dBFS, little room. Hears whether it
+    // was the chord that read as too much, or only its length and level.
+    Material(name: "brief", timbre: Timbre(harmonics: 6, tilt: 1.6, shine: 0.9, detuneCents: 2.5, glideCents: 6),
+             attack: 0.015, decay: 0.040, room: 0.10, roomTone: 1_600, roomDecay: 0.040,
+             landed: chord(root, fifth: 0.5, octave: 0.3), missed: chord(lowerRoot, fifth: 0.5, octave: 0.3), missedDamping: 1.5,
+             landedLength: 0.300, missedLength: 0.260, landedPeak: -23, missedPeak: -26),
 ]
 
 let fadeOut = 0.080
