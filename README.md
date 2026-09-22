@@ -126,6 +126,22 @@ Then say "fix what I just pointed at". The agent calls `latest_capture`, greps f
 edits, and may call `resolve_capture`, after which Locant keeps that capture past the retention period.
 The server reads the folder chosen in Settings › Captures; `--folder <path>` names another.
 
+### In Grok Bot
+
+Grok Bot starts MCP servers on the bot's own cloud computer, where Locant isn't, and a pasted capture
+reaches it as the image alone. It can run commands on your Mac, though, and the Locant skill in
+[`plugins/locant`](plugins/locant) uses that: it starts `Locant --mcp` once on your Mac, reads the latest
+capture, and opens its image. Set it up once:
+
+- One bot: tell it "Save the skill at
+  https://raw.githubusercontent.com/Malik1942/locant/main/plugins/locant/skills/locant/SKILL.md as a
+  private skill named locant, word for word."
+- Every bot: install the Locant plugin from Grok Bot's Marketplace once it is listed. In Cursor, add it
+  now from Customize › From GitHub Repository with https://github.com/Malik1942/locant.
+
+Then point, and say "fix what I just pointed at". The first time, Grok Bot asks to run commands on your
+Mac.
+
 ## What it does
 
 **Point**, the primary action
@@ -190,7 +206,7 @@ the hotkey.
 
 ## Works where you paste
 
-The payload is plain Markdown, so any agent takes it on paste; over MCP the agent fetches it instead.
+The payload is plain Markdown, so most agents take it on paste; over MCP the agent fetches it instead.
 What each one did, and when it was run:
 
 | Agent | Over MCP | On paste | Tested |
@@ -198,7 +214,9 @@ What each one did, and when it was run:
 | Claude Code 2.1.272 | Works: `latest_capture` answered "what did I just point at" with the element, app, and image path | Markdown text; reads the PNG from the `Image:` path | Sep 15, 2026 |
 | Cursor (agent CLI 2026.09) | Works, after `cursor-agent mcp enable locant`; the IDE prompts once instead | Markdown text; reads the path | Sep 15, 2026 |
 | Codex CLI 0.147.0 | Works: same answer; `view_image` opens the path, image blocks are never sent unasked | Markdown text | Sep 15, 2026 |
-| Gemini CLI / Antigravity | The snippet from Settings › Agents; untested | Markdown text; untested | |
+| Grok Bot 0.57.1 | Fails: stdio connectors start on the bot's own cloud computer (`spawn … ENOENT`); the [Locant skill](#in-grok-bot) reads the capture on the Mac instead | The image only; the Markdown is dropped | Sep 22, 2026 |
+| Antigravity 2.15.0 | Not connected | Markdown text; opened the PNG at the `Image:` path and searched the identifier | Sep 18, 2026 |
+| Gemini CLI | The snippet from Settings › Agents; untested | Markdown text; untested | |
 
 Statuses say "untested" until someone tests them. A report of what your agent did with a payload, or
 over MCP, is a welcome issue.
