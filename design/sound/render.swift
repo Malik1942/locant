@@ -34,11 +34,13 @@ struct Material {
     var name: String
     var partials: [Partial]
     var touch, touchLow, touchHigh, touchDecay: Double
-    var attack: Double
-    /// How much of the short room to mix in; 0 is dry.
-    var room: Double
+    /// The contact's rise, and the bar's: a real bar blooms a little after the mallet lands.
+    var attack, bloom: Double
+    /// How much of the short room to mix in (0 is dry), and how dark its tail is (a low-pass, Hz).
+    var room, roomTone: Double
     var landed, missed: [Strike]
     var landedLength, missedLength: Double
+    var landedPeak, missedPeak: Double
 }
 
 // The same pitches in every set, so a comparison hears the object and not the note. G4 is what
@@ -48,39 +50,48 @@ let landedPitch = 392.00, missedPitch = 261.63 // G4, C4
 let missedDamping = 1.5
 
 let sets = [
-    // A tuned marimba bar under a felt mallet: the real mode ratios 1 : 4 : 10, the fourth mode
-    // still sounding while the ear places the timbre.
-    Material(name: "bar", partials: [
-        Partial(ratio: 1.0, gain: 1.00, decay: 0.075),
-        Partial(ratio: 4.0, gain: 0.11, decay: 0.045),
-        Partial(ratio: 10.0, gain: 0.05, decay: 0.018),
-    ], touch: 1.4, touchLow: 400, touchHigh: 3_000, touchDecay: 0.008, attack: 0.005, room: 0,
-       landed: [Strike(pitch: landedPitch, gain: 1, onset: 0, damping: 1)],
-       missed: [Strike(pitch: missedPitch, gain: 1, onset: 0, damping: missedDamping)],
-       landedLength: 0.650, missedLength: 0.450),
-    // The same bar struck in a small room: a little space under the strike, the way Apple's
-    // ceremonial sounds carry a tail that the alerts do not.
+    // The shipped Room (Sep 20): a tuned marimba bar, modes 1 : 4 : 10, a little air under it.
+    // Kept as the reference the refinements below are heard against.
     Material(name: "room", partials: [
         Partial(ratio: 1.0, gain: 1.00, decay: 0.075),
         Partial(ratio: 4.0, gain: 0.11, decay: 0.045),
         Partial(ratio: 10.0, gain: 0.05, decay: 0.018),
-    ], touch: 1.4, touchLow: 400, touchHigh: 3_000, touchDecay: 0.008, attack: 0.005, room: 0.18,
+    ], touch: 1.4, touchLow: 400, touchHigh: 3_000, touchDecay: 0.008, attack: 0.005, bloom: 0.005, room: 0.18, roomTone: 20_000,
        landed: [Strike(pitch: landedPitch, gain: 1, onset: 0, damping: 1)],
        missed: [Strike(pitch: missedPitch, gain: 1, onset: 0, damping: missedDamping)],
-       landedLength: 0.700, missedLength: 0.500),
-    // Struck metal rather than wood, voiced the way Apple voices a confirmation: the fundamental
-    // with a fifth and an octave above it, quieter, in the order of the harmonic series.
-    Material(name: "chime", partials: [
+       landedLength: 0.700, missedLength: 0.500, landedPeak: -15, missedPeak: -18),
+    // Room, quieter and softer: the mallet at less than half the level and darker, the bar
+    // blooming over 12 ms behind it, the room's tail low-passed so it reads as air, not hiss.
+    Material(name: "soft", partials: [
+        Partial(ratio: 1.0, gain: 1.00, decay: 0.065),
+        Partial(ratio: 4.0, gain: 0.10, decay: 0.040),
+        Partial(ratio: 10.0, gain: 0.04, decay: 0.016),
+    ], touch: 0.6, touchLow: 400, touchHigh: 1_800, touchDecay: 0.006, attack: 0.006, bloom: 0.012, room: 0.15, roomTone: 2_000,
+       landed: [Strike(pitch: landedPitch, gain: 1, onset: 0, damping: 1)],
+       missed: [Strike(pitch: missedPitch, gain: 1, onset: 0, damping: missedDamping)],
+       landedLength: 0.560, missedLength: 0.420, landedPeak: -19, missedPeak: -22),
+    // Soft with a longer bloom: the bar swells in over 28 ms under a faint contact, the way
+    // macOS's own screenshot sound rises rather than strikes.
+    Material(name: "bloom", partials: [
+        Partial(ratio: 1.0, gain: 1.00, decay: 0.070),
+        Partial(ratio: 4.0, gain: 0.09, decay: 0.045),
+        Partial(ratio: 10.0, gain: 0.03, decay: 0.018),
+    ], touch: 0.5, touchLow: 400, touchHigh: 1_600, touchDecay: 0.006, attack: 0.006, bloom: 0.028, room: 0.18, roomTone: 1_800,
+       landed: [Strike(pitch: landedPitch, gain: 1, onset: 0, damping: 1)],
+       missed: [Strike(pitch: missedPitch, gain: 1, onset: 0, damping: missedDamping)],
+       landedLength: 0.600, missedLength: 0.440, landedPeak: -19, missedPeak: -22),
+    // Soft, a fourth lower: D4, the root of the Shortcuts completion sound, with missed a fourth
+    // below that at A3. Lower reads warmer; a lower bar also rings a little longer.
+    Material(name: "deep", partials: [
         Partial(ratio: 1.0, gain: 1.00, decay: 0.080),
-        Partial(ratio: 1.5, gain: 0.16, decay: 0.060),
-        Partial(ratio: 2.0, gain: 0.25, decay: 0.070),
-    ], touch: 0.8, touchLow: 400, touchHigh: 2_200, touchDecay: 0.006, attack: 0.008, room: 0.10,
-       landed: [Strike(pitch: landedPitch, gain: 1, onset: 0, damping: 1)],
-       missed: [Strike(pitch: missedPitch, gain: 1, onset: 0, damping: missedDamping)],
-       landedLength: 0.700, missedLength: 0.480),
+        Partial(ratio: 4.0, gain: 0.10, decay: 0.050),
+        Partial(ratio: 10.0, gain: 0.04, decay: 0.020),
+    ], touch: 0.6, touchLow: 300, touchHigh: 1_600, touchDecay: 0.006, attack: 0.006, bloom: 0.012, room: 0.15, roomTone: 2_000,
+       landed: [Strike(pitch: 293.66, gain: 1, onset: 0, damping: 1)],
+       missed: [Strike(pitch: 220.00, gain: 1, onset: 0, damping: missedDamping)],
+       landedLength: 0.650, missedLength: 0.480, landedPeak: -19, missedPeak: -22),
 ]
 
-let landedPeak = -15.0, missedPeak = -18.0 // dBFS
 let fadeOut = 0.080
 
 /// Deterministic noise, so a re-render is byte-identical.
@@ -132,21 +143,26 @@ func play(_ strike: Strike, of material: Material, seed: UInt64, into buffer: in
         for partial in material.partials {
             sample += partial.gain * exp(-t / (partial.decay / strike.damping)) * sin(2 * .pi * strike.pitch * partial.ratio * t)
         }
-        sample += material.touch * low.process(high.process(noise.next())) * exp(-t / material.touchDecay)
-        let rise = t < material.attack ? 0.5 - 0.5 * cos(.pi * t / material.attack) : 1
-        buffer[i] += strike.gain * rise * sample
+        let contact = material.touch * low.process(high.process(noise.next())) * exp(-t / material.touchDecay)
+        let toneRise = t < material.bloom ? 0.5 - 0.5 * cos(.pi * t / material.bloom) : 1
+        let contactRise = t < material.attack ? 0.5 - 0.5 * cos(.pi * t / material.attack) : 1
+        buffer[i] += strike.gain * (toneRise * sample + contactRise * contact)
     }
 }
 
-/// A small room: early energy decaying over 45 ms, dense enough to read as air rather than echo.
-func room(_ signal: [Double], mix: Double) -> [Double] {
+/// A small room: early energy decaying over 45 ms, dense enough to read as air rather than echo,
+/// and low-passed at `tone`, because a real room's tail is dark.
+func room(_ signal: [Double], mix: Double, tone: Double) -> [Double] {
     guard mix > 0 else { return signal }
     let taps = Int(0.180 * rate)
     var impulse = [Double](repeating: 0, count: taps)
     var noise = SplitMix64(state: 0x5000_0007)
+    let k = 1 - exp(-2 * Double.pi * tone / rate)
+    var smoothed = 0.0
     for i in 0..<taps {
         let t = Double(i) / rate
-        impulse[i] = noise.next() * exp(-t / 0.045) * (t < 0.004 ? t / 0.004 : 1)
+        smoothed += (noise.next() - smoothed) * k
+        impulse[i] = smoothed * exp(-t / 0.045) * (t < 0.004 ? t / 0.004 : 1)
     }
     let energy = impulse.reduce(0) { $0 + $1 * $1 }.squareRoot()
     for i in 0..<taps { impulse[i] /= energy }
@@ -164,14 +180,14 @@ func render(_ material: Material, landed: Bool) -> [Float] {
     for (index, strike) in (landed ? material.landed : material.missed).enumerated() {
         play(strike, of: material, seed: UInt64(index + 1), into: &buffer)
     }
-    buffer = room(buffer, mix: material.room)
+    buffer = room(buffer, mix: material.room, tone: material.roomTone)
     // The tail fades to exactly zero, so the file ends without a click.
     let fadeStart = buffer.count - Int((fadeOut * rate).rounded())
     for i in fadeStart..<buffer.count {
         buffer[i] *= 0.5 + 0.5 * cos(.pi * Double(i - fadeStart) / Double(buffer.count - 1 - fadeStart))
     }
     let peak = buffer.map(abs).max()!
-    let target = pow(10, (landed ? landedPeak : missedPeak) / 20)
+    let target = pow(10, (landed ? material.landedPeak : material.missedPeak) / 20)
     return buffer.map { Float($0 / peak * target) }
 }
 
