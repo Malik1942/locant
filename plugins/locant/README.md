@@ -20,6 +20,10 @@ starts Locant's MCP server once on your Mac, reads the latest capture, and opens
 Then point at something with Locant (⌃⌃ or the ball, click, type a note, Return) and tell the bot "fix
 what I just pointed at". The first time, Grok Bot asks whether it may run commands on your computer.
 
+Locant's Paste into your agent option (Settings › Agents) knows only Claude, Cursor, and Codex: with it
+on, Return pastes into whichever of those you used last, never into Grok Bot. The skill needs no paste,
+so leave the option off while you work in Grok Bot.
+
 ## Requirements
 
 - Locant 0.7.1 or later, in /Applications or ~/Applications.
