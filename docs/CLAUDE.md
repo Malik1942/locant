@@ -16,7 +16,7 @@ Read `docs/PRD.md` for background only. The task you are working on is always th
 - One `@Observable` `AppState`. No other singletons.
 - Errors are typed enums, never strings.
 - Pure functions for anything transformable: AX attributes → `ResolvedElement`, `Capture` → Markdown. These get tests; UI does not in v0.1.
-- No third-party packages. Foundation, AppKit, SwiftUI, ScreenCaptureKit, Vision, ApplicationServices only.
+- No third-party packages. Foundation, AppKit, SwiftUI, ScreenCaptureKit, Vision, ApplicationServices, and AudioToolbox (the two interface sounds, specs/v0.8.1.md R60) only.
 - Accessibility calls run on a background actor. The main actor touches AppKit only.
 - Locant must never appear in its own captures. Every ScreenCaptureKit call goes through a filter that excludes our windows.
 - Never overwrite the clipboard on a failed capture.

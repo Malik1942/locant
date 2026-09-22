@@ -122,6 +122,8 @@ final class Preferences {
         static let lastUpdateCheck = "lastUpdateCheck"
         static let skippedUpdateVersion = "skippedUpdateVersion"
         static let pastesIntoAgent = "pastesIntoAgent" // v0.8.1 R63
+        static let trackpadTaps = "trackpadTaps" // v0.8.1 R61
+        static let sounds = "sounds" // v0.8.1 R61
     }
 
     /// The actions that can carry a hotkey (R29), in menu and ring order; each one's digit is its position here.
@@ -278,6 +280,16 @@ final class Preferences {
         didSet { defaults.set(pastesIntoAgent, forKey: Key.pastesIntoAgent) }
     }
 
+    /// v0.8.1 R61: a tap under the finger as the outline moves, the ring opens, the segments pass.
+    var trackpadTaps: Bool {
+        didSet { defaults.set(trackpadTaps, forKey: Key.trackpadTaps) }
+    }
+
+    /// v0.8.1 R61: `landed` when a capture reaches the clipboard, `missed` when nothing did.
+    var sounds: Bool {
+        didSet { defaults.set(sounds, forKey: Key.sounds) }
+    }
+
     /// When the last check ran, whatever it found; nil until the first.
     var lastUpdateCheck: Date? {
         didSet {
@@ -329,6 +341,8 @@ final class Preferences {
         collectsIterations = defaults.object(forKey: Key.collectsIterations) as? Bool ?? true
         checksForUpdates = defaults.object(forKey: Key.checksForUpdates) as? Bool ?? true
         pastesIntoAgent = defaults.object(forKey: Key.pastesIntoAgent) as? Bool ?? false
+        trackpadTaps = defaults.object(forKey: Key.trackpadTaps) as? Bool ?? true
+        sounds = defaults.object(forKey: Key.sounds) as? Bool ?? true
         lastUpdateCheck = defaults.object(forKey: Key.lastUpdateCheck) as? Date
         skippedUpdateVersion = defaults.string(forKey: Key.skippedUpdateVersion)
         if let data = defaults.data(forKey: Key.actionHotkeySettings), let stored = try? JSONDecoder().decode([String: ActionHotkeySetting].self, from: data) {

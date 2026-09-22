@@ -41,6 +41,8 @@ final class AppState {
     @ObservationIgnored private let toast = Toast()
     @ObservationIgnored private var hotkeys: HotkeyMonitor?
     @ObservationIgnored private var ball: FloatingBall?
+    /// v0.8.1 R59, R60: taps and sounds; made in `start()`, before the ball that shares it.
+    @ObservationIgnored private var feedback: Feedback?
     @ObservationIgnored private var context: CaptureContext?
     @ObservationIgnored private var windows: [Geometry.WindowRecord] = []
     @ObservationIgnored private var hoverTask: Task<Void, Never>?
@@ -51,6 +53,8 @@ final class AppState {
     /// What Option cycles through for the hovered spot (see `HitRefiner.selectionLevels`).
     @ObservationIgnored private var levels: [ResolvedElement?] = []
     @ObservationIgnored private var levelIndex = 0
+    /// v0.8.1 R59: whether the drawn outline moved since the last redraw; reset with each session.
+    @ObservationIgnored private var outlineMoves = OutlineMoves()
     @ObservationIgnored private var lockedElement: ResolvedElement?
     @ObservationIgnored private var lockedElements: [RegionElement]?
     @ObservationIgnored private var lockedNearby: [RegionElement]?
@@ -87,6 +91,7 @@ final class AppState {
     var captureDirectory: URL { preferences.captureFolderURL }
 
     func start() {
+        feedback = Feedback(preferences: preferences)
         Task.detached { [weak self] in
             let teams = CodeSigning.userTeamIDs()
             await MainActor.run { self?.userTeamIDs = teams }
@@ -161,6 +166,7 @@ final class AppState {
             newBall.onMoved = { [weak self] origin in self?.preferences.ballPosition = origin }
             newBall.onAction = { [weak self] segment, clipboardOnly in self?.beginRingAction(segment, clipboardOnly: clipboardOnly) }
             newBall.ringHints = ringHints()
+            newBall.feedback = feedback
             newBall.show(firstLaunch: firstLaunch)
             ball = newBall
         } else {
@@ -467,6 +473,7 @@ final class AppState {
             endColorPick()
             let cursor = Geometry.cgPoint(fromAppKit: NSEvent.mouseLocation, primaryHeight: SelectionOverlay.currentPrimaryHeight())
             toast.show(HudText.copied(identifier: text), near: CGRect(origin: cursor, size: .zero))
+            feedback?.play(.landed)
         }
         session.onCancel = { [weak self] in self?.endColorPick() }
         colorSession = session
@@ -517,6 +524,17 @@ final class AppState {
             try? await Task.sleep(for: .seconds(1))
             self.showHelp()
         }
+    }
+
+    /// v0.8.1 R61: turning Sounds on plays `landed` once, as Sound settings plays an alert, and
+    /// without its tap: each switch previews its own channel and no other.
+    func previewSound() {
+        feedback?.play(.landed, tapping: false)
+    }
+
+    /// v0.8.1 R61: turning Trackpad taps on plays one tap, the other half of the same idea.
+    func previewTap() {
+        feedback?.tap(.generic)
     }
 
     /// Settings › General "Locant Help": the same page, any time.
@@ -591,22 +609,25 @@ final class AppState {
     /// last small element sticks while the cursor stays near it, so gaps do not flip to the big group.
     private func drainHover() async {
         defer { hoverTask = nil }
-        while phase == .hovering, let point = pendingHover {
+        while phase == .hovering, !Task.isCancelled, let point = pendingHover {
             pendingHover = nil
             if action == .snap || action == .cut {
                 // Window under the cursor, no accessibility needed.
                 lastHoverPoint = point
-                if let window = Geometry.windowOwner(at: point, windows: windows, excludingPID: ownPID) {
+                let window = Geometry.windowOwner(at: point, windows: windows, excludingPID: ownPID)
+                let drawn: Bool
+                if let window {
                     let name = NSRunningApplication(processIdentifier: window.ownerPID)?.localizedName ?? "window"
-                    overlay.setHighlight(window.bounds, readout: Readout(role: "window", identifier: nil, suffix: name, isFallback: false), around: point)
+                    drawn = overlay.setHighlight(window.bounds, readout: Readout(role: "window", identifier: nil, suffix: name, isFallback: false), around: point)
                 } else {
-                    overlay.setHighlight(nil, readout: .describing(nil), around: point)
+                    drawn = overlay.setHighlight(nil, readout: .describing(nil), around: point)
                 }
+                if drawn, outlineMoves.moved(to: window?.bounds) { tapOutline(.alignment) }
                 try? await Task.sleep(for: .milliseconds(33))
                 continue
             }
             let fresh = await reader.snapshot(at: point, candidates: windowCandidates(at: point), fallbackPID: context?.frontPID ?? 0)
-            guard phase == .hovering else { return }
+            guard phase == .hovering, !Task.isCancelled else { return }
             let freshLevels = fresh.map { HitRefiner.selectionLevels(for: $0, at: point) } ?? []
             let freshElement = freshLevels.first ?? nil
             let freshIsVague = freshElement.map { ElementResolver.containerRoles.contains($0.role) } ?? true
@@ -629,20 +650,35 @@ final class AppState {
         levels.indices.contains(levelIndex) ? levels[levelIndex] : lastHoverElement
     }
 
-    private func renderHover() {
+    /// v0.8.1 R59: never a tap on a click, including one the trackpad is still holding down: a
+    /// hover lookup that started before the press must not tap after it.
+    private func tapOutline(_ pattern: NSHapticFeedbackManager.FeedbackPattern) {
+        guard NSEvent.pressedMouseButtons & 1 == 0 else { return }
+        feedback?.tap(pattern)
+    }
+
+    /// v0.8.1 R59: a drawn outline that moved taps `.alignment`. Option's `step` taps `.levelChange`
+    /// instead, and the move it causes is not also a tap.
+    private func renderHover(step: Bool = false) {
         let element = selectedElement()
         var readout = Readout.describing(element)
         if levelIndex > 0 {
             readout.suffix = [readout.suffix, "↑\(levelIndex)"].compactMap { $0 }.joined(separator: " · ")
         }
-        overlay.setHighlight(element?.frame.cgRect, readout: readout, around: lastHoverPoint)
+        guard overlay.setHighlight(element?.frame.cgRect, readout: readout, around: lastHoverPoint) else { return }
+        let moved = outlineMoves.moved(to: element?.frame.cgRect)
+        if step {
+            tapOutline(.levelChange)
+        } else if moved {
+            tapOutline(.alignment)
+        }
     }
 
     /// Option while hovering: cluster, parent, grandparent, … then back to the element.
     private func optionPressed() {
         guard phase == .hovering, levels.count > 1 else { return }
         levelIndex = (levelIndex + 1) % levels.count
-        renderHover()
+        renderHover(step: true)
     }
 
     /// R3: the on-screen windows under the point, front to back, in every layer. The reader asks
@@ -749,6 +785,7 @@ final class AppState {
     private func click(_ point: CGPoint, shift: Bool) {
         guard phase == .hovering, context != nil else { return }
         toast.hide()
+        feedback?.clicked() // v0.8.1 R59: the trackpad just clicked; nothing taps for 80 ms
         if shift, action == .point {
             pin(at: point)
             return
@@ -914,27 +951,27 @@ final class AppState {
                     }
                     PasteboardWriter.write(png: image.png)
                     let size = "\(MarkdownBuilder.number(image.widthPt))×\(MarkdownBuilder.number(image.heightPt))"
-                    finishOneShot(HudText.plain(optionHeld ? "Snapped · \(size) · clipboard only" : "Snapped · \(size)"), near: crop)
+                    finishOneShot(HudText.plain(optionHeld ? "Snapped · \(size) · clipboard only" : "Snapped · \(size)"), near: crop, sound: .landed)
                 case .text:
                     let lines = try await OCR.text(inPNG: image.png)
                     guard !lines.isEmpty else {
-                        finishOneShot(HudText.plain("No text found"), near: crop)
+                        finishOneShot(HudText.plain("No text found"), near: crop, sound: .missed)
                         return
                     }
                     PasteboardWriter.write(string: lines.joined(separator: "\n"))
-                    finishOneShot(HudText.plain("Copied · \(lines.count) \(lines.count == 1 ? "line" : "lines")"), near: crop)
+                    finishOneShot(HudText.plain("Copied · \(lines.count) \(lines.count == 1 ? "line" : "lines")"), near: crop, sound: .landed)
                 case .cut:
                     let normalized = CGPoint(x: (point.x - crop.minX) / crop.width, y: (point.y - crop.minY) / crop.height)
                     let subject = try await Cutout.subject(inPNG: image.png, at: normalized, wholeRegion: fromRegion)
                     guard let subject else {
-                        finishOneShot(HudText.plain("No subject found"), near: crop)
+                        finishOneShot(HudText.plain("No subject found"), near: crop, sound: .missed)
                         return
                     }
                     if !optionHeld {
                         try store.writeImage(png: subject, fileName: Cutout.fileName(appName: appName, id: id), appName: appName, tag: "cut")
                     }
                     PasteboardWriter.write(png: subject)
-                    finishOneShot(HudText.plain(optionHeld ? "Cut · clipboard only" : "Cut"), near: crop)
+                    finishOneShot(HudText.plain(optionHeld ? "Cut · clipboard only" : "Cut"), near: crop, sound: .landed)
                 case .point:
                     reset()
                 }
@@ -944,9 +981,10 @@ final class AppState {
         }
     }
 
-    private func finishOneShot(_ text: NSAttributedString, near rect: CGRect) {
+    private func finishOneShot(_ text: NSAttributedString, near rect: CGRect, sound: Feedback.Sound) {
         reset()
         toast.show(text, near: rect)
+        feedback?.play(sound) // v0.8.1 R60
     }
 
     /// R6/R7/R8: only Enter writes. Files first, clipboard last.
@@ -1011,6 +1049,7 @@ final class AppState {
                 } else {
                     toast.show(HudText.copied(identifier: element?.identifier), near: anchor)
                 }
+                feedback?.play(.landed)
                 // v0.8.1 R63: with the option on, the hint about fetching over MCP stays unspent.
                 if preferences.pastesIntoAgent {
                     await pasteIntoAgent(near: anchor)
@@ -1052,6 +1091,7 @@ final class AppState {
         lastHoverElement = nil
         levels = []
         levelIndex = 0
+        outlineMoves = OutlineMoves()
         context = nil
         windows = []
         overlay.dismiss()
@@ -1063,6 +1103,7 @@ final class AppState {
         reset()
         let rect = anchor ?? Self.mainScreenCenterCG()
         toast.show(HudText.plain(error.message), near: rect)
+        feedback?.play(.missed) // v0.8.1 R60
         switch error {
         case .noAccessibilityPermission: openSettingsOnce(pane: "Privacy_Accessibility")
         case .noScreenRecordingPermission: openSettingsOnce(pane: "Privacy_ScreenCapture")
