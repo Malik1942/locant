@@ -1,17 +1,15 @@
 import Accelerate
 import Foundation
 // Renders Locant's two interface sounds, `landed` and `missed` (specs/v0.8.1.md R60).
-// A sound is one strike of a bar: the mallet's contact (filtered noise) and the bar's modes
-// decaying under it, under a raised-cosine attack, with the ring allowed to finish before the fade.
-// One strike, no melody: two notes a fixed interval apart read as a device connecting, not as a
-// capture landing. `missed` is the same bar struck a fifth lower and damped, so nothing lands.
+// A sound is one soft chord or note, voiced the way Apple voices a confirmation: a root with its
+// fifth and octave sounding at once, rich harmonics that fall gently, two voices a few cents apart
+// for warmth, a slow rise, a dark room. One gesture, never a melody, never a strike: every struck
+// bar in earlier rounds read as sharp, because a strike begins with a contact. `missed` is the same
+// voicing a fourth lower and damped, the same instrument saying no.
 //
-// The numbers come from measuring macOS's own interface sounds (45 files, Sep 20 2026). What that
-// corpus says, and this file follows: confirmations sit at 290 to 740 Hz (macOS's own screenshot
-// sound is 392 Hz, the pitch of `landed` here); they last 420 to 755 ms and always end quieter
-// than -46 dB below peak, so the file is longer than the ring, never shorter; they carry a second
-// mode within about 25 dB of the fundamental, because a lone sine reads as a test tone; they peak
-// around -15 dBFS, well under an alert; and above 4 kHz they hold essentially nothing.
+// Levels, lengths and what is above 4 kHz follow a measurement of macOS's own interface sounds
+// (45 files, Sep 20 2026): confirmations last 420 to 755 ms and finish their own decay, peak
+// between -21 and -7 dBFS, and hold essentially nothing above 4 kHz.
 // Every number that shapes a set is below; change one, re-render, listen.
 //
 //   swiftc -O design/sound/render.swift -o design/sound/render
@@ -20,76 +18,56 @@ import Foundation
 
 let rate = 48_000.0
 
-/// One mode of the struck object: a multiple of the strike's pitch, its level, and the time
-/// constant of its exponential decay in seconds.
-struct Partial { var ratio, gain, decay: Double }
+/// How a voice is built: a harmonic series with amplitudes falling as 1/n^tilt, the upper
+/// harmonics dying faster (decay / n^shine), two copies a few cents apart for warmth, and a small
+/// downward glide at the onset, as a real string or tine has.
+struct Timbre { var harmonics: Int; var tilt, shine, detuneCents, glideCents: Double }
 
-/// One strike: when it lands, its pitch and level, and how much faster its modes decay. `missed`
-/// is struck damped, so the same bar stops sooner.
-struct Strike { var pitch, gain, onset, damping: Double }
+/// One note of a chord: its pitch and level.
+struct Note { var pitch, gain: Double }
 
-/// A set: the modes a strike excites, the mallet's contact, the room it is struck in, and the two
-/// sounds made from it.
+/// A set: the timbre, its rise and decay, the room, and the two chords made from it. `missed` is
+/// the same voicing a fourth lower, damped, so it reads as the same instrument saying no.
 struct Material {
     var name: String
-    var partials: [Partial]
-    var touch, touchLow, touchHigh, touchDecay: Double
-    /// How steep the contact's band is: 1 for a wide mallet knock, 2 for a narrow breath of air.
-    var touchOrder: Int
-    /// The contact's rise, and the tone's: a tone that rises has no strike in it at all.
-    var attack, bloom: Double
-    /// How much of the short room to mix in (0 is dry), and how dark its tail is (a low-pass, Hz).
-    var room, roomTone: Double
-    var landed, missed: [Strike]
+    var timbre: Timbre
+    var attack, decay: Double
+    /// How much room to mix in (0 is dry), how dark its tail is (a low-pass, Hz), how long it rings.
+    var room, roomTone, roomDecay: Double
+    var landed, missed: [Note]
+    var missedDamping: Double
     var landedLength, missedLength: Double
     var landedPeak, missedPeak: Double
 }
 
-// The same pitches in every set, so a comparison hears the object and not the note. G4 is what
-// macOS's own screenshot sound is tuned to; `missed` is a fifth below it, the direction Apple's
-// own pairs move for the negative outcome.
-let landedPitch = 392.00, missedPitch = 261.63 // G4, C4
-let missedDamping = 1.5
+// One root for every set, so a comparison hears the instrument and not the key: D4, the root of
+// the Shortcuts completion sound, voiced 1 : 5 : 8 as Apple voices a confirmation. `missed` is the
+// same voicing a fourth lower, on A3.
+let root = 293.66, lowerRoot = 220.00
+func chord(_ base: Double, fifth: Double, octave: Double) -> [Note] {
+    [Note(pitch: base, gain: 1), Note(pitch: base * 1.5, gain: fifth), Note(pitch: base * 2, gain: octave)]
+}
 
 let sets = [
-    // The installed Room (Sep 20): a marimba bar under a mallet. Kept as the reference; every
-    // struck bar read as sharp, so the three tones below have no strike in them.
-    Material(name: "room", partials: [
-        Partial(ratio: 1.0, gain: 1.00, decay: 0.075),
-        Partial(ratio: 4.0, gain: 0.11, decay: 0.045),
-        Partial(ratio: 10.0, gain: 0.05, decay: 0.018),
-    ], touch: 1.4, touchLow: 400, touchHigh: 3_000, touchDecay: 0.008, touchOrder: 1, attack: 0.005, bloom: 0.005, room: 0.18, roomTone: 20_000,
-       landed: [Strike(pitch: landedPitch, gain: 1, onset: 0, damping: 1)],
-       missed: [Strike(pitch: missedPitch, gain: 1, onset: 0, damping: missedDamping)],
-       landedLength: 0.700, missedLength: 0.500, landedPeak: -15, missedPeak: -18),
-    // A small soft bell: fundamental, octave, a whisper of the third, no contact at all, rising
-    // over 10 ms. The Messages "Note" family, an octave lower than a glockenspiel would sit.
-    Material(name: "bell", partials: [
-        Partial(ratio: 1.0, gain: 1.00, decay: 0.075),
-        Partial(ratio: 2.0, gain: 0.30, decay: 0.050),
-        Partial(ratio: 3.0, gain: 0.08, decay: 0.030),
-    ], touch: 0, touchLow: 400, touchHigh: 2_000, touchDecay: 0.005, touchOrder: 1, attack: 0.010, bloom: 0.010, room: 0.12, roomTone: 1_800,
-       landed: [Strike(pitch: landedPitch, gain: 1, onset: 0, damping: 1)],
-       missed: [Strike(pitch: missedPitch, gain: 1, onset: 0, damping: missedDamping)],
-       landedLength: 0.650, missedLength: 0.470, landedPeak: -19, missedPeak: -22),
-    // The MagSafe shape: a root and its octave, nothing else, swelling in over 35 ms. A4, as the
-    // charging chime is; missed a fifth below at D4. The gentlest of the three.
-    Material(name: "chime", partials: [
-        Partial(ratio: 1.0, gain: 1.00, decay: 0.080),
-        Partial(ratio: 2.0, gain: 0.40, decay: 0.060),
-    ], touch: 0, touchLow: 400, touchHigh: 2_000, touchDecay: 0.005, touchOrder: 1, attack: 0.035, bloom: 0.035, room: 0.12, roomTone: 1_600,
-       landed: [Strike(pitch: 440.00, gain: 1, onset: 0, damping: 1)],
-       missed: [Strike(pitch: 293.66, gain: 1, onset: 0, damping: missedDamping)],
-       landedLength: 0.700, missedLength: 0.480, landedPeak: -19, missedPeak: -22),
-    // A breath with a pitch in it: a narrow band of air around the note, a faint tone under it,
-    // over in 400 ms. The shape of macOS's own "acknowledgment sent", which is mostly air.
-    Material(name: "breath", partials: [
-        Partial(ratio: 1.0, gain: 0.35, decay: 0.055),
-        Partial(ratio: 2.0, gain: 0.10, decay: 0.035),
-    ], touch: 1.0, touchLow: 450, touchHigh: 900, touchDecay: 0.045, touchOrder: 2, attack: 0.015, bloom: 0.015, room: 0.10, roomTone: 1_600,
-       landed: [Strike(pitch: landedPitch, gain: 1, onset: 0, damping: 1)],
-       missed: [Strike(pitch: missedPitch, gain: 1, onset: 0, damping: missedDamping)],
-       landedLength: 0.420, missedLength: 0.340, landedPeak: -20, missedPeak: -23),
+    // A warm chord, the way the startup chime and the Shortcuts completion are voiced: six
+    // harmonics falling gently, chorused two and a half cents, rising over 30 ms into a dark room.
+    Material(name: "chord", timbre: Timbre(harmonics: 6, tilt: 1.6, shine: 0.7, detuneCents: 2.5, glideCents: 6),
+             attack: 0.030, decay: 0.080, room: 0.20, roomTone: 1_600, roomDecay: 0.070,
+             landed: chord(root, fifth: 0.55, octave: 0.35), missed: chord(lowerRoot, fifth: 0.55, octave: 0.35), missedDamping: 1.5,
+             landedLength: 0.700, missedLength: 0.500, landedPeak: -19, missedPeak: -22),
+    // The same chord as a pad: fewer, rounder harmonics, a wider chorus, a 60 ms swell and more
+    // room. The softest edge of the three; nothing in it arrives suddenly.
+    Material(name: "pad", timbre: Timbre(harmonics: 4, tilt: 2.0, shine: 0.5, detuneCents: 4, glideCents: 0),
+             attack: 0.060, decay: 0.075, room: 0.28, roomTone: 1_400, roomDecay: 0.090,
+             landed: chord(root, fifth: 0.6, octave: 0.4), missed: chord(lowerRoot, fifth: 0.6, octave: 0.4), missedDamping: 1.5,
+             landedLength: 0.700, missedLength: 0.560, landedPeak: -19, missedPeak: -22),
+    // A single plucked note, a thumb piano: eight harmonics with the upper ones gone in a moment,
+    // a small glide as the tine settles, a quick but soft rise. One note, the octave carried by the
+    // timbre rather than a second voice.
+    Material(name: "pluck", timbre: Timbre(harmonics: 8, tilt: 1.2, shine: 1.2, detuneCents: 1.5, glideCents: 10),
+             attack: 0.008, decay: 0.085, room: 0.15, roomTone: 1_600, roomDecay: 0.060,
+             landed: [Note(pitch: root, gain: 1)], missed: [Note(pitch: lowerRoot, gain: 1)], missedDamping: 1.5,
+             landedLength: 0.650, missedLength: 0.470, landedPeak: -19, missedPeak: -22),
 ]
 
 let fadeOut = 0.080
@@ -107,56 +85,34 @@ struct SplitMix64 {
     }
 }
 
-/// RBJ cookbook low- and high-pass, Q 0.707.
-struct Biquad {
-    var b0, b1, b2, a1, a2: Double
-    var x1 = 0.0, x2 = 0.0, y1 = 0.0, y2 = 0.0
-
-    init(cutoff: Double, lowPass: Bool) {
-        let w = 2 * Double.pi * cutoff / rate, c = cos(w), alpha = sin(w) / (2 * 0.7071)
-        let a0 = 1 + alpha
-        let edge = lowPass ? (1 - c) / 2 : (1 + c) / 2
-        b0 = edge / a0
-        b1 = (lowPass ? 1 - c : -(1 + c)) / a0
-        b2 = edge / a0
-        a1 = -2 * c / a0
-        a2 = (1 - alpha) / a0
-    }
-
-    mutating func process(_ x: Double) -> Double {
-        let y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2
-        x2 = x1; x1 = x; y2 = y1; y1 = y
-        return y
-    }
-}
-
-/// One strike of `material`, added into `buffer` from its onset. Damping shortens every mode, so a
-/// damped strike stops sooner instead of only sounding lower.
-func play(_ strike: Strike, of material: Material, seed: UInt64, into buffer: inout [Double]) {
-    let start = min(Int((strike.onset * rate).rounded()), buffer.count)
-    var noise = SplitMix64(state: seed)
-    var highs = Array(repeating: Biquad(cutoff: material.touchLow, lowPass: false), count: material.touchOrder)
-    var lows = Array(repeating: Biquad(cutoff: material.touchHigh, lowPass: true), count: material.touchOrder)
-    for i in start..<buffer.count {
-        let t = Double(i - start) / rate
-        var sample = 0.0
-        for partial in material.partials {
-            sample += partial.gain * exp(-t / (partial.decay / strike.damping)) * sin(2 * .pi * strike.pitch * partial.ratio * t)
+/// One note of `material`, added into `buffer`: two voices a few cents apart, each a harmonic
+/// series whose upper harmonics die faster, under a raised-cosine rise. `damping` shortens every
+/// harmonic, so a damped chord stops sooner instead of only sounding lower.
+func play(_ note: Note, of material: Material, damping: Double, into buffer: inout [Double]) {
+    let timbre = material.timbre
+    let detune = pow(2, timbre.detuneCents / 1200)
+    for voice in [1 / detune, detune] {
+        for n in 1...timbre.harmonics {
+            let amplitude = note.gain / pow(Double(n), timbre.tilt) / 2
+            let decay = material.decay / pow(Double(n), timbre.shine) / damping
+            var phase = 0.0
+            for i in 0..<buffer.count {
+                let t = Double(i) / rate
+                // The glide: a few cents high at the onset, settling over 30 ms.
+                let glide = pow(2, timbre.glideCents * exp(-t / 0.030) / 1200)
+                phase += 2 * .pi * note.pitch * Double(n) * voice * glide / rate
+                let rise = t < material.attack ? 0.5 - 0.5 * cos(.pi * t / material.attack) : 1
+                buffer[i] += amplitude * exp(-t / decay) * rise * sin(phase)
+            }
         }
-        var air = noise.next()
-        for stage in highs.indices { air = lows[stage].process(highs[stage].process(air)) }
-        let contact = material.touch * air * exp(-t / material.touchDecay)
-        let toneRise = t < material.bloom ? 0.5 - 0.5 * cos(.pi * t / material.bloom) : 1
-        let contactRise = t < material.attack ? 0.5 - 0.5 * cos(.pi * t / material.attack) : 1
-        buffer[i] += strike.gain * (toneRise * sample + contactRise * contact)
     }
 }
 
-/// A small room: early energy decaying over 45 ms, dense enough to read as air rather than echo,
-/// and low-passed at `tone`, because a real room's tail is dark.
-func room(_ signal: [Double], mix: Double, tone: Double) -> [Double] {
+/// A small room: dense early energy decaying over `decay`, low-passed at `tone`, because a real
+/// room's tail is dark.
+func room(_ signal: [Double], mix: Double, tone: Double, decay: Double) -> [Double] {
     guard mix > 0 else { return signal }
-    let taps = Int(0.180 * rate)
+    let taps = Int(decay * 4 * rate)
     var impulse = [Double](repeating: 0, count: taps)
     var noise = SplitMix64(state: 0x5000_0007)
     let k = 1 - exp(-2 * Double.pi * tone / rate)
@@ -164,7 +120,7 @@ func room(_ signal: [Double], mix: Double, tone: Double) -> [Double] {
     for i in 0..<taps {
         let t = Double(i) / rate
         smoothed += (noise.next() - smoothed) * k
-        impulse[i] = smoothed * exp(-t / 0.045) * (t < 0.004 ? t / 0.004 : 1)
+        impulse[i] = smoothed * exp(-t / decay) * (t < 0.004 ? t / 0.004 : 1)
     }
     let energy = impulse.reduce(0) { $0 + $1 * $1 }.squareRoot()
     for i in 0..<taps { impulse[i] /= energy }
@@ -179,10 +135,10 @@ func room(_ signal: [Double], mix: Double, tone: Double) -> [Double] {
 func render(_ material: Material, landed: Bool) -> [Float] {
     let length = landed ? material.landedLength : material.missedLength
     var buffer = [Double](repeating: 0, count: Int((length * rate).rounded()))
-    for (index, strike) in (landed ? material.landed : material.missed).enumerated() {
-        play(strike, of: material, seed: UInt64(index + 1), into: &buffer)
+    for note in landed ? material.landed : material.missed {
+        play(note, of: material, damping: landed ? 1 : material.missedDamping, into: &buffer)
     }
-    buffer = room(buffer, mix: material.room, tone: material.roomTone)
+    buffer = room(buffer, mix: material.room, tone: material.roomTone, decay: material.roomDecay)
     // The tail fades to exactly zero, so the file ends without a click.
     let fadeStart = buffer.count - Int((fadeOut * rate).rounded())
     for i in fadeStart..<buffer.count {
