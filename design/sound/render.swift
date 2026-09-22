@@ -34,7 +34,9 @@ struct Material {
     var name: String
     var partials: [Partial]
     var touch, touchLow, touchHigh, touchDecay: Double
-    /// The contact's rise, and the bar's: a real bar blooms a little after the mallet lands.
+    /// How steep the contact's band is: 1 for a wide mallet knock, 2 for a narrow breath of air.
+    var touchOrder: Int
+    /// The contact's rise, and the tone's: a tone that rises has no strike in it at all.
     var attack, bloom: Double
     /// How much of the short room to mix in (0 is dry), and how dark its tail is (a low-pass, Hz).
     var room, roomTone: Double
@@ -50,46 +52,44 @@ let landedPitch = 392.00, missedPitch = 261.63 // G4, C4
 let missedDamping = 1.5
 
 let sets = [
-    // The shipped Room (Sep 20): a tuned marimba bar, modes 1 : 4 : 10, a little air under it.
-    // Kept as the reference the refinements below are heard against.
+    // The installed Room (Sep 20): a marimba bar under a mallet. Kept as the reference; every
+    // struck bar read as sharp, so the three tones below have no strike in them.
     Material(name: "room", partials: [
         Partial(ratio: 1.0, gain: 1.00, decay: 0.075),
         Partial(ratio: 4.0, gain: 0.11, decay: 0.045),
         Partial(ratio: 10.0, gain: 0.05, decay: 0.018),
-    ], touch: 1.4, touchLow: 400, touchHigh: 3_000, touchDecay: 0.008, attack: 0.005, bloom: 0.005, room: 0.18, roomTone: 20_000,
+    ], touch: 1.4, touchLow: 400, touchHigh: 3_000, touchDecay: 0.008, touchOrder: 1, attack: 0.005, bloom: 0.005, room: 0.18, roomTone: 20_000,
        landed: [Strike(pitch: landedPitch, gain: 1, onset: 0, damping: 1)],
        missed: [Strike(pitch: missedPitch, gain: 1, onset: 0, damping: missedDamping)],
        landedLength: 0.700, missedLength: 0.500, landedPeak: -15, missedPeak: -18),
-    // Room, quieter and softer: the mallet at less than half the level and darker, the bar
-    // blooming over 12 ms behind it, the room's tail low-passed so it reads as air, not hiss.
-    Material(name: "soft", partials: [
-        Partial(ratio: 1.0, gain: 1.00, decay: 0.065),
-        Partial(ratio: 4.0, gain: 0.10, decay: 0.040),
-        Partial(ratio: 10.0, gain: 0.04, decay: 0.016),
-    ], touch: 0.6, touchLow: 400, touchHigh: 1_800, touchDecay: 0.006, attack: 0.006, bloom: 0.012, room: 0.15, roomTone: 2_000,
+    // A small soft bell: fundamental, octave, a whisper of the third, no contact at all, rising
+    // over 10 ms. The Messages "Note" family, an octave lower than a glockenspiel would sit.
+    Material(name: "bell", partials: [
+        Partial(ratio: 1.0, gain: 1.00, decay: 0.075),
+        Partial(ratio: 2.0, gain: 0.30, decay: 0.050),
+        Partial(ratio: 3.0, gain: 0.08, decay: 0.030),
+    ], touch: 0, touchLow: 400, touchHigh: 2_000, touchDecay: 0.005, touchOrder: 1, attack: 0.010, bloom: 0.010, room: 0.12, roomTone: 1_800,
        landed: [Strike(pitch: landedPitch, gain: 1, onset: 0, damping: 1)],
        missed: [Strike(pitch: missedPitch, gain: 1, onset: 0, damping: missedDamping)],
-       landedLength: 0.560, missedLength: 0.420, landedPeak: -19, missedPeak: -22),
-    // Soft with a longer bloom: the bar swells in over 28 ms under a faint contact, the way
-    // macOS's own screenshot sound rises rather than strikes.
-    Material(name: "bloom", partials: [
-        Partial(ratio: 1.0, gain: 1.00, decay: 0.070),
-        Partial(ratio: 4.0, gain: 0.09, decay: 0.045),
-        Partial(ratio: 10.0, gain: 0.03, decay: 0.018),
-    ], touch: 0.5, touchLow: 400, touchHigh: 1_600, touchDecay: 0.006, attack: 0.006, bloom: 0.028, room: 0.18, roomTone: 1_800,
-       landed: [Strike(pitch: landedPitch, gain: 1, onset: 0, damping: 1)],
-       missed: [Strike(pitch: missedPitch, gain: 1, onset: 0, damping: missedDamping)],
-       landedLength: 0.600, missedLength: 0.440, landedPeak: -19, missedPeak: -22),
-    // Soft, a fourth lower: D4, the root of the Shortcuts completion sound, with missed a fourth
-    // below that at A3. Lower reads warmer; a lower bar also rings a little longer.
-    Material(name: "deep", partials: [
+       landedLength: 0.650, missedLength: 0.470, landedPeak: -19, missedPeak: -22),
+    // The MagSafe shape: a root and its octave, nothing else, swelling in over 35 ms. A4, as the
+    // charging chime is; missed a fifth below at D4. The gentlest of the three.
+    Material(name: "chime", partials: [
         Partial(ratio: 1.0, gain: 1.00, decay: 0.080),
-        Partial(ratio: 4.0, gain: 0.10, decay: 0.050),
-        Partial(ratio: 10.0, gain: 0.04, decay: 0.020),
-    ], touch: 0.6, touchLow: 300, touchHigh: 1_600, touchDecay: 0.006, attack: 0.006, bloom: 0.012, room: 0.15, roomTone: 2_000,
-       landed: [Strike(pitch: 293.66, gain: 1, onset: 0, damping: 1)],
-       missed: [Strike(pitch: 220.00, gain: 1, onset: 0, damping: missedDamping)],
-       landedLength: 0.650, missedLength: 0.480, landedPeak: -19, missedPeak: -22),
+        Partial(ratio: 2.0, gain: 0.40, decay: 0.060),
+    ], touch: 0, touchLow: 400, touchHigh: 2_000, touchDecay: 0.005, touchOrder: 1, attack: 0.035, bloom: 0.035, room: 0.12, roomTone: 1_600,
+       landed: [Strike(pitch: 440.00, gain: 1, onset: 0, damping: 1)],
+       missed: [Strike(pitch: 293.66, gain: 1, onset: 0, damping: missedDamping)],
+       landedLength: 0.700, missedLength: 0.480, landedPeak: -19, missedPeak: -22),
+    // A breath with a pitch in it: a narrow band of air around the note, a faint tone under it,
+    // over in 400 ms. The shape of macOS's own "acknowledgment sent", which is mostly air.
+    Material(name: "breath", partials: [
+        Partial(ratio: 1.0, gain: 0.35, decay: 0.055),
+        Partial(ratio: 2.0, gain: 0.10, decay: 0.035),
+    ], touch: 1.0, touchLow: 450, touchHigh: 900, touchDecay: 0.045, touchOrder: 2, attack: 0.015, bloom: 0.015, room: 0.10, roomTone: 1_600,
+       landed: [Strike(pitch: landedPitch, gain: 1, onset: 0, damping: 1)],
+       missed: [Strike(pitch: missedPitch, gain: 1, onset: 0, damping: missedDamping)],
+       landedLength: 0.420, missedLength: 0.340, landedPeak: -20, missedPeak: -23),
 ]
 
 let fadeOut = 0.080
@@ -135,15 +135,17 @@ struct Biquad {
 func play(_ strike: Strike, of material: Material, seed: UInt64, into buffer: inout [Double]) {
     let start = min(Int((strike.onset * rate).rounded()), buffer.count)
     var noise = SplitMix64(state: seed)
-    var high = Biquad(cutoff: material.touchLow, lowPass: false)
-    var low = Biquad(cutoff: material.touchHigh, lowPass: true)
+    var highs = Array(repeating: Biquad(cutoff: material.touchLow, lowPass: false), count: material.touchOrder)
+    var lows = Array(repeating: Biquad(cutoff: material.touchHigh, lowPass: true), count: material.touchOrder)
     for i in start..<buffer.count {
         let t = Double(i - start) / rate
         var sample = 0.0
         for partial in material.partials {
             sample += partial.gain * exp(-t / (partial.decay / strike.damping)) * sin(2 * .pi * strike.pitch * partial.ratio * t)
         }
-        let contact = material.touch * low.process(high.process(noise.next())) * exp(-t / material.touchDecay)
+        var air = noise.next()
+        for stage in highs.indices { air = lows[stage].process(highs[stage].process(air)) }
+        let contact = material.touch * air * exp(-t / material.touchDecay)
         let toneRise = t < material.bloom ? 0.5 - 0.5 * cos(.pi * t / material.bloom) : 1
         let contactRise = t < material.attack ? 0.5 - 0.5 * cos(.pi * t / material.attack) : 1
         buffer[i] += strike.gain * (toneRise * sample + contactRise * contact)
