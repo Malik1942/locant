@@ -1,0 +1,11 @@
+{
+  "name": "locant",
+  "owner": { "name": "Malik Zhang" },
+  "plugins": [
+    {
+      "name": "locant",
+      "source": "plugins/locant",
+      "description": "Read what you just pointed at with Locant on your Mac."
+    }
+  ]
+}

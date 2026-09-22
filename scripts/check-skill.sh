@@ -84,3 +84,26 @@ out=$(run ${command/"$latest"/$resolve}) || fail "the resolve command failed: ${
 [[ $(plutil -extract resolved raw -o - $folder/locant-calculator-$id.json) == true ]] \
   || fail "the sidecar is not resolved"
 print "OK  the resolve request marks it resolved"
+
+# R65: the plugin and the marketplace that lists it.
+manifest=$plugin/.cursor-plugin/plugin.json
+market=.cursor-plugin/marketplace.json
+field() { plutil -extract "$2" raw -o - "$1" 2>/dev/null || true }
+for file in $manifest $market; do
+  [[ -f $file ]] || fail "$file is missing"
+  [[ -n $(field $file name) ]] || fail "$file does not parse, or has no name"
+  grep -q '\.\./' $file && fail "$file has a path with .."
+  grep -q '"/' $file && fail "$file has an absolute path"
+done
+[[ $(field $manifest name) == locant ]] || fail "plugin.json name must be locant"
+[[ -n $(field $manifest description) ]] || fail "plugin.json has no description"
+[[ $(field $manifest license) == MIT ]] || fail "plugin.json license must be MIT"
+[[ $(field $manifest logo) == assets/logo.png && -f $plugin/assets/logo.png ]] \
+  || fail "plugin.json logo must be assets/logo.png, and the file must exist"
+[[ -z $(field $manifest mcpServers) && ! -e $plugin/mcp.json ]] || fail "the plugin must not carry an MCP server (R65)"
+[[ $(field $market name) == locant ]] || fail "marketplace.json name must be locant"
+[[ $(field $market owner.name) == "Malik Zhang" ]] || fail "marketplace.json owner.name must be Malik Zhang"
+[[ $(field $market plugins.0.name) == locant && $(field $market plugins.0.source) == plugins/locant ]] \
+  || fail "marketplace.json must list locant with source plugins/locant"
+[[ -f $plugin/README.md ]] || fail "$plugin/README.md is missing"
+print "OK  the plugin and marketplace manifests"

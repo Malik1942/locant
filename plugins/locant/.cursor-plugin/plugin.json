@@ -1,0 +1,11 @@
+{
+  "name": "locant",
+  "description": "Lets the agent read what you just pointed at with Locant on your Mac: the element, its accessibility identifier, the app, your note, and the cropped image. For agents that can run commands on your Mac but can't reach Locant's MCP server, such as Grok Bot.",
+  "version": "1.0.0",
+  "author": { "name": "Malik Zhang" },
+  "homepage": "https://locant.malikzhang.com",
+  "repository": "https://github.com/Malik1942/locant",
+  "license": "MIT",
+  "keywords": ["macos", "accessibility", "screenshot", "ui", "grok-bot"],
+  "logo": "assets/logo.png"
+}
