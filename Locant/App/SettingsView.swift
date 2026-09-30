@@ -156,6 +156,8 @@ struct GeneralSettings: View {
     @State private var screenRecordingGranted = ScreenCapture.hasPermission()
     /// Check Now… in flight; the button waits for the answer.
     @State private var checking = false
+    /// Copy Diagnostics reads "Copied" for two seconds after the click.
+    @State private var copiedDiagnostics = false
 
     var body: some View {
         @Bindable var preferences = state.preferences
@@ -234,6 +236,21 @@ struct GeneralSettings: View {
                     } else {
                         Text("Not checked yet.")
                     }
+                }
+                // v0.9 R71: one block for an issue, copied by hand and never sent.
+                LabeledContent {
+                    Button(copiedDiagnostics ? "Copied" : "Copy Diagnostics") {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(state.diagnosticsText(), forType: .string)
+                        copiedDiagnostics = true
+                        Task {
+                            try? await Task.sleep(for: .seconds(2))
+                            copiedDiagnostics = false
+                        }
+                    }
+                } label: {
+                    Text("Diagnostics")
+                    Text("Version, macOS, displays, permissions, and settings as one block to paste into an issue. Nothing from your captures, and your user name is replaced by ~.")
                 }
             }
             Section {

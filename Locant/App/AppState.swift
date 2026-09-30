@@ -1125,6 +1125,70 @@ final class AppState {
         return CGRect(x: center.x, y: center.y, width: 0, height: 0)
     }
 
+    // MARK: Diagnostics (v0.9 R70)
+
+    /// The block Settings › General › Copy Diagnostics puts on the clipboard. Gathers the values;
+    /// `Diagnostics.render` makes the text.
+    func diagnosticsText() -> String {
+        let info = Bundle.main.infoDictionary ?? [:]
+        let home = FileManager.default.homeDirectoryForCurrentUser.path(percentEncoded: false)
+        let folder = preferences.captureFolderURL
+        var count: Int?
+        if let names = try? FileManager.default.subpathsOfDirectory(atPath: folder.path(percentEncoded: false)) {
+            count = names.filter { $0.hasSuffix(".json") && !$0.split(separator: "/").contains { $0.hasPrefix(".") } }.count
+        }
+        let values = Diagnostics.Values(
+            version: info["CFBundleShortVersionString"] as? String,
+            build: info["CFBundleVersion"] as? String,
+            macOS: ProcessInfo.processInfo.operatingSystemVersionString,
+            architecture: Self.architecture,
+            translated: Self.isTranslated,
+            displays: NSScreen.screens.map {
+                Diagnostics.Display(width: Int($0.frame.width), height: Int($0.frame.height), scale: Int($0.backingScaleFactor))
+            },
+            accessibility: AccessibilityReader.isTrusted(prompt: false),
+            screenRecording: ScreenCapture.hasPermission(),
+            appPath: Bundle.main.bundleURL.path(percentEncoded: false),
+            pointHotkey: preferences.hotkey.symbol,
+            actionHotkeys: Preferences.hotkeyActions.map {
+                Diagnostics.ActionHotkey(action: $0, hotkey: preferences.actionHotkeys[$0]?.symbol)
+            },
+            ballEnabled: preferences.ballEnabled,
+            ballAutoHide: preferences.ballAutoHide,
+            trackpadTaps: preferences.trackpadTaps,
+            sounds: preferences.sounds,
+            pastesIntoAgent: preferences.pastesIntoAgent,
+            collectsIterations: preferences.collectsIterations,
+            retentionDays: preferences.retentionDays,
+            captureFolder: folder.path(percentEncoded: false),
+            homeDirectory: home,
+            organization: preferences.organization.title,
+            captureCount: count,
+            agents: Agent.allCases.map {
+                Diagnostics.AgentLine(name: $0.title, connected: AgentConnector.status($0) != .notConnected)
+            },
+            checksForUpdates: preferences.checksForUpdates,
+            lastUpdateCheck: preferences.lastUpdateCheck
+        )
+        return Diagnostics.render(values)
+    }
+
+    private static var architecture: String {
+        #if arch(arm64)
+        "arm64"
+        #else
+        "x86_64"
+        #endif
+    }
+
+    /// Whether this process runs under Rosetta, which only an Intel build on Apple silicon does.
+    private static var isTranslated: Bool {
+        var value: Int32 = 0
+        var size = MemoryLayout<Int32>.size
+        guard sysctlbyname("sysctl.proc_translated", &value, &size, nil, 0) == 0 else { return false }
+        return value == 1
+    }
+
     // MARK: Menu actions
 
     func openCaptureFolder() {
