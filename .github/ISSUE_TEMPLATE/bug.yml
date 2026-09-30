@@ -18,19 +18,14 @@ body:
       placeholder: Mail, Figma, Chrome, the iOS Simulator
     validations:
       required: true
-  - type: input
-    id: version
+  - type: textarea
+    id: diagnostics
     attributes:
-      label: Locant version
-      description: The menu bar icon, then About.
-      placeholder: 0.8.0
+      label: Diagnostics
+      description: Settings › General › Copy Diagnostics, then paste. It carries the Locant version, macOS, chip, displays, permissions, and settings, with your user name replaced by ~. Before 0.9, write the version (menu bar icon, then Settings) and your macOS version and chip here.
+      render: markdown
     validations:
       required: true
-  - type: input
-    id: macos
-    attributes:
-      label: macOS version and chip
-      placeholder: 15.6, Apple silicon
   - type: textarea
     id: payload
     attributes:
