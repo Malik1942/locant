@@ -939,10 +939,13 @@ final class AppState {
             return
         }
         phase = .writing
-        overlay.dismiss()
         Task {
             do {
+                // v0.9 R76: the pixels are read while the overlay still covers the app, as Point does.
+                // Dismissing first handed the cursor back to the app, and a hover state (a lit button,
+                // a tooltip) was gone before the capture. The overlay is excluded from the capture.
                 let image = try await ScreenCapture.crop(crop)
+                overlay.dismiss()
                 let id = FileStore.makeID(date: Date())
                 switch which {
                 case .snap:
