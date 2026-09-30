@@ -1,10 +1,14 @@
 #!/bin/zsh
-# Build, sign with Developer ID, package a dmg, notarize, staple.
+# Build, sign with Developer ID, notarize and staple the app, package a dmg, notarize and staple that.
 # Usage: scripts/release.sh            (version read from the project)
 #        NOTARY_PROFILE=locant-notary scripts/release.sh
 # Notarization needs a keychain profile created once with:
 #   xcrun notarytool store-credentials locant-notary --apple-id <you@icloud.com> --team-id MVAUZXPK9M
 # (it asks for an app-specific password from appleid.apple.com; never put it in this script)
+#
+# specs/v0.9.md R68: the app bundle carries its own ticket, so a copy dragged out of the dmg opens
+# offline. Before 0.9 only the dmg was stapled and the first launch depended on Gatekeeper's online
+# lookup.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -15,6 +19,10 @@ OUT=build/release
 DERIVED=build/DerivedData-release
 VERSION=$(sed -n 's/.*MARKETING_VERSION = \(.*\);/\1/p' Locant.xcodeproj/project.pbxproj | head -1)
 DMG="$OUT/Locant-$VERSION.dmg"
+ZIP="$OUT/Locant-$VERSION.zip"
+
+NOTARIZE=1
+xcrun notarytool history --keychain-profile "$PROFILE" >/dev/null 2>&1 || NOTARIZE=0
 
 rm -rf "$OUT"; mkdir -p "$OUT"
 
@@ -40,6 +48,15 @@ ENT=$(codesign -d --entitlements - "$APP" 2>/dev/null | grep -c get-task-allow |
 [ "$ENT" = "0" ] || { echo "get-task-allow present; notarization would reject"; exit 1; }
 lipo -archs "$APP/Contents/MacOS/Locant"
 
+if [ "$NOTARIZE" = 1 ]; then
+  echo "▸ Notarizing the app (profile: $PROFILE)"
+  ditto -c -k --keepParent "$APP" "$ZIP"
+  xcrun notarytool submit "$ZIP" --keychain-profile "$PROFILE" --wait
+  rm -f "$ZIP"
+  xcrun stapler staple "$APP"
+  xcrun stapler validate "$APP"
+fi
+
 echo "▸ Packaging $DMG"
 STAGE=$(mktemp -d)
 cp -R "$APP" "$STAGE/Locant.app"
@@ -48,17 +65,19 @@ hdiutil create -volname "Locant" -srcfolder "$STAGE" -ov -format UDZO -quiet "$D
 rm -rf "$STAGE"
 codesign --sign "$IDENTITY" --timestamp "$DMG"
 
-if xcrun notarytool history --keychain-profile "$PROFILE" >/dev/null 2>&1; then
-  echo "▸ Notarizing (profile: $PROFILE)"
+if [ "$NOTARIZE" = 1 ]; then
+  echo "▸ Notarizing the dmg"
   xcrun notarytool submit "$DMG" --keychain-profile "$PROFILE" --wait
   xcrun stapler staple "$DMG"
+  xcrun stapler validate "$DMG"
   echo "▸ Gatekeeper check"
   spctl -a -t open --context context:primary-signature -vv "$DMG"
 else
-  echo "▸ Skipped notarization: no keychain profile '$PROFILE'."
-  echo "  Create it once, then rerun:"
+  echo "▸ Skipped notarization: no keychain profile '$PROFILE'. This dmg is not for publishing."
+  echo "  Create the profile once, then rerun:"
   echo "    xcrun notarytool store-credentials $PROFILE --apple-id <you@icloud.com> --team-id $TEAM_ID"
 fi
 
 echo "▸ Done: $DMG"
+shasum -a 256 "$DMG"
 ls -la "$OUT"
