@@ -33,6 +33,27 @@ final class ModeInferenceTests: XCTestCase {
         XCTAssertNil(ModeInference.infer(ModeSignals(bundleId: ModeInference.simulatorBundleId, isSimulator: true, simulatedBundleId: "com.other"), environment: env).projectRoot)
     }
 
+    /// DerivedData can be a symlink (to DerivedData.noindex, which keeps built apps out of Spotlight).
+    func testSimulatorProjectRootFollowsASymlinkedDerivedData() throws {
+        let fm = FileManager.default
+        let tmp = fm.temporaryDirectory.appending(path: "ModeInferenceTests-\(UUID().uuidString)")
+        defer { try? fm.removeItem(at: tmp) }
+        let real = tmp.appending(path: "DerivedData.noindex")
+        let project = real.appending(path: "Oryne-abc")
+        let app = project.appending(path: "Build/Products/Debug-iphonesimulator/Oryne.app")
+        try fm.createDirectory(at: app, withIntermediateDirectories: true)
+        try PropertyListSerialization.data(fromPropertyList: ["CFBundleIdentifier": "com.inspireocean.app"], format: .xml, options: 0)
+            .write(to: app.appending(path: "Info.plist"))
+        try PropertyListSerialization.data(fromPropertyList: ["WorkspacePath": "/Users/me/Code/Oryne/Oryne.xcodeproj"], format: .xml, options: 0)
+            .write(to: project.appending(path: "info.plist"))
+        let link = tmp.appending(path: "DerivedData")
+        try fm.createSymbolicLink(at: link, withDestinationURL: real)
+
+        XCTAssertEqual(ModeEnvironment.projectRoot(ofSimulatedApp: "com.inspireocean.app", derivedData: real), "/Users/me/Code/Oryne")
+        XCTAssertEqual(ModeEnvironment.projectRoot(ofSimulatedApp: "com.inspireocean.app", derivedData: link), "/Users/me/Code/Oryne")
+        XCTAssertNil(ModeEnvironment.projectRoot(ofSimulatedApp: "com.other", derivedData: link))
+    }
+
     // 3
     func testLocalhostHosts() {
         for host in ["localhost", "127.0.0.1", "0.0.0.0", "::1", "myapp.local", "LOCALHOST"] {
