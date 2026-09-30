@@ -78,6 +78,8 @@ struct ModeEnvironment: Sendable {
 
 enum ModeInference {
     static let simulatorBundleId = "com.apple.iphonesimulator"
+    /// Xcode 27 has no Simulator.app; Device Hub shows simulators, and physical devices too.
+    static let deviceHubBundleId = "com.apple.dt.Devices"
     static let projectMarkers = [".xcodeproj", ".xcworkspace", "Package.swift"]
     static let derivedDataMarker = "/Library/Developer/Xcode/DerivedData/"
     static let localHosts: Set<String> = ["localhost", "127.0.0.1", "0.0.0.0", "::1"]

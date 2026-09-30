@@ -54,6 +54,29 @@ final class ModeInferenceTests: XCTestCase {
         XCTAssertNil(ModeEnvironment.projectRoot(ofSimulatedApp: "com.other", derivedData: link))
     }
 
+    /// Xcode 27 has no Simulator.app; Device Hub shows simulators, and physical devices too, so its
+    /// bundle id alone is not the simulator: the classifier says when its window shows one.
+    func testDeviceHubIsFixOnlyWhenItShowsASimulator() {
+        let hub = ModeSignals(bundleId: "com.apple.dt.Devices", bundlePath: "/Applications/Xcode.app/Contents/Applications/DeviceHub.app")
+        XCTAssertEqual(ModeInference.infer(hub, environment: environment()), ModeDecision(mode: .reference, projectRoot: nil, rule: .none))
+        let showing = ModeSignals(bundleId: "com.apple.dt.Devices", isSimulator: true, simulatedBundleId: "com.someone.else")
+        XCTAssertEqual(ModeInference.infer(showing, environment: environment()), ModeDecision(mode: .fix, projectRoot: nil, rule: .simulator))
+    }
+
+    func testDeviceHubCaptureGetsTheSimulatedAppsProjectRoot() {
+        var env = environment()
+        env.simulatorProjectRoot = { $0 == "com.inspireocean.app" ? "/Users/me/Code/Oryne" : nil }
+        let source = SourceInfo(
+            app: AppInfo(bundleId: "com.apple.dt.Devices", name: "Device Hub"),
+            window: WindowInfo(title: "iPhone 17 Pro – iOS 26.5"),
+            url: nil,
+            simulator: SimulatorInfo(device: "iPhone 17 Pro", appBundleId: "com.inspireocean.app")
+        )
+        let context = CaptureContext(source: source, frontPID: 0, bundlePath: "/Applications/Xcode.app/Contents/Applications/DeviceHub.app")
+        let signals = ModeClassifier.signals(for: context, myApps: [], userTeamIDs: [])
+        XCTAssertEqual(ModeInference.infer(signals, environment: env), ModeDecision(mode: .fix, projectRoot: "/Users/me/Code/Oryne", rule: .simulator))
+    }
+
     // 3
     func testLocalhostHosts() {
         for host in ["localhost", "127.0.0.1", "0.0.0.0", "::1", "myapp.local", "LOCALHOST"] {
