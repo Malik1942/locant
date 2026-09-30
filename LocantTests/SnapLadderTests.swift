@@ -54,4 +54,44 @@ final class SnapLadderTests: XCTestCase {
         let levels = HitRefiner.addingWindow([nil, element("button", Frame(x: 120, y: 120, w: 80, h: 30))], window: window, appName: "Notes")
         XCTAssertEqual(levels.map { $0?.role }, ["button", "window"])
     }
+
+    // MARK: Device Hub (Xcode 27)
+
+    private func fixture(_ name: String) throws -> ElementSnapshot {
+        let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: name, withExtension: "json"), "fixture \(name)")
+        return try JSONDecoder().decode(ElementSnapshot.self, from: Data(contentsOf: url))
+    }
+
+    private let hubWindow = CGRect(x: 519, y: 182, width: 1100, height: 800)
+    private let hubScreen = CGRect(x: 1043.81, y: 261.55, width: 298.89, height: 648.9)
+
+    /// Device Hub draws the simulated device beside a sidebar and under a toolbar, where Simulator.app's
+    /// window was the device; on the device, the ladder ends in its screen, as the window rung.
+    func testDeviceHubLadderEndsInTheSimulatedScreen() throws {
+        let snapshot = try fixture("devicehub-screen")
+        let point = CGPoint(x: 1097.83, y: 460.28)
+        XCTAssertEqual(HitRefiner.simulatedScreen(in: snapshot), hubScreen)
+        let levels = HitRefiner.endingInScreen(HitRefiner.selectionLevels(for: snapshot, at: point), screen: hubScreen, appName: "Device Hub")
+        XCTAssertEqual(levels.map { $0?.role }, ["button", "window"])
+        XCTAssertEqual(levels[0]?.identifier, "oceanCurrent.product ideas")
+        XCTAssertEqual(levels[1]?.frame, Frame(hubScreen))
+        XCTAssertEqual(levels[1]?.label, "Device Hub")
+        let whole = HitRefiner.addingWindow(HitRefiner.selectionLevels(for: snapshot, at: point), window: hubWindow, appName: "Device Hub")
+        XCTAssertEqual(whole.last??.frame, Frame(hubWindow), "the window rung alone is Device Hub's 1100×800 window")
+    }
+
+    /// A blank spot of the screen hits the screen itself, which is then the whole ladder.
+    func testBlankDeviceScreenIsTheScreen() throws {
+        let snapshot = try fixture("devicehub-blank")
+        XCTAssertEqual(HitRefiner.simulatedScreen(in: snapshot), hubScreen)
+        let levels = HitRefiner.endingInScreen(HitRefiner.selectionLevels(for: snapshot, at: CGPoint(x: 1063.81, y: 291.55)),
+                                               screen: hubScreen, appName: "Device Hub")
+        XCTAssertEqual(levels.map { $0?.role }, ["window"])
+        XCTAssertEqual(levels[0]?.frame, Frame(hubScreen))
+    }
+
+    /// The sidebar and the toolbar are Device Hub's own: no screen, so the window as everywhere else.
+    func testDeviceHubSidebarHasNoSimulatedScreen() throws {
+        XCTAssertNil(HitRefiner.simulatedScreen(in: try fixture("devicehub-sidebar")))
+    }
 }

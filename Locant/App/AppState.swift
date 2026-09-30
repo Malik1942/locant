@@ -616,10 +616,15 @@ final class AppState {
             var freshLevels = fresh.map { HitRefiner.selectionLevels(for: $0, at: point) } ?? []
             if action == .snap || action == .cut {
                 // v0.9 R77: the same ladder as Point, ending in the window under the cursor, which
-                // comes from the window list and needs no accessibility.
+                // comes from the window list and needs no accessibility. On a device in Xcode 27's
+                // Device Hub, ending in the device's screen.
                 let window = Geometry.windowOwner(at: point, windows: windows, excludingPID: ownPID)
-                let name = window.flatMap { NSRunningApplication(processIdentifier: $0.ownerPID)?.localizedName }
-                freshLevels = HitRefiner.addingWindow(freshLevels, window: window?.bounds, appName: name)
+                let owner = window.flatMap { NSRunningApplication(processIdentifier: $0.ownerPID) }
+                if owner?.bundleIdentifier == ModeInference.deviceHubBundleId, let screen = fresh.flatMap(HitRefiner.simulatedScreen(in:)) {
+                    freshLevels = HitRefiner.endingInScreen(freshLevels, screen: screen, appName: owner?.localizedName)
+                } else {
+                    freshLevels = HitRefiner.addingWindow(freshLevels, window: window?.bounds, appName: owner?.localizedName)
+                }
             }
             let freshElement = freshLevels.first ?? nil
             let freshIsVague = freshElement.map { ElementResolver.containerRoles.contains($0.role) } ?? true
