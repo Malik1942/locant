@@ -44,7 +44,9 @@ Window-level tools give your agent the window. Locant gives it the element.
 
 1. [Download Locant.dmg](https://github.com/Malik1942/locant/releases/latest/download/Locant.dmg) and
    drag Locant to Applications. Signed with a Developer ID and notarized, so it opens like any other app.
-   To update, do the same over the old copy; the permissions carry over.
+   Or, with Homebrew: `brew install Malik1942/locant/locant`.
+   Updates are manual: Locant tells you when a newer version exists and opens the download; drag it
+   over the old copy, and the permissions carry over. There is no in-place update.
 2. Launch it. There is no Dock icon; look for the pointing hand in the menu bar.
 3. Allow the two permissions it asks for, in this order:
    - **Accessibility** reads what is under your cursor and listens for the hotkey. Without it nothing works.
@@ -163,11 +165,14 @@ Mac.
 **Four more actions**, on the same gesture. Hold the ball for half a second and release on one, or use
 the hotkey.
 
-- **Snap** (⌃⌥2): a window or a dragged region as a PNG. Hold ⌥ at release to keep it off disk.
+- **Snap** (⌃⌥2): the window under the cursor, or a dragged region, as a PNG. Option picks the
+  element under the cursor instead, and again its parent, up to the window. Hold ⌘ at the click to
+  keep it off disk.
 - **Text** (⌃⌥3): the text in an element or a region, recognized, to the clipboard. Nothing on disk.
 - **Color** (⌃⌥4): a magnifier follows the cursor; arrows nudge by a pixel, click copies the value.
   Hex, rgb(), hsl(), or SwiftUI Color, in sRGB or Display P3.
-- **Cut** (⌃⌥5): the subject cut onto a transparent background.
+- **Cut** (⌃⌥5): the subject cut onto a transparent background, from the window, a frame, or with
+  Option an element.
 
 **And**
 
@@ -199,7 +204,8 @@ the hotkey.
 | **The ball** | A 48 pt glass disc. Rests translucent, tucks into the nearest edge after two seconds without use, wakes as the cursor approaches, starts Point on click. Hold half a second for the ring: Snap ↑, Text →, Color ↓, Cut ←; release at center cancels. Drag it anywhere. |
 | **Hotkeys** | Point is ⌃⌃ by default; the actions are ⌃⌥ and their number in the menu (⌃⌥1 Point through ⌃⌥5 Cut). Re-record or clear any of them in Settings › Hotkeys, which refuses a clash inside Locant and warns when a chord is also a macOS shortcut. A matched chord is swallowed before the frontmost app sees it. |
 | **Feedback** | A light trackpad tap when the outline moves to a new element, when the ring opens and between its segments, and when a capture lands; a short, quiet note when a capture reaches the clipboard and a lower one when nothing did, fired with a tap of its own. The sounds follow the system's switch for interface sounds. Settings › General has a switch for each. |
-| **Updates** | Once a day, 10 s after launch, Locant asks the GitHub releases API for the newest version and offers Download, Later, or Skip This Version. The request carries the version number and nothing else. Settings › General has the switch and Check Now. |
+| **Updates** | Once a day, 10 s after launch, Locant asks the GitHub releases API for the newest version and offers Download, Later, or Skip This Version. The request carries the version number and nothing else. Settings › General has the switch and Check Now. There is no in-place update: you drag the new copy over the old one. |
+| **Diagnostics** | Settings › General › Copy Diagnostics puts one block on the clipboard for an issue: version, macOS, chip, displays, the two grants, hotkeys, and settings. Your user name is replaced by `~`; nothing from any capture; nothing is sent. |
 | **Nothing to notice** | No Dock icon. Idle memory under 30 MB. Locant never appears in its own captures. |
 
 </details>
@@ -221,6 +227,10 @@ What each one did, and when it was run:
 Statuses say "untested" until someone tests them. A report of what your agent did with a payload, or
 over MCP, is a welcome issue.
 
+Ran it on a Mac that is not mine? The [tester form](https://github.com/Malik1942/locant/issues/new?template=tester.yml)
+takes two minutes, and [`docs/rc-checklist.md`](docs/rc-checklist.md) lists what to try. A Mac on
+macOS 15, an Intel Mac, a non-English system, or a second display is what 0.9 is waiting on.
+
 ## Known limitations
 
 - Element quality follows the target app. SwiftUI, AppKit, and the iOS Simulator work well. Electron
@@ -236,7 +246,8 @@ over MCP, is a welcome issue.
   page is fix mode. Tested in Chromium browsers and Electron; Safari exposes the same attributes but
   has not been exercised.
 - Menus and popovers stay open under the overlay, but an element inside another app's menu may not resolve.
-- Snap and Cut on a click take a normal window only, not the desktop, menu bar, or Dock.
+- Snap and Cut open on a normal window; on the desktop, the menu bar, or the Dock they open on the
+  largest element there is.
 
 ## Under the hood
 
@@ -301,7 +312,7 @@ iteration to the sidecar. Locant never commits, never installs hooks, and never 
 repository.
 
 ```bash
-xcodebuild -project Locant.xcodeproj -scheme Locant test    # 123 tests over the pure functions
+xcodebuild -project Locant.xcodeproj -scheme Locant test    # the tests over the pure functions; CI runs the same line
 ```
 
 </details>
@@ -365,6 +376,30 @@ published as a GitHub release asset by `scripts/publish.sh`.
 | No pointing hand in the menu bar | On a notched MacBook the icon hides under the notch when the bar is full. The hotkey and the ball still work. |
 | The Simulator element is missed right after launch | The simulated app's tree is built lazily. Locant retries for 600 ms; hover again. |
 | Rebuilt from source and asked for permissions again | Ad hoc signing. Use a real identity; see Build from source. |
+
+</details>
+
+<details>
+<summary><b>Uninstall</b></summary>
+
+Locant leaves nothing running and nothing in Login Items. To remove it completely:
+
+1. If Settings › Agents shows an agent as connected, click Disconnect; that removes the `locant`
+   server from `~/.claude.json`, `~/.cursor/mcp.json`, or `~/.codex/config.toml`. (Or delete that one
+   entry by hand later.)
+2. Quit Locant from the menu bar and move `/Applications/Locant.app` to the Trash. With Homebrew:
+   `brew uninstall --zap locant`, which also removes the settings.
+3. Optional. The two privacy grants, the settings, and the captures:
+
+```bash
+tccutil reset Accessibility com.malikzhang.deixis
+tccutil reset ScreenCapture com.malikzhang.deixis
+defaults delete com.malikzhang.deixis
+rm -r ~/Pictures/Locant        # your captures; keep them if you want them
+```
+
+The bundle identifier is `com.malikzhang.deixis`, the app's name before Sep 14, 2026, kept so that
+permissions survive updates.
 
 </details>
 

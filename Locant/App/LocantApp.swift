@@ -129,8 +129,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let state = AppState()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        requestPermissionsIfNeeded()
+        // v0.9 R67: as the test host, on a CI runner, the app has no grants and nobody to click
+        // Continue; the tests are over pure functions and never need them.
+        if !Self.isTestHost {
+            requestPermissionsIfNeeded()
+        }
         state.start()
+    }
+
+    private static var isTestHost: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil || NSClassFromString("XCTestCase") != nil
     }
 
     // MARK: Permissions

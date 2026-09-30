@@ -592,8 +592,8 @@ final class AppState {
     private static func hintText(for action: Action) -> String {
         switch action {
         case .point: "↩ picks · drag for a frame · ⌥ for the parent"
-        case .snap, .cut: "↩ takes the window · drag for a frame"
-        case .text: "↩ takes the text · drag for a frame"
+        case .snap, .cut: "↩ takes the window · drag for a frame · ⌥ for an element · ⌘ clipboard only"
+        case .text: "↩ takes the text · drag for a frame · ⌥ up a level"
         }
     }
 
@@ -611,30 +611,26 @@ final class AppState {
         defer { hoverTask = nil }
         while phase == .hovering, !Task.isCancelled, let point = pendingHover {
             pendingHover = nil
-            if action == .snap || action == .cut {
-                // Window under the cursor, no accessibility needed.
-                lastHoverPoint = point
-                let window = Geometry.windowOwner(at: point, windows: windows, excludingPID: ownPID)
-                let drawn: Bool
-                if let window {
-                    let name = NSRunningApplication(processIdentifier: window.ownerPID)?.localizedName ?? "window"
-                    drawn = overlay.setHighlight(window.bounds, readout: Readout(role: "window", identifier: nil, suffix: name, isFallback: false), around: point)
-                } else {
-                    drawn = overlay.setHighlight(nil, readout: .describing(nil), around: point)
-                }
-                if drawn, outlineMoves.moved(to: window?.bounds) { tapOutline(.alignment) }
-                try? await Task.sleep(for: .milliseconds(33))
-                continue
-            }
             let fresh = await reader.snapshot(at: point, candidates: windowCandidates(at: point), fallbackPID: context?.frontPID ?? 0)
             guard phase == .hovering, !Task.isCancelled else { return }
-            let freshLevels = fresh.map { HitRefiner.selectionLevels(for: $0, at: point) } ?? []
+            var freshLevels = fresh.map { HitRefiner.selectionLevels(for: $0, at: point) } ?? []
+            if action == .snap || action == .cut {
+                // v0.9 R77: the same ladder as Point, ending in the window under the cursor, which
+                // comes from the window list and needs no accessibility.
+                let window = Geometry.windowOwner(at: point, windows: windows, excludingPID: ownPID)
+                let name = window.flatMap { NSRunningApplication(processIdentifier: $0.ownerPID)?.localizedName }
+                freshLevels = HitRefiner.addingWindow(freshLevels, window: window?.bounds, appName: name)
+            }
             let freshElement = freshLevels.first ?? nil
             let freshIsVague = freshElement.map { ElementResolver.containerRoles.contains($0.role) } ?? true
             if freshIsVague, HitRefiner.sticks(lastHoverElement, to: point) {
                 // Crossing padding: keep the small element and its Option level.
             } else {
-                if freshElement?.frame != lastHoverElement?.frame { levelIndex = 0 }
+                if freshElement?.frame != lastHoverElement?.frame {
+                    // v0.9 R77: Snap and Cut open on the window and stay there as the cursor moves;
+                    // once Option has left the window, the element level persists as in Point.
+                    levelIndex = startsAtWindow && snapAtWindow ? max(0, freshLevels.count - 1) : 0
+                }
                 lastHoverSnapshot = fresh
                 levels = freshLevels
                 lastHoverElement = freshElement
@@ -662,7 +658,11 @@ final class AppState {
     private func renderHover(step: Bool = false) {
         let element = selectedElement()
         var readout = Readout.describing(element)
-        if levelIndex > 0 {
+        if action == .snap || action == .cut, let element, element.role == "window", element.identifier == nil {
+            // R77: the window rung reads as it did when Snap hovered windows: `window · Safari`.
+            readout = Readout(role: "window", identifier: nil, suffix: element.label, isFallback: false)
+        }
+        if levelIndex > 0, !(startsAtWindow && snapAtWindow) {
             readout.suffix = [readout.suffix, "↑\(levelIndex)"].compactMap { $0 }.joined(separator: " · ")
         }
         guard overlay.setHighlight(element?.frame.cgRect, readout: readout, around: lastHoverPoint) else { return }
@@ -674,10 +674,18 @@ final class AppState {
         }
     }
 
+    /// v0.9 R77: Snap and Cut open on the ladder's top rung, the window, since that is what a
+    /// screenshot usually is; Option jumps to the element and walks up from there.
+    private var startsAtWindow: Bool { action == .snap || action == .cut }
+    /// R77: whether Snap or Cut is still on the top rung. True until Option leaves it, true again
+    /// when Option comes back around; the cursor's moves keep whichever it is.
+    private var snapAtWindow = true
+
     /// Option while hovering: cluster, parent, grandparent, … then back to the element.
     private func optionPressed() {
         guard phase == .hovering, levels.count > 1 else { return }
         levelIndex = (levelIndex + 1) % levels.count
+        if startsAtWindow { snapAtWindow = levelIndex == levels.count - 1 }
         renderHover(step: true)
     }
 
@@ -794,7 +802,14 @@ final class AppState {
         case .point:
             break
         case .snap, .cut:
-            let rect = Geometry.windowOwner(at: point, windows: windows, excludingPID: ownPID)?.bounds
+            // v0.9 R77: the outline at its level, exactly, when the click is on or near it or a level
+            // was chosen on purpose; else the window under the point, else the display.
+            let slack = HitRefiner.stickiness
+            let hovered = selectedElement()
+            let hoverIsCurrent = hovered.map { $0.frame.cgRect.insetBy(dx: -slack, dy: -slack).contains(point) } ?? false
+            let chosenOnPurpose = levelIndex > 0 && !snapAtWindow
+            let rect = (hoverIsCurrent || chosenOnPurpose ? hovered?.frame.cgRect : nil)
+                ?? Geometry.windowOwner(at: point, windows: windows, excludingPID: ownPID)?.bounds
                 ?? SelectionOverlay.displayFrameCG(containing: point)
             runOneShot(on: rect, at: point, fromRegion: false)
             return
@@ -922,12 +937,12 @@ final class AppState {
 
     // MARK: One-shot actions (R23, R24, R26)
 
-    /// Snap, Text, Cut: the overlay closes at once, the pixels are read, and the result goes to the
-    /// clipboard (and to disk for images unless ⌥ was held). Failures leave the clipboard untouched.
+    /// Snap, Text, Cut: the pixels are read, the overlay closes, and the result goes to the
+    /// clipboard (and to disk for images unless ⌘ was held, v0.9 R78). Failures leave the clipboard untouched.
     private func runOneShot(on rect: CGRect, at point: CGPoint, fromRegion: Bool) {
         guard let context else { return }
         let which = action
-        let optionHeld = NSEvent.modifierFlags.contains(.option) || clipboardOnlyPreset
+        let clipboardOnly = NSEvent.modifierFlags.contains(.command) || clipboardOnlyPreset
         clipboardOnlyPreset = false
         let appName = Geometry.windowOwner(at: point, windows: windows, excludingPID: ownPID)
             .flatMap { NSRunningApplication(processIdentifier: $0.ownerPID)?.localizedName } ?? context.source.app.name
@@ -939,19 +954,22 @@ final class AppState {
             return
         }
         phase = .writing
-        overlay.dismiss()
         Task {
             do {
+                // v0.9 R76: the pixels are read while the overlay still covers the app, as Point does.
+                // Dismissing first handed the cursor back to the app, and a hover state (a lit button,
+                // a tooltip) was gone before the capture. The overlay is excluded from the capture.
                 let image = try await ScreenCapture.crop(crop)
+                overlay.dismiss()
                 let id = FileStore.makeID(date: Date())
                 switch which {
                 case .snap:
-                    if !optionHeld {
+                    if !clipboardOnly {
                         try store.writeImage(png: image.png, fileName: Screenshot.fileName(appName: appName, id: id), appName: appName, tag: "snap")
                     }
                     PasteboardWriter.write(png: image.png)
                     let size = "\(MarkdownBuilder.number(image.widthPt))×\(MarkdownBuilder.number(image.heightPt))"
-                    finishOneShot(HudText.plain(optionHeld ? "Snapped · \(size) · clipboard only" : "Snapped · \(size)"), near: crop, sound: .landed)
+                    finishOneShot(HudText.plain(clipboardOnly ? "Snapped · \(size) · clipboard only" : "Snapped · \(size)"), near: crop, sound: .landed)
                 case .text:
                     let lines = try await OCR.text(inPNG: image.png)
                     guard !lines.isEmpty else {
@@ -967,11 +985,11 @@ final class AppState {
                         finishOneShot(HudText.plain("No subject found"), near: crop, sound: .missed)
                         return
                     }
-                    if !optionHeld {
+                    if !clipboardOnly {
                         try store.writeImage(png: subject, fileName: Cutout.fileName(appName: appName, id: id), appName: appName, tag: "cut")
                     }
                     PasteboardWriter.write(png: subject)
-                    finishOneShot(HudText.plain(optionHeld ? "Cut · clipboard only" : "Cut"), near: crop, sound: .landed)
+                    finishOneShot(HudText.plain(clipboardOnly ? "Cut · clipboard only" : "Cut"), near: crop, sound: .landed)
                 case .point:
                     reset()
                 }
@@ -1091,6 +1109,7 @@ final class AppState {
         lastHoverElement = nil
         levels = []
         levelIndex = 0
+        snapAtWindow = true
         outlineMoves = OutlineMoves()
         context = nil
         windows = []
@@ -1123,6 +1142,70 @@ final class AppState {
         let frame = NSScreen.main?.frame ?? .zero
         let center = Geometry.cgPoint(fromAppKit: CGPoint(x: frame.midX, y: frame.midY), primaryHeight: SelectionOverlay.currentPrimaryHeight())
         return CGRect(x: center.x, y: center.y, width: 0, height: 0)
+    }
+
+    // MARK: Diagnostics (v0.9 R70)
+
+    /// The block Settings › General › Copy Diagnostics puts on the clipboard. Gathers the values;
+    /// `Diagnostics.render` makes the text.
+    func diagnosticsText() -> String {
+        let info = Bundle.main.infoDictionary ?? [:]
+        let home = FileManager.default.homeDirectoryForCurrentUser.path(percentEncoded: false)
+        let folder = preferences.captureFolderURL
+        var count: Int?
+        if let names = try? FileManager.default.subpathsOfDirectory(atPath: folder.path(percentEncoded: false)) {
+            count = names.filter { $0.hasSuffix(".json") && !$0.split(separator: "/").contains { $0.hasPrefix(".") } }.count
+        }
+        let values = Diagnostics.Values(
+            version: info["CFBundleShortVersionString"] as? String,
+            build: info["CFBundleVersion"] as? String,
+            macOS: ProcessInfo.processInfo.operatingSystemVersionString,
+            architecture: Self.architecture,
+            translated: Self.isTranslated,
+            displays: NSScreen.screens.map {
+                Diagnostics.Display(width: Int($0.frame.width), height: Int($0.frame.height), scale: Int($0.backingScaleFactor))
+            },
+            accessibility: AccessibilityReader.isTrusted(prompt: false),
+            screenRecording: ScreenCapture.hasPermission(),
+            appPath: Bundle.main.bundleURL.path(percentEncoded: false),
+            pointHotkey: preferences.hotkey.symbol,
+            actionHotkeys: Preferences.hotkeyActions.map {
+                Diagnostics.ActionHotkey(action: $0, hotkey: preferences.actionHotkeys[$0]?.symbol)
+            },
+            ballEnabled: preferences.ballEnabled,
+            ballAutoHide: preferences.ballAutoHide,
+            trackpadTaps: preferences.trackpadTaps,
+            sounds: preferences.sounds,
+            pastesIntoAgent: preferences.pastesIntoAgent,
+            collectsIterations: preferences.collectsIterations,
+            retentionDays: preferences.retentionDays,
+            captureFolder: folder.path(percentEncoded: false),
+            homeDirectory: home,
+            organization: preferences.organization.title,
+            captureCount: count,
+            agents: Agent.allCases.map {
+                Diagnostics.AgentLine(name: $0.title, connected: AgentConnector.status($0) != .notConnected)
+            },
+            checksForUpdates: preferences.checksForUpdates,
+            lastUpdateCheck: preferences.lastUpdateCheck
+        )
+        return Diagnostics.render(values)
+    }
+
+    private static var architecture: String {
+        #if arch(arm64)
+        "arm64"
+        #else
+        "x86_64"
+        #endif
+    }
+
+    /// Whether this process runs under Rosetta, which only an Intel build on Apple silicon does.
+    private static var isTranslated: Bool {
+        var value: Int32 = 0
+        var size = MemoryLayout<Int32>.size
+        guard sysctlbyname("sysctl.proc_translated", &value, &size, nil, 0) == 0 else { return false }
+        return value == 1
     }
 
     // MARK: Menu actions

@@ -1,0 +1,36 @@
+name: I tried it on my Mac
+description: Two minutes after running the checklist in docs/rc-checklist.md
+labels: [tester]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you. A Mac that is not the author's is the one thing the project cannot build itself.
+        The checklist is at https://github.com/Malik1942/locant/blob/main/docs/rc-checklist.md
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: Settings › General › Copy Diagnostics, then paste. It carries the version, macOS, chip, displays, and permissions, and replaces your user name with ~.
+      render: markdown
+    validations:
+      required: true
+  - type: input
+    id: passed
+    attributes:
+      label: Steps that passed
+      placeholder: 1-4, 6-12, 14, 15
+    validations:
+      required: true
+  - type: textarea
+    id: failed
+    attributes:
+      label: Steps that did not, and what you saw
+      placeholder: |
+        5: the Simulator label read group · null for every button in my app (it has no identifiers).
+        13: Cursor asked to enable the server, then answered with the element. Passed after that.
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: What surprised you, what you expected, what you would change. One line is fine.

@@ -109,11 +109,11 @@ final class Ring {
 
     /// The segment under `point` (AppKit screen), updating the highlight.
     @discardableResult
-    func hover(at point: CGPoint, optionHeld: Bool) -> Segment? {
+    func hover(at point: CGPoint, commandHeld: Bool) -> Segment? {
         let segment = Self.segment(for: CGPoint(x: point.x - center.x, y: point.y - center.y), innerRadius: Tokens.innerRadius)
         hovered = segment
         view.highlight(segment)
-        view.showOptionBadge(optionHeld)
+        view.showCommandBadge(commandHeld)
         return segment
     }
 
@@ -203,7 +203,7 @@ final class RingView: NSView {
             labels[segment] = label
 
             if segment.acceptsClipboardOnly {
-                let badge = NSTextField(labelWithString: "⌥")
+                let badge = NSTextField(labelWithString: "⌘") // v0.9 R78: ⌘ keeps it off disk; ⌥ is the ladder's
                 badge.font = DesignTokens.sans
                 badge.textColor = .secondaryLabelColor
                 badge.sizeToFit()
@@ -238,7 +238,7 @@ final class RingView: NSView {
         }
     }
 
-    func showOptionBadge(_ visible: Bool) {
+    func showCommandBadge(_ visible: Bool) {
         for badge in badges.values { badge.alphaValue = visible ? 1 : 0 }
     }
 

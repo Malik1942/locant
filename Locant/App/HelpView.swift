@@ -47,10 +47,10 @@ struct HelpView: View {
                     }
                 }
                 Section("The other actions") {
-                    Row(symbol: "camera.viewfinder", title: "Snap", detail: "A window or a dragged region as a PNG. Hold ⌥ at release to keep it off disk.", key: preferences.actionHotkeys["snap"]?.symbol)
+                    Row(symbol: "camera.viewfinder", title: "Snap", detail: "The window under the cursor, or a dragged region, as a PNG. Option picks the element under the cursor instead, and again its parent; hold ⌘ at the click to keep it off disk.", key: preferences.actionHotkeys["snap"]?.symbol)
                     Row(symbol: "text.viewfinder", title: "Text", detail: "The text in an element or a region, recognized, to the clipboard.", key: preferences.actionHotkeys["text"]?.symbol)
                     Row(symbol: "eyedropper", title: "Color", detail: "A magnifier follows the cursor. Arrows nudge by a pixel, click copies the value.", key: preferences.actionHotkeys["color"]?.symbol)
-                    Row(symbol: "person.and.background.dotted", title: "Cut", detail: "The subject cut onto a transparent background.", key: preferences.actionHotkeys["cut"]?.symbol)
+                    Row(symbol: "person.and.background.dotted", title: "Cut", detail: "The subject cut onto a transparent background, from the element, the window, or a frame. ⌥ and ⌘ as in Snap.", key: preferences.actionHotkeys["cut"]?.symbol)
                     Row(symbol: "circle.circle", title: "The ring", detail: "All four are on the ball: hold it for half a second and release on one. A shorter press is Point.", key: nil)
                 }
                 // These rows are the settings themselves, so a reader decides without leaving the page.
