@@ -3,7 +3,7 @@
 # file is copied over. Install: brew install Malik1942/locant/locant
 cask "locant" do
   version "0.9.0"
-  sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+  sha256 "75748ca6d365c93c3fd196d89207d04ac5f4c16bab37f0fb541c77c51afbf36f"
 
   url "https://github.com/Malik1942/locant/releases/download/v#{version}/Locant-#{version}.dmg"
   name "Locant"
