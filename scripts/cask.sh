@@ -19,13 +19,12 @@ sed -i '' \
 
 echo "▸ $CASK"
 grep -E '^  (version|sha256) ' "$CASK"
-if command -v brew >/dev/null; then
-  brew style --cask "$CASK" || echo "  (brew style found something above; fix it before copying to the tap)"
-fi
+ruby -c "$CASK" >/dev/null
 cat <<EOF
-▸ Next, in the tap repository (Malik1942/homebrew-locant):
-    cp $CASK <tap>/Casks/locant.rb
-    cd <tap> && git commit -am "locant $VERSION" && git push
+▸ Next, in the tap repository (Malik1942/homebrew-locant; brew lints a cask only inside a tap):
+    cp $CASK "\$(brew --repository)/Library/Taps/malik1942/homebrew-locant/Casks/locant.rb"
+    brew audit --cask --online --strict locant && brew style --cask locant
+    cd "\$(brew --repository)/Library/Taps/malik1942/homebrew-locant" && git commit -am "locant $VERSION" && git push
   Then anyone can:
     brew install Malik1942/locant/locant
 EOF
