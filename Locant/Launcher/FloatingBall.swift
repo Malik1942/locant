@@ -42,7 +42,7 @@ final class FloatingBall {
     var onPoint: (() -> Void)?
     /// The user dragged the ball; persist the new origin (AppKit screen points, window origin).
     var onMoved: ((CGPoint) -> Void)?
-    /// A ring segment was chosen; `clipboardOnly` when ⌥ was held.
+    /// A ring segment was chosen; `clipboardOnly` when ⌘ was held (v0.9 R78; ⌥ until 0.8.1).
     var onAction: ((Ring.Segment, Bool) -> Void)?
     /// v0.8.1 R59: taps as the ring opens and as the pointer crosses into another segment.
     var feedback: Feedback?
@@ -339,7 +339,7 @@ final class FloatingBall {
     func pressMoved(to point: CGPoint) {
         guard ringOpen else { return }
         let before = ring.hovered
-        if ring.hover(at: point, optionHeld: NSEvent.modifierFlags.contains(.option)) != before {
+        if ring.hover(at: point, commandHeld: NSEvent.modifierFlags.contains(.command)) != before {
             feedback?.tap(.alignment)
         }
     }
@@ -350,10 +350,10 @@ final class FloatingBall {
         holdTask = nil
         guard ringOpen else { return false }
         ringOpen = false
-        let chosen = ring.hover(at: point, optionHeld: false)
-        let optionHeld = NSEvent.modifierFlags.contains(.option)
+        let chosen = ring.hover(at: point, commandHeld: false)
+        let commandHeld = NSEvent.modifierFlags.contains(.command)
         ring.close()
-        if let chosen { onAction?(chosen, optionHeld && chosen.acceptsClipboardOnly) }
+        if let chosen { onAction?(chosen, commandHeld && chosen.acceptsClipboardOnly) }
         scheduleDock()
         return true
     }

@@ -592,8 +592,8 @@ final class AppState {
     private static func hintText(for action: Action) -> String {
         switch action {
         case .point: "↩ picks · drag for a frame · ⌥ for the parent"
-        case .snap, .cut: "↩ takes the window · drag for a frame"
-        case .text: "↩ takes the text · drag for a frame"
+        case .snap, .cut: "↩ picks · drag for a frame · ⌥ up a level · ⌘ clipboard only"
+        case .text: "↩ takes the text · drag for a frame · ⌥ up a level"
         }
     }
 
@@ -611,24 +611,16 @@ final class AppState {
         defer { hoverTask = nil }
         while phase == .hovering, !Task.isCancelled, let point = pendingHover {
             pendingHover = nil
-            if action == .snap || action == .cut {
-                // Window under the cursor, no accessibility needed.
-                lastHoverPoint = point
-                let window = Geometry.windowOwner(at: point, windows: windows, excludingPID: ownPID)
-                let drawn: Bool
-                if let window {
-                    let name = NSRunningApplication(processIdentifier: window.ownerPID)?.localizedName ?? "window"
-                    drawn = overlay.setHighlight(window.bounds, readout: Readout(role: "window", identifier: nil, suffix: name, isFallback: false), around: point)
-                } else {
-                    drawn = overlay.setHighlight(nil, readout: .describing(nil), around: point)
-                }
-                if drawn, outlineMoves.moved(to: window?.bounds) { tapOutline(.alignment) }
-                try? await Task.sleep(for: .milliseconds(33))
-                continue
-            }
             let fresh = await reader.snapshot(at: point, candidates: windowCandidates(at: point), fallbackPID: context?.frontPID ?? 0)
             guard phase == .hovering, !Task.isCancelled else { return }
-            let freshLevels = fresh.map { HitRefiner.selectionLevels(for: $0, at: point) } ?? []
+            var freshLevels = fresh.map { HitRefiner.selectionLevels(for: $0, at: point) } ?? []
+            if action == .snap || action == .cut {
+                // v0.9 R77: the same ladder as Point, ending in the window under the cursor, which
+                // comes from the window list and needs no accessibility.
+                let window = Geometry.windowOwner(at: point, windows: windows, excludingPID: ownPID)
+                let name = window.flatMap { NSRunningApplication(processIdentifier: $0.ownerPID)?.localizedName }
+                freshLevels = HitRefiner.addingWindow(freshLevels, window: window?.bounds, appName: name)
+            }
             let freshElement = freshLevels.first ?? nil
             let freshIsVague = freshElement.map { ElementResolver.containerRoles.contains($0.role) } ?? true
             if freshIsVague, HitRefiner.sticks(lastHoverElement, to: point) {
@@ -662,6 +654,10 @@ final class AppState {
     private func renderHover(step: Bool = false) {
         let element = selectedElement()
         var readout = Readout.describing(element)
+        if action == .snap || action == .cut, let element, element.role == "window", element.identifier == nil {
+            // R77: the window rung reads as it did when Snap hovered windows: `window · Safari`.
+            readout = Readout(role: "window", identifier: nil, suffix: element.label, isFallback: false)
+        }
         if levelIndex > 0 {
             readout.suffix = [readout.suffix, "↑\(levelIndex)"].compactMap { $0 }.joined(separator: " · ")
         }
@@ -794,7 +790,13 @@ final class AppState {
         case .point:
             break
         case .snap, .cut:
-            let rect = Geometry.windowOwner(at: point, windows: windows, excludingPID: ownPID)?.bounds
+            // v0.9 R77: the outline at its level, exactly, when the click is on or near it or a level
+            // was chosen on purpose; else the window under the point, else the display.
+            let slack = HitRefiner.stickiness
+            let hovered = selectedElement()
+            let hoverIsCurrent = hovered.map { $0.frame.cgRect.insetBy(dx: -slack, dy: -slack).contains(point) } ?? false
+            let rect = (hoverIsCurrent || levelIndex > 0 ? hovered?.frame.cgRect : nil)
+                ?? Geometry.windowOwner(at: point, windows: windows, excludingPID: ownPID)?.bounds
                 ?? SelectionOverlay.displayFrameCG(containing: point)
             runOneShot(on: rect, at: point, fromRegion: false)
             return
@@ -922,12 +924,12 @@ final class AppState {
 
     // MARK: One-shot actions (R23, R24, R26)
 
-    /// Snap, Text, Cut: the overlay closes at once, the pixels are read, and the result goes to the
-    /// clipboard (and to disk for images unless ⌥ was held). Failures leave the clipboard untouched.
+    /// Snap, Text, Cut: the pixels are read, the overlay closes, and the result goes to the
+    /// clipboard (and to disk for images unless ⌘ was held, v0.9 R78). Failures leave the clipboard untouched.
     private func runOneShot(on rect: CGRect, at point: CGPoint, fromRegion: Bool) {
         guard let context else { return }
         let which = action
-        let optionHeld = NSEvent.modifierFlags.contains(.option) || clipboardOnlyPreset
+        let clipboardOnly = NSEvent.modifierFlags.contains(.command) || clipboardOnlyPreset
         clipboardOnlyPreset = false
         let appName = Geometry.windowOwner(at: point, windows: windows, excludingPID: ownPID)
             .flatMap { NSRunningApplication(processIdentifier: $0.ownerPID)?.localizedName } ?? context.source.app.name
@@ -949,12 +951,12 @@ final class AppState {
                 let id = FileStore.makeID(date: Date())
                 switch which {
                 case .snap:
-                    if !optionHeld {
+                    if !clipboardOnly {
                         try store.writeImage(png: image.png, fileName: Screenshot.fileName(appName: appName, id: id), appName: appName, tag: "snap")
                     }
                     PasteboardWriter.write(png: image.png)
                     let size = "\(MarkdownBuilder.number(image.widthPt))×\(MarkdownBuilder.number(image.heightPt))"
-                    finishOneShot(HudText.plain(optionHeld ? "Snapped · \(size) · clipboard only" : "Snapped · \(size)"), near: crop, sound: .landed)
+                    finishOneShot(HudText.plain(clipboardOnly ? "Snapped · \(size) · clipboard only" : "Snapped · \(size)"), near: crop, sound: .landed)
                 case .text:
                     let lines = try await OCR.text(inPNG: image.png)
                     guard !lines.isEmpty else {
@@ -970,11 +972,11 @@ final class AppState {
                         finishOneShot(HudText.plain("No subject found"), near: crop, sound: .missed)
                         return
                     }
-                    if !optionHeld {
+                    if !clipboardOnly {
                         try store.writeImage(png: subject, fileName: Cutout.fileName(appName: appName, id: id), appName: appName, tag: "cut")
                     }
                     PasteboardWriter.write(png: subject)
-                    finishOneShot(HudText.plain(optionHeld ? "Cut · clipboard only" : "Cut"), near: crop, sound: .landed)
+                    finishOneShot(HudText.plain(clipboardOnly ? "Cut · clipboard only" : "Cut"), near: crop, sound: .landed)
                 case .point:
                     reset()
                 }
