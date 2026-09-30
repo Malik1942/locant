@@ -629,8 +629,7 @@ final class AppState {
                 if freshElement?.frame != lastHoverElement?.frame {
                     // v0.9 R77: Snap and Cut open on the window and stay there as the cursor moves;
                     // once Option has left the window, the element level persists as in Point.
-                    let atWindow = startsAtWindow && (levels.isEmpty || selectedElement()?.role == "window")
-                    levelIndex = atWindow ? max(0, freshLevels.count - 1) : 0
+                    levelIndex = startsAtWindow && snapAtWindow ? max(0, freshLevels.count - 1) : 0
                 }
                 lastHoverSnapshot = fresh
                 levels = freshLevels
@@ -663,7 +662,7 @@ final class AppState {
             // R77: the window rung reads as it did when Snap hovered windows: `window · Safari`.
             readout = Readout(role: "window", identifier: nil, suffix: element.label, isFallback: false)
         }
-        if levelIndex > 0, !(startsAtWindow && element?.role == "window") {
+        if levelIndex > 0, !(startsAtWindow && snapAtWindow) {
             readout.suffix = [readout.suffix, "↑\(levelIndex)"].compactMap { $0 }.joined(separator: " · ")
         }
         guard overlay.setHighlight(element?.frame.cgRect, readout: readout, around: lastHoverPoint) else { return }
@@ -678,11 +677,15 @@ final class AppState {
     /// v0.9 R77: Snap and Cut open on the ladder's top rung, the window, since that is what a
     /// screenshot usually is; Option jumps to the element and walks up from there.
     private var startsAtWindow: Bool { action == .snap || action == .cut }
+    /// R77: whether Snap or Cut is still on the top rung. True until Option leaves it, true again
+    /// when Option comes back around; the cursor's moves keep whichever it is.
+    private var snapAtWindow = true
 
     /// Option while hovering: cluster, parent, grandparent, … then back to the element.
     private func optionPressed() {
         guard phase == .hovering, levels.count > 1 else { return }
         levelIndex = (levelIndex + 1) % levels.count
+        if startsAtWindow { snapAtWindow = levelIndex == levels.count - 1 }
         renderHover(step: true)
     }
 
@@ -804,7 +807,7 @@ final class AppState {
             let slack = HitRefiner.stickiness
             let hovered = selectedElement()
             let hoverIsCurrent = hovered.map { $0.frame.cgRect.insetBy(dx: -slack, dy: -slack).contains(point) } ?? false
-            let chosenOnPurpose = levelIndex > 0 && hovered?.role != "window"
+            let chosenOnPurpose = levelIndex > 0 && !snapAtWindow
             let rect = (hoverIsCurrent || chosenOnPurpose ? hovered?.frame.cgRect : nil)
                 ?? Geometry.windowOwner(at: point, windows: windows, excludingPID: ownPID)?.bounds
                 ?? SelectionOverlay.displayFrameCG(containing: point)
@@ -1106,6 +1109,7 @@ final class AppState {
         lastHoverElement = nil
         levels = []
         levelIndex = 0
+        snapAtWindow = true
         outlineMoves = OutlineMoves()
         context = nil
         windows = []

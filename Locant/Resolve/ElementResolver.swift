@@ -298,7 +298,9 @@ enum HitRefiner {
     static func addingWindow(_ levels: [ResolvedElement?], window: CGRect?, appName: String?) -> [ResolvedElement?] {
         let rungs = levels.compactMap { $0 }
         guard let window, window.width > 0, window.height > 0 else { return rungs }
-        if let top = rungs.last, spans(top.frame, window: Frame(window)) { return rungs }
+        // Only a rung that is the window itself stands in for it; a content group that covers most
+        // of the window is not the window (it lacks the title bar and the toolbar).
+        if let top = rungs.last, matches(top.frame, Frame(window)) { return rungs }
         let element = ResolvedElement(
             role: "window", rawRole: "AXWindow", label: appName, identifier: nil, identifierSource: .unknown,
             value: nil, frame: Frame(window), path: [PathEntry(role: "window", identifier: nil)]
@@ -395,6 +397,11 @@ enum HitRefiner {
             guard let f = node.frame, f.w > 0, f.h > 0 else { return false }
             return f.w * f.h < backgroundFraction * containerArea
         }
+    }
+
+    /// The same rectangle, within a point on every side.
+    static func matches(_ a: Frame, _ b: Frame) -> Bool {
+        abs(a.x - b.x) <= 1 && abs(a.y - b.y) <= 1 && abs(a.w - b.w) <= 1 && abs(a.h - b.h) <= 1
     }
 
     static func spans(_ frame: Frame?, window: Frame?) -> Bool {

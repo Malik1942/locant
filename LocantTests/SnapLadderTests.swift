@@ -29,11 +29,16 @@ final class SnapLadderTests: XCTestCase {
         XCTAssertEqual(levels.map { $0?.role }, ["window"])
     }
 
-    // 3: a top rung that already spans the window is not doubled.
-    func testSpanningTopRungIsNotDoubled() {
-        let group = element("group", Frame(x: 101, y: 101, w: 798, h: 598))
-        let levels = HitRefiner.addingWindow([element("button", Frame(x: 120, y: 120, w: 80, h: 30)), group], window: window, appName: "Mail")
-        XCTAssertEqual(levels.map { $0?.role }, ["button", "group"])
+    // 3: a top rung that is the window itself is not doubled; a content group that only covers
+    // most of it is not the window (no title bar, no toolbar), so the window is still appended.
+    func testOnlyTheWindowItselfStandsInForTheWindow() {
+        let button = element("button", Frame(x: 120, y: 120, w: 80, h: 30))
+        let axWindow = element("window", Frame(x: 100, y: 100, w: 800, h: 600))
+        XCTAssertEqual(HitRefiner.addingWindow([button, axWindow], window: window, appName: "Mail").map { $0?.role }, ["button", "window"])
+        let offByOne = element("window", Frame(x: 100.5, y: 100, w: 800, h: 599.5))
+        XCTAssertEqual(HitRefiner.addingWindow([button, offByOne], window: window, appName: "Mail").map { $0?.role }, ["button", "window"])
+        let content = element("group", Frame(x: 100, y: 152, w: 800, h: 548))
+        XCTAssertEqual(HitRefiner.addingWindow([button, content], window: window, appName: "Mail").map { $0?.role }, ["button", "group", "window"])
     }
 
     // 4: no window (the desktop, the menu bar): the elements alone, empty rungs dropped.
