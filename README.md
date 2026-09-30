@@ -165,11 +165,12 @@ Mac.
 **Four more actions**, on the same gesture. Hold the ball for half a second and release on one, or use
 the hotkey.
 
-- **Snap** (⌃⌥2): a window or a dragged region as a PNG. Hold ⌥ at release to keep it off disk.
+- **Snap** (⌃⌥2): the element under the cursor, the window, or a dragged region as a PNG. Option
+  steps up a level, to the window at the top. Hold ⌘ at the click to keep it off disk.
 - **Text** (⌃⌥3): the text in an element or a region, recognized, to the clipboard. Nothing on disk.
 - **Color** (⌃⌥4): a magnifier follows the cursor; arrows nudge by a pixel, click copies the value.
   Hex, rgb(), hsl(), or SwiftUI Color, in sRGB or Display P3.
-- **Cut** (⌃⌥5): the subject cut onto a transparent background.
+- **Cut** (⌃⌥5): the subject cut onto a transparent background, from an element, a window, or a frame.
 
 **And**
 
@@ -243,7 +244,8 @@ macOS 15, an Intel Mac, a non-English system, or a second display is what 0.9 is
   page is fix mode. Tested in Chromium browsers and Electron; Safari exposes the same attributes but
   has not been exercised.
 - Menus and popovers stay open under the overlay, but an element inside another app's menu may not resolve.
-- Snap and Cut on a click take a normal window only, not the desktop, menu bar, or Dock.
+- Snap and Cut reach the window as the top of their ladder only over a normal window; on the desktop,
+  the menu bar, or the Dock the ladder stops at the element.
 
 ## Under the hood
 

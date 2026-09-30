@@ -6,6 +6,8 @@ Every release is a signed, notarized `Locant.dmg` on [GitHub Releases](https://g
 
 The version for feedback from Macs that are not the author's. No change to the capture flow, the payload, the schema, or the MCP server.
 
+- **Snap and Cut take the element.** They hover the element under the cursor the way Point does, Option steps up a level, and the window is the top of the ladder; click or Return takes the outline exactly, a drag still takes a frame. Keeping a capture off disk moved from ⌥ to ⌘, on the overlay and on the ring.
+- **A hover state survives.** Snap, Text, and Cut read the pixels before the overlay goes, so a lit button or a tooltip is what gets captured.
 - **Copy Diagnostics** in Settings › General: version, macOS, chip, displays, the two permission grants, hotkeys, and settings as one block to paste into an issue. Your user name is replaced by `~`; nothing from any capture is included, and nothing is sent.
 - **The app bundle is stapled**, not only the dmg, so a copy dragged out of the dmg opens without an online Gatekeeper lookup.
 - **Homebrew**: `brew install Malik1942/locant/locant`. Each release also carries a versioned `Locant-<version>.dmg` for the cask.
