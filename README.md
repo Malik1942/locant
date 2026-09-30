@@ -241,13 +241,14 @@ macOS 15, an Intel Mac, a non-English system, or a second display is what 0.9 is
 - Hover picks the smallest control and sticks to it. Press Option to step to the parent.
 - iOS Simulator: which app it is showing is inferred from the most recently launched simulated process.
   With two apps in one device, the newer one is assumed. The tree is built lazily; Locant retries for up
-  to 600 ms before giving up.
+  to 600 ms before giving up. Xcode 27 shows simulators in Device Hub, which also shows physical devices:
+  only a booted simulator there counts as the Simulator, and the app is the one on that device.
 - Web pages and Electron apps: the DOM id and class list come through, and the page URL; a `localhost`
   page is fix mode. Tested in Chromium browsers and Electron; Safari exposes the same attributes but
   has not been exercised.
 - Menus and popovers stay open under the overlay, but an element inside another app's menu may not resolve.
-- Snap and Cut open on a normal window; on the desktop, the menu bar, or the Dock they open on the
-  largest element there is.
+- Snap and Cut open on a normal window, or on the device's screen in Xcode 27's Device Hub; on the
+  desktop, the menu bar, or the Dock they open on the largest element there is.
 
 ## Under the hood
 
