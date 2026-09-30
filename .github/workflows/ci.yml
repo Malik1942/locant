@@ -1,0 +1,53 @@
+# specs/v0.9.md R67: the same build and tests a contributor runs, on every push to main and every
+# pull request. No signing, no secrets, no release: releases are built on a Mac that holds the
+# Developer ID and the notary profile (scripts/release.sh).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build and test
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Xcode version
+        run: xcodebuild -version
+      - name: Build and test
+        run: |
+          mkdir -p build
+          xcodebuild -project Locant.xcodeproj -scheme Locant -destination 'platform=macOS' test \
+            CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual \
+            -derivedDataPath build/DerivedData-ci -quiet 2>&1 | tee build/xcodebuild.log
+      - name: Test summary
+        if: always()
+        run: grep -E "Executed [0-9]+ tests|TEST (SUCCEEDED|FAILED)" build/xcodebuild.log | tail -2
+
+  files:
+    name: Schema and skill
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: The capture schema is valid JSON
+        run: python3 -m json.tool schema/capture.schema.json > /dev/null
+      - name: The Locant skill's frontmatter
+        # The static half of scripts/check-skill.sh; the skill's own command needs the app.
+        run: |
+          skill=plugins/locant/skills/locant/SKILL.md
+          test "$(sed -n 1p $skill)" = "---"
+          name=$(awk 'NR > 1 && /^---$/ { exit } NR > 1 && sub(/^name: /, "") { print }' $skill)
+          test "$name" = locant
+          awk 'NR > 1 && /^---$/ { exit } /^description: ./ { found = 1 } END { exit !found }' $skill
+      - name: The plugin manifests are valid JSON
+        run: |
+          python3 -m json.tool plugins/locant/.cursor-plugin/plugin.json > /dev/null
+          python3 -m json.tool .cursor-plugin/marketplace.json > /dev/null
