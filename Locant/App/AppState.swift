@@ -592,7 +592,7 @@ final class AppState {
     private static func hintText(for action: Action) -> String {
         switch action {
         case .point: "↩ picks · drag for a frame · ⌥ for the parent"
-        case .snap, .cut: "↩ picks · drag for a frame · ⌥ up a level · ⌘ clipboard only"
+        case .snap, .cut: "↩ takes the window · drag for a frame · ⌥ for an element · ⌘ clipboard only"
         case .text: "↩ takes the text · drag for a frame · ⌥ up a level"
         }
     }
@@ -626,7 +626,12 @@ final class AppState {
             if freshIsVague, HitRefiner.sticks(lastHoverElement, to: point) {
                 // Crossing padding: keep the small element and its Option level.
             } else {
-                if freshElement?.frame != lastHoverElement?.frame { levelIndex = 0 }
+                if freshElement?.frame != lastHoverElement?.frame {
+                    // v0.9 R77: Snap and Cut open on the window and stay there as the cursor moves;
+                    // once Option has left the window, the element level persists as in Point.
+                    let atWindow = startsAtWindow && (levels.isEmpty || selectedElement()?.role == "window")
+                    levelIndex = atWindow ? max(0, freshLevels.count - 1) : 0
+                }
                 lastHoverSnapshot = fresh
                 levels = freshLevels
                 lastHoverElement = freshElement
@@ -658,7 +663,7 @@ final class AppState {
             // R77: the window rung reads as it did when Snap hovered windows: `window · Safari`.
             readout = Readout(role: "window", identifier: nil, suffix: element.label, isFallback: false)
         }
-        if levelIndex > 0 {
+        if levelIndex > 0, !(startsAtWindow && element?.role == "window") {
             readout.suffix = [readout.suffix, "↑\(levelIndex)"].compactMap { $0 }.joined(separator: " · ")
         }
         guard overlay.setHighlight(element?.frame.cgRect, readout: readout, around: lastHoverPoint) else { return }
@@ -669,6 +674,10 @@ final class AppState {
             tapOutline(.alignment)
         }
     }
+
+    /// v0.9 R77: Snap and Cut open on the ladder's top rung, the window, since that is what a
+    /// screenshot usually is; Option jumps to the element and walks up from there.
+    private var startsAtWindow: Bool { action == .snap || action == .cut }
 
     /// Option while hovering: cluster, parent, grandparent, … then back to the element.
     private func optionPressed() {
@@ -795,7 +804,8 @@ final class AppState {
             let slack = HitRefiner.stickiness
             let hovered = selectedElement()
             let hoverIsCurrent = hovered.map { $0.frame.cgRect.insetBy(dx: -slack, dy: -slack).contains(point) } ?? false
-            let rect = (hoverIsCurrent || levelIndex > 0 ? hovered?.frame.cgRect : nil)
+            let chosenOnPurpose = levelIndex > 0 && hovered?.role != "window"
+            let rect = (hoverIsCurrent || chosenOnPurpose ? hovered?.frame.cgRect : nil)
                 ?? Geometry.windowOwner(at: point, windows: windows, excludingPID: ownPID)?.bounds
                 ?? SelectionOverlay.displayFrameCG(containing: point)
             runOneShot(on: rect, at: point, fromRegion: false)
