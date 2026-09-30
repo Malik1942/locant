@@ -1,8 +1,8 @@
 # Locant: Product Requirements Document
 
-**Status:** Draft v0.5 (Sep 13, 2026: design language; native Settings tokens; orb rest glow)
+**Status:** Living document. The specs in `specs/` are the record of what was built and when; where this PRD and a spec disagree, the spec wins.
 **Owner:** Malik Zhang
-**Platform:** macOS 15+, Apple Silicon, Swift 6 + SwiftUI/AppKit; MCP server in TypeScript
+**Platform:** macOS 15+, Apple silicon and Intel, Swift 6 + SwiftUI/AppKit; the MCP server is inside the app (`Locant --mcp`), no TypeScript
 
 ---
 
