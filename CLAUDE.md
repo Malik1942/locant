@@ -7,6 +7,7 @@ Read `docs/PRD.md` for background only. The task you are working on is always th
 - One task at a time, from one spec file. Do not start work that is not in the spec.
 - Ask before adding a dependency, a permission, a target, or a file outside the layout in the spec.
 - Small commits, one intent each, message in the form `area: what changed`. Never commit without a green build.
+- The Stop hook (`.claude/hooks/stop-green-build.sh`) enforces the green-build rule.
 - When a spec slot overruns, cut polish from the next slot, not its core. Tell me when you do.
 - Report in three lines: what you did, what you skipped, what you are unsure about. No summaries of the code.
 
