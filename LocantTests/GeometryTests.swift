@@ -86,4 +86,36 @@ final class GeometryTests: XCTestCase {
         XCTAssertEqual(onMenuTitle.map(\.ownerPID), [4242, 1282, 1284])
         XCTAssertEqual(Geometry.windowOwner(at: CGPoint(x: 1500, y: 700), windows: windows, excludingPID: 999), nil, "Snap and Cut still take normal windows only")
     }
+
+    // 7: an owner's answer counts only when it shows at the point. Wispr Flow keeps a transparent
+    // 490×1144 panel at layer 1000 over the left of the screen, so it is asked first over the Device
+    // Hub window; it answers with its menu bar, or with a button of its own window behind Device Hub.
+    func testAnswerCountsOnlyWhenItShowsAtThePoint() {
+        let wispr: pid_t = 65585, deviceHub: pid_t = 63568
+        let wisprWindow = CGRect(x: 353, y: 136, width: 1350, height: 850)
+        let deviceHubWindow = CGRect(x: 168, y: 235, width: 470, height: 1000)
+        let candidates: [Geometry.WindowRecord] = [
+            .init(ownerPID: wispr, layer: 1000, bounds: CGRect(x: 0, y: 86, width: 490, height: 1144)), // transparent panel
+            .init(ownerPID: 1282, layer: 20, bounds: CGRect(x: 0, y: 0, width: 2056, height: 1329)),    // Dock (screen-wide)
+            .init(ownerPID: deviceHub, layer: 0, bounds: deviceHubWindow),
+            .init(ownerPID: 64769, layer: 0, bounds: CGRect(x: 12, y: 65, width: 1795, height: 1199)),  // an app behind
+            .init(ownerPID: wispr, layer: 0, bounds: wisprWindow),
+        ]
+        let orb = CGPoint(x: 280, y: 555), card = CGPoint(x: 402, y: 461)
+        let menuBar = CGRect(x: 0, y: 0, width: 2056, height: 39)
+        XCTAssertFalse(Geometry.answerIsVisible(frame: menuBar, window: nil, owner: wispr, at: orb, candidates: candidates),
+                       "the menu bar is not at the point")
+        XCTAssertFalse(Geometry.answerIsVisible(frame: CGRect(x: 365, y: 459, width: 192, height: 36), window: wisprWindow, owner: wispr, at: card, candidates: candidates),
+                       "Device Hub's window covers Wispr Flow's there")
+        XCTAssertTrue(Geometry.answerIsVisible(frame: CGRect(x: 252, y: 527, width: 56, height: 99), window: deviceHubWindow, owner: deviceHub, at: orb, candidates: candidates))
+        XCTAssertTrue(Geometry.answerIsVisible(frame: CGRect(x: 405, y: 465, width: 50, height: 10), window: nil, owner: deviceHub, at: card, candidates: candidates),
+                      "within the hover tolerance of its frame")
+        // A sheet or popover is a window of its own app in front of the app's window: its own.
+        let sheet = CGRect(x: 200, y: 400, width: 400, height: 200)
+        let withSheet = [Geometry.WindowRecord(ownerPID: deviceHub, layer: 0, bounds: sheet)] + candidates
+        XCTAssertTrue(Geometry.answerIsVisible(frame: CGRect(x: 380, y: 450, width: 60, height: 30), window: sheet, owner: deviceHub, at: card, candidates: withSheet))
+        // What cannot be read stands, as before: no frame, no window, a window not under the point.
+        XCTAssertTrue(Geometry.answerIsVisible(frame: nil, window: nil, owner: wispr, at: card, candidates: candidates))
+        XCTAssertTrue(Geometry.answerIsVisible(frame: CGRect(x: 380, y: 450, width: 40, height: 20), window: CGRect(x: 900, y: 900, width: 200, height: 100), owner: deviceHub, at: card, candidates: candidates))
+    }
 }

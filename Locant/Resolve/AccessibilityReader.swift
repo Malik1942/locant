@@ -46,15 +46,16 @@ actor AccessibilityReader {
 
     /// R3: the element under `point`, asked of the app that owns what the user sees there.
     /// `candidates` are the on-screen windows containing the point, front to back (see
-    /// `Geometry.windowCandidates`). An owner that reports nothing at the point yields to the window
-    /// behind it: the Dock and the menu bar own screen-wide windows that are mostly empty, and the
+    /// `Geometry.windowCandidates`). An owner that reports nothing at the point, or something that
+    /// does not show there, yields to the window behind it: the Dock and the menu bar own screen-wide
+    /// windows that are mostly empty, a transparent panel's owner answers from elsewhere, and the
     /// Finder desktop lies under everything. A normal window whose app reports nothing ends the
     /// search, since nothing behind it is visible; the system-wide element is the last resort there.
     /// With no candidate at all, `fallbackPID` (the app frontmost at hotkey time) is asked.
     /// The returned snapshot carries the window that answered.
     func snapshot(at point: CGPoint, candidates: [Geometry.WindowRecord], fallbackPID: pid_t) -> ElementSnapshot? {
         for window in candidates {
-            if var snapshot = snapshot(at: point, pid: window.ownerPID) {
+            if var snapshot = snapshot(at: point, pid: window.ownerPID, candidates: candidates) {
                 snapshot.window = window
                 return snapshot
             }
@@ -68,11 +69,15 @@ actor AccessibilityReader {
         return systemWideSnapshot(at: point)
     }
 
-    /// Per-app hit test. Nil when the app has nothing at the point.
-    private func snapshot(at point: CGPoint, pid: pid_t) -> ElementSnapshot? {
+    /// Per-app hit test. Nil when the app has nothing at the point, or answers with something that
+    /// does not show there (see `Geometry.answerIsVisible`).
+    private func snapshot(at point: CGPoint, pid: pid_t, candidates: [Geometry.WindowRecord] = []) -> ElementSnapshot? {
         let app = AXUIElementCreateApplication(pid)
         enableAccessibilityIfNeeded(app: app, pid: pid)
         guard let element = hit(app, at: point) else { return nil }
+        let window = self.element(copy(element, kAXWindowAttribute)).flatMap { frame(copy($0, Self.frameAttribute)) }
+        guard Geometry.answerIsVisible(frame: frame(copy(element, Self.frameAttribute))?.cgRect, window: window?.cgRect,
+                                       owner: pid, at: point, candidates: candidates) else { return nil }
         return snapshot(of: refine(element, at: point))
     }
 

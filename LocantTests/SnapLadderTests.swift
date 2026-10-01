@@ -41,6 +41,16 @@ final class SnapLadderTests: XCTestCase {
         XCTAssertEqual(HitRefiner.addingWindow([button, content], window: window, appName: "Mail").map { $0?.role }, ["button", "group", "window"])
     }
 
+    // 3b: a view that fills the whole window (Device Hub, any window whose content runs under the
+    // title bar) is the window's own rectangle: the top rung is the window, read as one.
+    func testAViewThatFillsTheWindowReadsAsTheWindow() {
+        let button = element("button", Frame(x: 120, y: 120, w: 80, h: 30))
+        let filling = element("splitGroup", Frame(x: 100, y: 100, w: 800, h: 600))
+        let levels = HitRefiner.addingWindow([button, filling], window: window, appName: "Device Hub")
+        XCTAssertEqual(levels.map { $0?.role }, ["button", "window"])
+        XCTAssertEqual(levels.last??.label, "Device Hub")
+    }
+
     // 4: no window (the desktop, the menu bar): the elements alone, empty rungs dropped.
     func testNoWindowLeavesTheElements() {
         let icon = element("image", Frame(x: 10, y: 10, w: 64, h: 64))

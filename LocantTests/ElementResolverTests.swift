@@ -186,6 +186,31 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertNil(onNothing[0], "nothing specific here: fallback square, element null on click")
     }
 
+    /// SwiftUI nests several containers in one frame (three 456×900 groups in the Simulator, five
+    /// 470×1000 ones in Device Hub), and so does the web. They outline the same rectangle, so they
+    /// are one rung, and Option always moves the outline. Of a run the window stays, else the one
+    /// with an identifier, else the innermost.
+    func testSelectionLevelsCollapseRungsThatOutlineTheSameRectangle() throws {
+        let simulator = HitRefiner.selectionLevels(for: try fixture("simulator-path"), at: CGPoint(x: 228, y: 918))
+        XCTAssertEqual(simulator.map { $0?.role }, ["button", "group", "window", "application"])
+
+        let chrome = Frame(x: 168, y: 235, w: 470, h: 1000)
+        func filling(_ role: String, id: String? = nil) -> AttributeSet { AttributeSet(role: role, identifier: id, frame: chrome) }
+        let orb = ElementSnapshot(
+            element: node("AXButton", id: "oceanCurrent.product ideas", x: 252, y: 527, w: 55, h: 97),
+            ancestors: [node("AXGroup", x: 210, y: 320, w: 385, h: 837), filling("AXGroup"),
+                        filling("AXSplitGroup", id: "SidebarNavigationSplitView"), filling("AXGroup"), filling("AXSplitGroup"), filling("AXGroup")]
+        )
+        let levels = HitRefiner.selectionLevels(for: orb, at: CGPoint(x: 280, y: 555))
+        XCTAssertEqual(levels.map { $0?.role }, ["button", "group", "splitGroup"])
+        XCTAssertEqual(levels.last??.identifier, "SidebarNavigationSplitView", "the one with an identifier stays")
+        XCTAssertEqual(Set(levels.compactMap { $0?.frame }).count, levels.count, "every step moves the outline")
+
+        let window = ElementSnapshot(element: node("AXButton", x: 200, y: 300, w: 40, h: 20),
+                                     ancestors: [filling("AXGroup", id: "content"), AttributeSet(role: "AXWindow", frame: chrome)])
+        XCTAssertEqual(HitRefiner.selectionLevels(for: window, at: CGPoint(x: 210, y: 310)).map { $0?.role }, ["button", "window"])
+    }
+
     /// The Finder desktop: a screen-sized group under a scroll area, no window anywhere in the chain.
     /// It counts as spanning its root, so blank desktop is "nothing here" and an icon area is a cluster.
     func testDesktopWithoutWindowAncestorSpansItsRoot() throws {
@@ -198,7 +223,7 @@ final class ElementResolverTests: XCTestCase {
         let snapshot = ElementSnapshot(element: desktop, ancestors: [scrollArea, application], children: [icon, label])
         XCTAssertEqual(HitRefiner.windowFrame(in: snapshot), screen)
         let blank = HitRefiner.selectionLevels(for: snapshot, at: CGPoint(x: 1000, y: 600))
-        XCTAssertEqual(blank.map { $0?.role }, [nil, "group", "scrollArea"])
+        XCTAssertEqual(blank.map { $0?.role }, [nil, "group"], "the scroll area outlines the same screen as the group")
         let nearIcon = HitRefiner.selectionLevels(for: snapshot, at: CGPoint(x: 1990, y: 100))
         XCTAssertEqual(nearIcon.first??.role, "cluster", "icon and its label form one cluster")
     }

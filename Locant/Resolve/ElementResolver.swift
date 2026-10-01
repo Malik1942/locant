@@ -293,14 +293,18 @@ enum HitRefiner {
 
     /// v0.9 R77: Snap and Cut end their ladder in the window. Empty rungs go; the window (role
     /// `window`, the app's name as its label, the window's bounds) is appended unless the top rung
-    /// already spans it. No window (the desktop, the menu bar, the Dock): the elements alone. No
-    /// elements (a canvas, Figma): the window alone.
+    /// already is the window, and takes the place of a view that fills it. No window (the desktop,
+    /// the menu bar, the Dock): the elements alone. No elements (a canvas, Figma): the window alone.
     static func addingWindow(_ levels: [ResolvedElement?], window: CGRect?, appName: String?) -> [ResolvedElement?] {
-        let rungs = levels.compactMap { $0 }
+        var rungs = levels.compactMap { $0 }
         guard let window, window.width > 0, window.height > 0 else { return rungs }
-        // Only a rung that is the window itself stands in for it; a content group that covers most
-        // of the window is not the window (it lacks the title bar and the toolbar).
-        if let top = rungs.last, matches(top.frame, Frame(window)) { return rungs }
+        // Only a rung with the window's own rectangle stands in for it; a content group that covers
+        // most of the window is not the window (it lacks the title bar and the toolbar). Such a rung
+        // that is not the window itself is a view filling the window, and reads as the window.
+        if let top = rungs.last, matches(top.frame, Frame(window)) {
+            if top.role == "window" { return rungs }
+            rungs.removeLast()
+        }
         let element = ResolvedElement(
             role: "window", rawRole: "AXWindow", label: appName, identifier: nil, identifierSource: .unknown,
             value: nil, frame: Frame(window), path: [PathEntry(role: "window", identifier: nil)]
@@ -424,8 +428,28 @@ enum HitRefiner {
 
     /// What Option cycles through, innermost first. A nil level means "nothing specific here"
     /// (the fallback square, `element: null` on click). Ancestors without a usable frame are skipped,
-    /// so the chain never ends in a phantom.
+    /// so the chain never ends in a phantom, and rungs that outline the same rectangle are one rung.
     static func selectionLevels(for snapshot: ElementSnapshot, at point: CGPoint) -> [ResolvedElement?] {
+        collapsingSameFrames(ladder(for: snapshot, at: point))
+    }
+
+    /// SwiftUI nests several containers in one frame (three in the Simulator, five in Device Hub), and
+    /// so does the web; stepping through them left the outline where it was. Of each run the window
+    /// stays, else the one with an identifier, else the innermost.
+    static func collapsingSameFrames(_ levels: [ResolvedElement?]) -> [ResolvedElement?] {
+        func weight(_ rung: ResolvedElement) -> Int { rung.role == "window" ? 2 : rung.identifier == nil ? 0 : 1 }
+        var collapsed: [ResolvedElement?] = []
+        for level in levels {
+            guard let level, let last = collapsed.last ?? nil, matches(last.frame, level.frame) else {
+                collapsed.append(level)
+                continue
+            }
+            if weight(level) > weight(last) { collapsed[collapsed.count - 1] = level }
+        }
+        return collapsed
+    }
+
+    private static func ladder(for snapshot: ElementSnapshot, at point: CGPoint) -> [ResolvedElement?] {
         let base = ElementResolver.resolve(snapshot)
         let window = windowFrame(in: snapshot)
         var levels: [ResolvedElement?] = []

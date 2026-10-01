@@ -112,4 +112,25 @@ enum Geometry {
     static func windowCandidates(at point: CGPoint, windows: [WindowRecord], excludingPID: pid_t) -> [WindowRecord] {
         windows.filter { $0.ownerPID != excludingPID && $0.bounds.contains(point) }
     }
+
+    /// Whether an owner's answer to a hit test at `point` is what shows there. An app hit-tests all
+    /// of its own windows, and its menu bar, wherever they sit among other apps' windows; asked
+    /// because of a transparent panel (Wispr Flow keeps one over the left of the screen), it answers
+    /// with its menu bar, or with an element of its own window behind someone else's. Not at the
+    /// point: a frame that does not hold it, or a window (`window`, the element's own) that another
+    /// app's normal window covers there. What cannot be read stands.
+    static func answerIsVisible(frame: CGRect?, window: CGRect?, owner: pid_t, at point: CGPoint,
+                                candidates: [WindowRecord], tolerance: Double = HitRefiner.tolerance) -> Bool {
+        if let frame, frame.width > 0, frame.height > 0, !frame.insetBy(dx: -tolerance, dy: -tolerance).contains(point) {
+            return false
+        }
+        guard let window,
+              let index = candidates.firstIndex(where: { $0.ownerPID == owner && matches($0.bounds, window) }) else { return true }
+        return !candidates[..<index].contains { $0.layer == 0 && $0.ownerPID != owner }
+    }
+
+    /// The same window, read once from the window list and once through accessibility.
+    private static func matches(_ a: CGRect, _ b: CGRect) -> Bool {
+        abs(a.minX - b.minX) <= 2 && abs(a.minY - b.minY) <= 2 && abs(a.width - b.width) <= 2 && abs(a.height - b.height) <= 2
+    }
 }
