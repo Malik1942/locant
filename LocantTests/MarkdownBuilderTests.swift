@@ -171,6 +171,12 @@ final class MarkdownBuilderTests: XCTestCase {
         c.source.projectRoot = "/Users/malik/Documents/inspire-ocean"
         let l = lines(MarkdownBuilder.build(c))
         XCTAssertEqual(l[4], "Project: /Users/malik/Documents/inspire-ocean")
+        XCTAssertEqual(l[5], MarkdownBuilder.projectAdvice, "the path alone went unread by agents in another checkout")
+        XCTAssertEqual(l[6], "", "the source block ends after the advice")
+    }
+
+    func testNoProjectAdviceWithoutRoot() {
+        XCTAssertFalse(MarkdownBuilder.build(capture(element: element())).contains(MarkdownBuilder.projectAdvice))
     }
 
     func testNumberFormatting() {

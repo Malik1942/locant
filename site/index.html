@@ -435,7 +435,7 @@
     <p class="name">Locant <span>for Mac</span></p>
     <h1>Point, don't&nbsp;describe.</h1>
     <p class="lede">Point at one element in any app. Your coding agent gets the element, not a screenshot.</p>
-    <p class="proof">Given a screenshot, the agent stopped to ask which element in <b>17 of 18</b> runs. Given a Locant capture, <b>0 of 12</b>. <a href="#measured">How it was measured</a></p>
+    <p class="proof">Given a screenshot, the agent changed the wrong worktree's code in <b>14 of 20</b> runs. Given a Locant capture, <b>0 of 20</b>. <a href="#measured">How it was measured</a></p>
     <div class="cta">
       <a class="btn" href="https://github.com/Malik1942/locant/releases/latest/download/Locant.dmg">Download for Mac</a>
       <a class="link" href="https://github.com/Malik1942/locant">View on GitHub</a>
@@ -559,17 +559,17 @@ make this rounded, match the other pills</pre>
   <section class="col" id="measured">
     <div class="sect-head">
       <h2>Measured against a screenshot</h2>
-      <p class="lede">Same fix, same model, same repo, same note. The only difference is what gets pasted: a ⌘⇧4 crop of the phone, or one Locant capture of the orb.</p>
+      <p class="lede">Same crop, same note, same model. The app on screen was built in one worktree and the agent works in another, as when each Claude Code session gets its own. The only difference is what gets pasted: Locant's crop of the component, or the Locant capture with its text.</p>
     </div>
     <figure class="shot" style="margin: 0 0 18px;">
-      <img src="assets/measured-comparison.png" width="2560" height="1440" alt="Two panels, no build and build verified. Bars: with a screenshot the agent stopped to ask which orb in 6 of 6 and 11 of 12 runs; with Locant, 0 of 6 both times. Dot strips of time to the edit: screenshot medians 39 and 33 seconds, Locant 22 and 16 seconds.">
+      <img src="assets/measured-worktrees.png" width="2560" height="1440" alt="Two panels. Changed the wrong copy at some point: screenshot 14 of 20 runs, Locant 0 of 20. Right with no reply needed: screenshot 4 of 20, Locant 19 of 20. Dot strips of time to the first change in the right file: screenshot median 80 seconds, with 4 runs that never got there; Locant median 39 seconds.">
     </figure>
     <div class="ladder">
-      <div class="rung"><span class="n">1</span><span class="chip">17 of 18 · 0 of 12</span><p><b>Stopped to ask which orb.</b> Screenshot runs asked; Locant runs never did. Fisher exact p ≤ 0.002 in both conditions.</p></div>
-      <div class="rung"><span class="n">2</span><span class="chip">39 s → 22 s · 33 s → 16 s</span><p><b>Time from paste to the edit,</b> medians, no build then build verified. The screenshot side's time already leaves out the seconds a person spends answering. Mann–Whitney p ≤ 0.002.</p></div>
-      <div class="rung"><span class="n">3</span><span class="chip">312k → 253k · 287k → 162k</span><p><b>Session tokens,</b> medians. The saving is the turns spent looking and asking, not the image.</p></div>
-      <div class="rung"><span class="n">4</span><span class="chip">30 of 30</span><p><b>Correct edit, right file, every run.</b> Every build in the build condition succeeded. Locant removes the one thing the agent could not know from pixels; it does not make the agent smarter.</p></div>
-      <div class="rung"><span class="n">5</span><span class="chip dash">One task, one app, one model</span><p><b>Read the caveats.</b> Claude Code on Opus 5 at medium effort, fresh session per run, no MCP on either side, no memory, the repo reset between runs, six pairs per condition with the order alternated. Method, raw transcripts and statistics: <a href="https://github.com/Malik1942/locant/blob/main/docs/video/10-measurement-v3.md">the report</a>.</p></div>
+      <div class="rung"><span class="n">1</span><span class="chip">14 of 20 · 0 of 20</span><p><b>Changed the copy that wasn't on screen.</b> Screenshot runs edited the agent's own worktree first; Locant runs went to the folder that built the app. In 14 pairs only the screenshot run did, never the reverse: exact McNemar p &lt; 0.001.</p></div>
+      <div class="rung"><span class="n">2</span><span class="chip">4 of 20 · 19 of 20</span><p><b>Right with no reply.</b> A run could get one reply when it asked or said the screen didn't match its code. The screenshot side needed 12 replies; Locant needed 1. p &lt; 0.001.</p></div>
+      <div class="rung"><span class="n">3</span><span class="chip">80 s → 39 s</span><p><b>Time to the first change in the right file,</b> medians of the runs that got there; Locant first in 17 of 20 pairs. Wilcoxon p &lt; 0.001. About half the cost.</p></div>
+      <div class="rung"><span class="n">4</span><span class="chip">16 of 20 · 20 of 20</span><p><b>Right in the end, after at most one reply.</b> All four screenshot misses are the same change: a look-alike in the agent's own copy, changed without a word, so you would find out only after rebuilding. p = 0.125, the lowest four pairs can reach.</p></div>
+      <div class="rung"><span class="n">5</span><span class="chip dash">Five changes, one app, one model</span><p><b>Read the caveats.</b> Claude Code on Opus 5 at medium effort, fresh session per run, no MCP on either side, no memory, every checkout reset between runs, four pairs per change with the order alternated, graded blind. A first round found Locant 0.9.0 short (the wrong copy in 9 of 20); one sentence in its payload fixed that, is measured here, and ships in the next release. Method, both rounds and statistics: <a href="https://github.com/Malik1942/locant/blob/main/docs/video/11-measurement-worktrees.md">the report</a>.</p></div>
     </div>
   </section>
 
@@ -673,7 +673,7 @@ make this rounded, match the other pills</pre>
       <p class="lede">The payload is plain Markdown, so most agents take it on paste. Locant is also an MCP server: connect Claude Code, Cursor, or Codex in Settings › Agents, then say what should change and the agent pulls the capture itself, image included. Run end to end; each row says when:</p>
     </div>
     <div class="agents">
-      <div class="agent"><b>Claude Code</b><span>Fetches the capture over MCP and opens the image; 30 measured runs below</span><span class="chip">Verified Sep 15, 2026</span></div>
+      <div class="agent"><b>Claude Code</b><span>Fetches the capture over MCP and opens the image; 80 measured runs above</span><span class="chip">Verified Sep 15, 2026</span></div>
       <div class="agent"><b>Cursor</b><span>Fetches over MCP; Cursor asks once to enable the server</span><span class="chip">Verified Sep 15, 2026</span></div>
       <div class="agent"><b>Codex CLI</b><span>Fetches over MCP and views the image at the path</span><span class="chip">Verified Sep 15, 2026</span></div>
       <div class="agent"><b>Grok Bot</b><span>Reads the capture on your Mac with the <a href="https://github.com/Malik1942/locant#in-grok-bot">Locant skill</a>; a paste carries only the image</span><span class="chip">Verified Sep 22, 2026</span></div>

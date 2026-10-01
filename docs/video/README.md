@@ -14,7 +14,8 @@ and optionally what you would do with more time. Less is more.
 | `06-film-script.md` | The product-film capture contract: stage, scenes, camera notes, and the capture log of what was shot. | The demo footage |
 | `07-demo-film-audit.md` | Scene-by-scene audit of the v3 footage against the film script, plus a timecoded verification pass on the delivered reel (`-v2.md` is the previous round). | Read before cutting |
 | `08-voiceover-to-reel.md` | The narration placed against the reel's timecodes, both as a stand-alone demo read and as the cut list into the pitch. | Recording and cutting |
-| `10-measurement-v3.md` | The controlled screenshot-versus-Locant measurement: method, 24 runs in two conditions, statistics, threats to validity. | Section 4 |
+| `10-measurement-v3.md` | The first controlled screenshot-versus-Locant measurement: method, 24 runs in two conditions, statistics, threats to validity. Superseded by `11`: its screenshot was the whole window, Locant's image one element. | Section 4 |
+| `11-measurement-worktrees.md` | Screenshot versus Locant when the app on screen was built from another worktree than the agent's: 80 graded runs in two rounds, Locant 0.9.0 and the payload change that fixed what the first round found. The measurement the site quotes. | The site's Measured section |
 | `09-rough-cut.md` | The full-pitch rough cut (`~/Desktop/locant-film/v4/rough/locant-pitch-roughcut-v1.mp4`), segment by segment, with the line to say over each. | Recording the voice-over |
 
 ## Delivered footage

@@ -2,6 +2,10 @@
 
 Every release is a signed, notarized `Locant.dmg` on [GitHub Releases](https://github.com/Malik1942/locant/releases). Drag the new copy over the old one; the permissions carry over.
 
+## Unreleased
+
+- **The Project line says what it is for.** Under `Project:`, the payload now says that folder built the app on screen, and that an agent working in a different checkout of the repo (another worktree or clone) should change the code there or ask which copy to change. Without it, agents in another worktree often found a look-alike in their own copy and changed that. In a 40-run test with the app on screen built from another worktree, Locant runs changed the wrong copy 0 times in 20 with this line, against 9 in 20 without it. The Locant skill follows the same rule.
+
 ## 0.9.0 (release candidate)
 
 The version for feedback from Macs that are not the author's. No change to the capture flow, the payload, the schema, or the MCP server.
