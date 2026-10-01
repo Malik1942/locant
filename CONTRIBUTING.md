@@ -27,7 +27,7 @@ That line is what CI runs. Ad hoc signing changes on every build, so macOS asks 
 ## Pull requests
 
 - A PR follows a spec in [`specs/`](specs/) or fixes a filed bug. For anything larger than a bug fix, open an issue first; the answer may be a spec, and the spec is where the design is argued.
-- Read [`docs/CLAUDE.md`](docs/CLAUDE.md): it is the house style, for people as much as for agents. Swift 6 strict concurrency, value types for data, typed errors, pure functions for anything transformable, and those get tests.
+- Read [`CLAUDE.md`](CLAUDE.md): it is the house style, for people as much as for agents. Swift 6 strict concurrency, value types for data, typed errors, pure functions for anything transformable, and those get tests.
 - Small commits, one intent each, message in the form `area: what changed`. Green build before every commit.
 - Do not reformat files you did not need to touch. Do not touch the README unless the change is user-facing.
 - The JSON sidecar and [`schema/capture.schema.json`](schema/capture.schema.json) are the only contract with the outside. A schema change is a spec, not a PR.
