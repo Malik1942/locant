@@ -14,7 +14,7 @@
 - Worktree `/Users/malik/Documents/Locant/.claude/worktrees/locant-grok-bot-integration-ecdc4f`, branch `am/locant-grok-bot-integration-ecdc4f`, PR https://github.com/Malik1942/locant/pull/42. Never merge; never enable auto-merge.
 - Skill `name: locant`, and it must match its folder `plugins/locant/skills/locant/`. The plugin carries no MCP server and no `mcp.json` (R65). Every manifest path is relative, with no `..`.
 - Locant 0.7.1 or later is required (`--mcp`). The skill does not check the version.
-- `docs/CLAUDE.md`: commits `area: what changed`, one intent each, no attribution lines. "Do not write the README until the spec's last slot": the top-level `README.md` changes only in Task 4.
+- `CLAUDE.md`: commits `area: what changed`, one intent each, no attribution lines. "Do not write the README until the spec's last slot": the top-level `README.md` changes only in Task 4.
 - Malik's captures never go to Grok and `resolve_capture` never runs on them: tests use a throwaway folder (`--folder`) or a neutral Calculator capture that goes to the Trash afterwards.
 - Changes to Malik's Grok Bot account (saving a private skill, installing a plugin) and taking the Mac for synthetic input need his yes first (Task 3 step 1).
 - Copy, verbatim from the spec (R66/R67):
