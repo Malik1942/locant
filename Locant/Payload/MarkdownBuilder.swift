@@ -42,9 +42,16 @@ enum MarkdownBuilder {
             "Captured: \(capturedText(capture.createdAt)) · Image region: \(region) (\(regionNote))",
         ]
         if let url = source.url { lines.append("URL: \(url)") }
-        if let root = source.projectRoot { lines.append("Project: \(root)") }
+        if let root = source.projectRoot {
+            lines.append("Project: \(root)")
+            lines.append(projectAdvice)
+        }
         return lines.joined(separator: "\n")
     }
+
+    /// v0.9.1: the Project line as a bare path went unread. An agent working in another checkout of the same repo
+    /// (a worktree, a clone) found a look-alike in its own copy and changed that, never the code on screen.
+    static let projectAdvice = "The app on screen was built from this folder. If you are working in a different checkout of this repo (another worktree or clone), your copy is not the code on screen: change it in this folder, or ask which copy to change."
 
     /// One numbered element of a set: its own app, window, and image when they differ from the capture's.
     private static func targetBlock(_ target: CaptureTarget, index: Int, capture: Capture) -> String {

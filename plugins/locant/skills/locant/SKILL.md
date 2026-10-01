@@ -38,7 +38,9 @@ what to search the code for.
 
 4. Say in one line which capture you are using: the element and when it was captured. Then do what the
    note asks. To find the code, search the user's project on the Mac for the identifier. Don't ask which
-   element they mean; the capture says.
+   element they mean; the capture says. A `Project:` line names the folder that built the app on screen:
+   if you are working in a different checkout of that repo (another worktree or clone), change the code in
+   that folder or ask which copy to change, rather than editing a look-alike in your own.
 5. When the change is done, mark the capture resolved: run the same command with this as the second
    request, using the `id` from the sidecar:
 
