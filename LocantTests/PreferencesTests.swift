@@ -19,6 +19,7 @@ final class PreferencesTests: XCTestCase {
         XCTAssertTrue(p.checksForUpdates)
         XCTAssertTrue(p.collectsIterations)
         XCTAssertFalse(p.pastesIntoAgent)
+        XCTAssertTrue(p.completesPaste)
         XCTAssertTrue(p.trackpadTaps)
         XCTAssertTrue(p.sounds)
         XCTAssertNil(p.lastUpdateCheck)
@@ -110,6 +111,7 @@ final class PreferencesTests: XCTestCase {
         p.checksForUpdates = false
         p.collectsIterations = false
         p.pastesIntoAgent = true
+        p.completesPaste = false
         p.trackpadTaps = false
         p.sounds = false
         p.lastUpdateCheck = Date(timeIntervalSince1970: 1_800_000_000)
@@ -127,6 +129,7 @@ final class PreferencesTests: XCTestCase {
         XCTAssertEqual(again.organization, .byProject)
         XCTAssertFalse(again.adjustSelection)
         XCTAssertFalse(again.checksForUpdates)
+        XCTAssertFalse(again.completesPaste)
         XCTAssertFalse(again.collectsIterations)
         XCTAssertTrue(again.pastesIntoAgent)
         XCTAssertFalse(again.trackpadTaps)

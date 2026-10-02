@@ -193,6 +193,109 @@ actor AccessibilityReader {
         }
     }
 
+    // MARK: The hand-off (specs/handoff.md R81–R83)
+
+    /// R82: focus in the message box of the app's focused window. False when the only editable text
+    /// there is a code editor, so a ⌘V would land in code. Usually the app already put focus back in
+    /// its message box, and two reads settle it; otherwise the window is walked.
+    func focusMessageBox(pid: pid_t) async -> Bool {
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(app, 0.25)
+        if let focused = element(copy(app, kAXFocusedUIElementAttribute)), isEditable(focused),
+           !editableArea(focused).isCodeEditor {
+            return true
+        }
+        guard let window = element(copy(app, kAXFocusedWindowAttribute)) ?? element(copy(app, kAXMainWindowAttribute)) else {
+            return true
+        }
+        let found = editableAreas(in: window)
+        let areas = found.map(\.area)
+        switch AgentPaste.messageBox(in: areas) {
+        case .focused, .unknown:
+            return true
+        case .onlyCodeEditor:
+            return false
+        case .focus(let index):
+            let box = found[index].element
+            AXUIElementSetAttributeValue(box, kAXFocusedAttribute as CFString, kCFBooleanTrue)
+            let took = await focusTakes(box)
+            return AgentPaste.canPaste(focusTook: took, areas: areas)
+        }
+    }
+
+    /// R82: Chromium applies a focus change a moment later (44 ms in Cursor on Oct 1, 2026; read back
+    /// at once, it still says no), so the focus is read back every 40 ms for up to 400 ms, and once it
+    /// took the page gets one more beat before the keys follow.
+    private func focusTakes(_ element: AXUIElement) async -> Bool {
+        for _ in 0..<10 {
+            if (copy(element, kAXFocusedAttribute) as? Bool) == true {
+                try? await Task.sleep(for: .milliseconds(60))
+                return true
+            }
+            try? await Task.sleep(for: .milliseconds(40))
+        }
+        return false
+    }
+
+    /// R83: whether the app's focused element takes an image paste (a message box, not code, not a
+    /// terminal pane). False when nothing can be read.
+    func focusTakesImagePaste(pid: pid_t) -> Bool {
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(app, 0.25)
+        guard let focused = element(copy(app, kAXFocusedUIElementAttribute)) else { return false }
+        let classes = copy(focused, "AXDOMClassList") as? [String] ?? []
+        return AgentPaste.takesImagePaste(editable: isEditable(focused), classes: classes, ancestorClasses: ancestorClasses(of: focused))
+    }
+
+    /// Chromium exposes a contenteditable message box as a text area.
+    private static let editableRoles: Set<String> = [kAXTextAreaRole, kAXTextFieldRole]
+
+    private func isEditable(_ element: AXUIElement) -> Bool {
+        string(copy(element, kAXRoleAttribute)).map { Self.editableRoles.contains($0) } ?? false
+    }
+
+    /// An editable element's classes and its four nearest ancestors' (R82's code-editor test), its
+    /// focus, and its bottom edge.
+    private func editableArea(_ element: AXUIElement) -> AgentPaste.EditableArea {
+        let classes = copy(element, "AXDOMClassList") as? [String] ?? []
+        let ancestors = ancestorClasses(of: element)
+        let frame = frame(copy(element, Self.frameAttribute))
+        return AgentPaste.EditableArea(
+            isFocused: (copy(element, kAXFocusedAttribute) as? Bool) == true,
+            isCodeEditor: AgentPaste.isCodeEditor(classes: classes, ancestorClasses: ancestors),
+            bottom: frame.map { $0.y + $0.h } ?? 0
+        )
+    }
+
+    private func ancestorClasses(of element: AXUIElement) -> [[String]] {
+        var ancestors: [[String]] = []
+        var current = element
+        for _ in 0..<4 {
+            guard let parent = self.element(copy(current, kAXParentAttribute)) else { break }
+            ancestors.append(copy(parent, "AXDOMClassList") as? [String] ?? [])
+            current = parent
+        }
+        return ancestors
+    }
+
+    /// Every editable text area in a window, breadth first, at most 3000 nodes; an editable area's own
+    /// children (its text) are not walked.
+    private func editableAreas(in window: AXUIElement) -> [(element: AXUIElement, area: AgentPaste.EditableArea)] {
+        var found: [(element: AXUIElement, area: AgentPaste.EditableArea)] = []
+        var queue: [AXUIElement] = [window]
+        var head = 0
+        while head < queue.count, head < 3000 {
+            let node = queue[head]
+            head += 1
+            if isEditable(node) {
+                found.append((node, editableArea(node)))
+                continue
+            }
+            queue.append(contentsOf: children(of: node))
+        }
+        return found
+    }
+
     /// specs/ball-edges.md R86: the Dock's tiles (its `AXList`), in CG coordinates. Nil without the
     /// Dock, without trust, or without a list. A hidden Dock (a full-screen Space, auto-hide) reports
     /// a frame off the bottom of the screen; its span along the edge is still right.

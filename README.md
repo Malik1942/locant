@@ -220,8 +220,10 @@ What each one did, and when it was run:
 | Claude Code 2.1.272 | Works: `latest_capture` answered "what did I just point at" with the element, app, and image path | Markdown text; reads the PNG from the `Image:` path | Sep 15, 2026 |
 | Cursor (agent CLI 2026.09) | Works, after `cursor-agent mcp enable locant`; the IDE prompts once instead | Markdown text; reads the path | Sep 15, 2026 |
 | Codex CLI 0.147.0 | Works: same answer; `view_image` opens the path, image blocks are never sent unasked | Markdown text | Sep 15, 2026 |
-| Grok Bot 0.57.1 | Fails: stdio connectors start on the bot's own cloud computer (`spawn … ENOENT`); the [Locant skill](#in-grok-bot) reads the capture on the Mac instead | The image only; the Markdown is dropped | Sep 22, 2026 |
-| Antigravity 2.15.0 | Not connected | Markdown text; opened the PNG at the `Image:` path and searched the identifier | Sep 18, 2026 |
+| Cursor 3.23.12, the app | | The Markdown and the image: your ⌘V pastes the text, Locant adds the image | Oct 1, 2026 |
+| Codex in ChatGPT 26.928 | | The Markdown and the image, the same way | Oct 1, 2026 |
+| Grok Bot 0.63.0 | Fails: stdio connectors start on the bot's own cloud computer (`spawn … ENOENT`); the [Locant skill](#in-grok-bot) reads the capture on the Mac instead | The Markdown and the image, the same way | Oct 1, 2026 |
+| Antigravity 2.15.0 | Not connected | The Markdown and the image, from an ordinary paste | Oct 1, 2026 |
 | Gemini CLI | The snippet from Settings › Agents; untested | Markdown text; untested | |
 
 Statuses say "untested" until someone tests them. A report of what your agent did with a payload, or
@@ -253,7 +255,10 @@ macOS 15, an Intel Mac, a non-English system, or a second display is what 0.9 is
 ## Under the hood
 
 Locant's event tap matches its hotkeys and passes every other key through untouched; nothing is
-logged. It never talks to the network except the release check, and stores nothing but its settings
+logged. One key it also watches: when you press ⌘V in the message box of Cursor, Codex, or Grok Bot
+while the clipboard still holds a capture, your keystroke pastes the text and Locant posts one paste
+of its own for the image, because those apps keep only half of a capture pasted whole.
+`defaults write com.malikzhang.deixis completesPaste -bool NO` turns that off. It never talks to the network except the release check, and stores nothing but its settings
 and the captures you make.
 
 <details>

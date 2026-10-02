@@ -74,6 +74,9 @@ final class AppState {
     @ObservationIgnored private var collecting = false
     /// v0.8.1 R63: the agent app that came forward last, by pid; `lastAgent` checks it is still that app.
     @ObservationIgnored private var lastAgentPID: pid_t?
+    /// specs/handoff.md R83: the newest capture as Return wrote it, and the clipboard's change count while it
+    /// still holds that item; what a ⌘V in an agent is completed from. In memory only.
+    @ObservationIgnored private var lastCapture: (markdown: String, png: Data, clipboardCount: Int)?
     /// v0.8.1 R63: a reader of its own for the target label, so a slow agent never holds up hover.
     @ObservationIgnored private let agentReader = AccessibilityReader()
     /// v0.8.1 R63: pastes under way; auto-verify ignores activations while any is. A count, since two
@@ -129,6 +132,7 @@ final class AppState {
             bindings.append(HotkeyMonitor.Binding(key, fire: fire))
         }
         let monitor = HotkeyMonitor(bindings: bindings)
+        monitor.onKey = { [weak self] event in self?.completePasteIfOurs(event) }
         monitor.start()
         hotkeys = monitor
         ball?.ringHints = ringHints()
@@ -275,23 +279,50 @@ final class AppState {
         return app
     }
 
-    /// After the clipboard: wait for the overlay to order out, so no Locant panel is key, then bring
-    /// the last agent forward and paste into its message field. It never sends. A newer capture, or
-    /// anything else written to the clipboard, cancels it at any step, silently. The toast speaks
+    /// After the clipboard: wait for the overlay to order out, so no Locant panel is key, then hand the
+    /// capture to the agent, the text and then the image (specs/handoff.md R80). It never sends. A newer capture,
+    /// or anything else written to the clipboard, cancels it at any step, silently. The toast speaks
     /// only when nothing was pasted.
-    private func pasteIntoAgent(near anchor: CGRect) async {
-        // Read first: commit(note:) calls this right after PasteboardWriter.write, reset(), and the
-        // toast, with no other clipboard write between, so this is what Return itself wrote.
-        let clipboard = NSPasteboard.general.changeCount
-        let proceed: @MainActor @Sendable () -> Bool = { self.phase == .idle && NSPasteboard.general.changeCount == clipboard }
+    private func pasteIntoAgent(near anchor: CGRect, markdown: String, png: Data) async {
+        // Made first: commit(note:) calls this right after PasteboardWriter.write, reset(), and the
+        // toast, with no other clipboard write between, so the count it notes is Return's.
+        let clipboard = HandoffPasteboard()
         try? await Task.sleep(for: .milliseconds(Int(DesignTokens.dismiss * 1000) + 40))
-        guard proceed() else { return }
-        let app = lastAgent
+        guard phase == .idle, clipboard.isOwn else { return }
+        let handoff = lastAgent.map { Handoff(app: $0, markdown: markdown, png: png) }
         pastesInFlight += 1
-        let outcome = await AgentPaster.paste(into: app, reader: agentReader, proceed: proceed)
+        let outcome = await AgentPaster.paste(handoff, clipboard: clipboard, reader: agentReader) { self.phase != .idle }
         pastesInFlight -= 1
-        if let text = AgentPaste.toastText(outcome, appName: app?.localizedName) {
+        if clipboard.isOwn { lastCapture?.clipboardCount = NSPasteboard.general.changeCount }
+        if let text = AgentPaste.toastText(outcome, appName: handoff?.app.localizedName) {
             toast.show(HudText.plain(text), near: anchor)
+        }
+    }
+
+    /// specs/handoff.md R83: the user's own ⌘V in a listed agent, while the clipboard still holds the newest
+    /// capture. Runs inside the key tap, before the key reaches the app: the clipboard becomes the text
+    /// alone (0.1 ms, measured), the key passes untouched and pastes it, and Locant adds the image
+    /// after. The key is never swallowed, delayed, or posted again.
+    private func completePasteIfOurs(_ event: KeyEventTap.KeyEvent) {
+        let modifiers: NSEvent.ModifierFlags = [.command, .shift, .option, .control]
+        guard event.kind == .keyDown, event.flags.intersection(modifiers) == .command,
+              let capture = lastCapture, let app = NSWorkspace.shared.frontmostApplication,
+              AgentPaste.completesPaste(
+                  enabled: preferences.completesPaste, plainCommandV: event.keyCode == AgentPaster.pasteKeyCode(),
+                  isRepeat: event.isRepeat, frontmost: app.bundleIdentifier,
+                  clipboardCount: NSPasteboard.general.changeCount, captureCount: capture.clipboardCount,
+                  idle: phase == .idle, inFlight: pastesInFlight > 0
+              ) else { return }
+        let clipboard = HandoffPasteboard()
+        clipboard.offer(Data(capture.markdown.utf8), as: .string)
+        clipboard.arm()
+        pastesInFlight += 1
+        Task { @MainActor in
+            await AgentPaster.addImage(after: clipboard, in: app, markdown: capture.markdown, png: capture.png, reader: agentReader) {
+                self.phase != .idle
+            }
+            pastesInFlight -= 1
+            if clipboard.isOwn { lastCapture?.clipboardCount = NSPasteboard.general.changeCount }
         }
     }
 
@@ -1066,7 +1097,9 @@ final class AppState {
                     capture.ocr = lines.joined(separator: "\n")
                 }
                 let written = try store.write(png: image.png, capture: capture)
-                PasteboardWriter.write(markdown: MarkdownBuilder.build(written), png: image.png)
+                let markdown = MarkdownBuilder.build(written)
+                PasteboardWriter.write(markdown: markdown, png: image.png)
+                lastCapture = (markdown, image.png, NSPasteboard.general.changeCount)
                 reset()
                 if let count = targets?.count {
                     toast.show(HudText.plain("Copied · \(count) elements"), near: anchor)
@@ -1076,7 +1109,7 @@ final class AppState {
                 feedback?.play(.landed)
                 // v0.8.1 R63: with the option on, the hint about fetching over MCP stays unspent.
                 if preferences.pastesIntoAgent {
-                    await pasteIntoAgent(near: anchor)
+                    await pasteIntoAgent(near: anchor, markdown: markdown, png: image.png)
                 } else {
                     showAgentHintIfNeeded()
                 }

@@ -122,6 +122,7 @@ final class Preferences {
         static let lastUpdateCheck = "lastUpdateCheck"
         static let skippedUpdateVersion = "skippedUpdateVersion"
         static let pastesIntoAgent = "pastesIntoAgent" // v0.8.1 R63
+        static let completesPaste = "completesPaste" // specs/handoff.md R83
         static let trackpadTaps = "trackpadTaps" // v0.8.1 R61
         static let sounds = "sounds" // v0.8.1 R61
     }
@@ -280,6 +281,12 @@ final class Preferences {
         didSet { defaults.set(pastesIntoAgent, forKey: Key.pastesIntoAgent) }
     }
 
+    /// specs/handoff.md R83: after the user's ⌘V of a capture in a listed agent, Locant adds the image. No
+    /// switch in Settings; a `defaults` key.
+    var completesPaste: Bool {
+        didSet { defaults.set(completesPaste, forKey: Key.completesPaste) }
+    }
+
     /// v0.8.1 R61: a tap under the finger as the outline moves, the ring opens, the segments pass.
     var trackpadTaps: Bool {
         didSet { defaults.set(trackpadTaps, forKey: Key.trackpadTaps) }
@@ -341,6 +348,7 @@ final class Preferences {
         collectsIterations = defaults.object(forKey: Key.collectsIterations) as? Bool ?? true
         checksForUpdates = defaults.object(forKey: Key.checksForUpdates) as? Bool ?? true
         pastesIntoAgent = defaults.object(forKey: Key.pastesIntoAgent) as? Bool ?? false
+        completesPaste = defaults.object(forKey: Key.completesPaste) as? Bool ?? true
         trackpadTaps = defaults.object(forKey: Key.trackpadTaps) as? Bool ?? true
         sounds = defaults.object(forKey: Key.sounds) as? Bool ?? true
         lastUpdateCheck = defaults.object(forKey: Key.lastUpdateCheck) as? Date

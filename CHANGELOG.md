@@ -4,6 +4,7 @@ Every release is a signed, notarized `Locant.dmg` on [GitHub Releases](https://g
 
 ## Unreleased
 
+- **A paste into an agent arrives whole.** The one clipboard item Return writes reached most agents in half: Cursor and Grok Bot kept the image and dropped the note and the identifier, Codex kept the text and dropped the image. Now, when you press ⌘V in the message box of Cursor, Codex, or Grok Bot, your own keystroke pastes the text and Locant adds the image right after; you choose where a capture goes by pasting it there. Your key is never held or replaced, the clipboard ends as Return left it, and `defaults write com.malikzhang.deixis completesPaste -bool NO` turns this off. Paste into your agent, still off by default, does the same after Return for the agent you used last, Grok Bot included: the text, then the image, into the message box and never into a code editor. Locant still never sends.
 - **The ball rests at the bottom too.** Besides the left and right edges, it tucks into the bottom of the screen beside the Dock, never on or behind it, and far enough from the Dock's ends that reaching for them does not wake it. Where it tucks is its home: coming near brings it out right there, instead of back to wherever it was before. While you drag it toward an edge, a faint ghost shows where it will tuck; flick it at an edge and it flies there and tucks.
 
 ## 0.9.1 (2026-10-01)

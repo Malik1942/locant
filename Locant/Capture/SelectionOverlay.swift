@@ -93,6 +93,11 @@ enum HudText {
             s.append(NSAttributedString(string: " · ", attributes: sansAttributes))
             s.append(NSAttributedString(string: title, attributes: secondaryAttributes))
         }
+        // A long title is cut in the middle: an attributed string's own paragraph style decides the
+        // line break, not the label's.
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineBreakMode = .byTruncatingMiddle
+        s.addAttribute(.paragraphStyle, value: paragraph, range: NSRange(location: 0, length: s.length))
         return s
     }
 
@@ -217,6 +222,7 @@ final class SelectionOverlay {
     func setNoteTarget(_ text: NSAttributedString?) {
         panels.first { $0.contentOverlay.hasNoteField }?.contentOverlay.setNoteTarget(text)
     }
+
 
     // MARK: Called by the content views (AppKit screen coordinates)
 

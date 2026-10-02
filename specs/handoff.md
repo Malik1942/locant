@@ -1,0 +1,197 @@
+# Locant: the hand-off, text first, then the image
+
+**Status:** Spec written Oct 1, 2026, after a calibration run on this Mac showed that the one clipboard item Return
+writes reaches most agents only in half. Decided with Malik the same day: the text goes first and the image second (his
+"prioritize the text").
+**Revision 1:** Oct 1, 2026, while planning: Cursor 3.22's code editor takes input through VS Code's EditContext, an
+element with the class `native-edit-context` inside a `monaco-editor`, so R82's code-editor test reads the element's own
+classes and its four nearest ancestors'. The window-wide `monaco-workbench` does not count; chat boxes sit in it too.
+**Revision 2:** Oct 1, 2026, after Malik tried the first build: the menu on the label (the first R83) is gone. It made
+the user describe the target from a list of window names, away from the target; a window is the wrong unit anyway (one
+Claude window holds many conversations); and it added friction. The target is chosen by pasting: go to the conversation
+and press ⌘V, and Locant makes that paste whole (the new R83). Pasting after Return stays the opt-in shortcut for
+someone with one agent, off by default, with the plain label R63 had. No ⌘↩ and no other new key: Malik's call, too
+many hotkeys.
+**Revision 3:** Oct 1, 2026, at the pull request: 0.9.1 was released the same day without this work, so the file is
+`specs/handoff.md`, named for what it is, as `specs/ball-edges.md` is; it ships in the release after 0.9.1.
+**Scope of this spec:** how a capture reaches an agent's message box whole: after Return while Paste into your agent
+(`specs/v0.8.1-paste.md`, R63) is on (R80, R81, R82), on the user's own ⌘V (R83), and the words (R84).
+**Out of scope:** any way to choose a target other than pasting there: a menu, dragging the note onto a window, a
+per-capture key. Terminals: a terminal takes the Markdown from an ordinary ⌘V, and Locant does nothing there. Browser
+chats, Antigravity, and Gemini: each joins R83 after a calibration run of its own; until then a paste there is what it
+is today. Paste from the Edit menu or a context menu, which Locant does not see. Claude Code's own ⌃V image paste. An
+"attached" mark on the `Image:` line: an app can read a type and still drop it, so Locant cannot know the image landed,
+and a wrong mark would make the agent skip its only copy. MCP. Deep links that open a new chat (Cursor, Codex, and
+Claude Code have them; text only, never an existing conversation).
+
+Read `CLAUDE.md` and `specs/v0.8.1-paste.md` (R63). The schema and the sidecar do not change.
+
+## 1. What happens today
+
+Return writes one pasteboard item carrying the PNG and the Markdown (R8). When both are present, each agent's message
+box keeps one of them, and which one depends on the app. Run on this Mac on Oct 1, 2026: a probe (scratch, not shipped)
+focused each app's message box through accessibility, wrote a Locant-shaped payload, posted ⌘V, read the box back, and
+took a screenshot. Nothing was sent; every draft was cleared and the clipboard restored.
+
+| Agent | Return's one item, PNG + Markdown | The Markdown alone, then the PNG alone |
+|---|---|---|
+| Claude 2.19675 | both (dogfood, Sep 19) | not run: the app was in use |
+| Cursor 3.22.12, Agents window | the image; **the Markdown is dropped** | both |
+| Codex in ChatGPT 26.928 | the Markdown; **the image is dropped** | both |
+| Grok Bot 0.63.0 | the image; **the Markdown is dropped** | both |
+| Antigravity 2.15.0 | both | both |
+| Terminal | the Markdown, as one bracketed paste | the Markdown; the PNG is never read |
+
+R63 pastes into Cursor and Codex today, so with the option on, Cursor gets the picture without the note or the
+identifier. Reading the apps' code predicted Codex wrong (image only); only a run says what an app keeps.
+
+The image is cheap to keep. The v8 captures cost 104 to 263 image tokens each, less than their Markdown; across the
+v8 Locant runs the image was 0.37% of a run's tokens (0.85% at most), and no agent with the image attached opened the
+file at the path again (0 of 20). Given the Markdown alone (v3), Claude Code did the task in 12 of 12 runs and never
+opened the PNG.
+
+## 2. Requirements
+
+**R80. Text first, then the image.** With Paste into your agent on (off by default, R63), after Return on a Point
+capture (sets and drawn frames included), Locant pastes twice into the message box of the agent app used last (R63's
+rule, unchanged): the Markdown alone, then the PNG alone. The Markdown is Return's,
+byte for byte. When the hand-off ends, the clipboard holds Return's item again, so a later manual ⌘V does what it does
+today. Locant never sends and never posts Return (R63 unchanged). The text goes first because it is the half the agent
+cannot work without: a hand-off cut short between the two pastes (seen on Oct 1, when the user clicked away) leaves
+the text in place.
+
+**R81. Each paste waits for its read.**
+- **One type per item.** Each temporary item carries one type, offered through `NSPasteboardItemDataProvider`, plus
+  `org.nspasteboard.TransientType`, so clipboard histories skip it. Measured Oct 1: without the marker, something on
+  this Mac read a new item 0.7 s after it was written with nobody pasting; with the marker, nothing did.
+- **Written last.** Each temporary item is written immediately before its ⌘V, after the agent is in front and focused,
+  so nothing else has time to read it first.
+- **The receipt.** The provider's callback for that type, after the ⌘V, is the receipt: on Oct 1 it came 4 to 40 ms
+  after ⌘V in every app. Locant waits for it up to 1 s. A read before the ⌘V does not count; when there was one (a
+  history that ignores the marker), the pasteboard has cached the data and no receipt can come, so Locant waits 300 ms
+  instead.
+- **A read is not a keep.** Grok Bot and Cursor read the Markdown and dropped it. The receipt times the next step; it
+  never judges what landed.
+- **No receipt.** For the text: nothing more is pasted, and the toast says `Copied · Cursor didn't take the paste`.
+  For the image: nothing is said; the text is already there.
+- **Whose clipboard.** Locant notes the change count of every write it makes. Before each step: if the count is not
+  Locant's latest, the user copied something; stop and write nothing more. If a newer capture has started, stop; it
+  writes its own item. If the hand-off stops for any other reason (the agent left the front, no receipt) while the
+  clipboard still holds a temporary item of Locant's, Return's item goes back.
+- **Before each ⌘V,** R63's checks and two more: the target window is the app's focused window, and the app has a
+  normal-layer window in `CGWindowListCopyWindowInfo` with `.optionOnScreenOnly`. Keys posted while macOS is still switching Spaces are lost (a ⌘A and a Delete vanished on Oct 1).
+- **Bringing the agent forward** stays R63's (activate, poll every 25 ms, raise through accessibility after 300 ms),
+  with the limit raised from 1 s to 1.5 s: a Space switch took up to about 1 s on Oct 1.
+
+**R82. Into the message box.** After Return (R80), before the first ⌘V, Locant makes sure focus is in the agent's message box, through
+accessibility, on the agent's own reader (R63):
+- the focused element of the target window, when it is editable text (role `AXTextArea` or `AXTextField`, which is how
+  Chromium exposes a contenteditable message box) and not a code editor;
+- otherwise the editable text area lowest on screen in that window (the largest bottom edge) that is not a code editor:
+  Locant sets `AXFocused` on it and checks that it took. Chromium applies the change about 40 ms later (seen in the
+  Oct 1 run, where an immediate read-back said no and the paste was skipped), so the focus is read back for up to
+  400 ms;
+- a code editor is Monaco's: an editable area whose own DOM classes are Monaco's input (`native-edit-context`, or
+  `inputarea` with `monaco-mouse-cursor-text`), or that sits within four levels of a `monaco-editor` (Cursor, VS Code,
+  Antigravity). Locant never pastes into one. When the only editable text in the window is a code editor, nothing is
+  pasted and the toast says `Copied · no message box in Cursor`;
+- when the window has no accessibility tree yet, Locant pastes where the app's own focus is, as R63 does. ChatGPT's web
+  tree appeared about 2 s after the first accessibility query on Oct 1.
+
+The reasons, from Oct 1: Cursor's focus sat on the transcript, not
+the message box; ChatGPT reported no focus until its tree was built; and R63's dogfood check 2 (⌘V landing in
+Cursor's editor).
+
+**R83. Your ⌘V, made whole.** The user chooses where a capture goes by pasting it there. While the clipboard still
+holds a capture's item, a ⌘V in a listed agent pastes the text with the user's own keystroke, and Locant adds the image.
+- **When.** A key-down of ⌘V with no other modifier and no repeat (the V of the current layout, as R63 finds it); the
+  frontmost app is listed; the clipboard's change count is that of Locant's newest capture item (Return's, or the one a
+  hand-off put back); no capture is open and no hand-off is in flight. Otherwise nothing happens and the key passes, as
+  every key does today.
+- **Listed:** the apps a calibration run showed dropping a half: Cursor, Codex, Grok Bot (Oct 1). Claude keeps both
+  halves of Return's item and is not listed; neither is Antigravity, which Malik asked to add and whose run the same
+  evening showed it keeps both too. An app joins after a run of its own.
+- **At the key.** Inside the key tap, before the key reaches the app, Locant writes the text item (R81's one-type
+  item) and lets the key pass untouched: the app pastes the Markdown from the user's own keystroke, wherever the caret
+  is. Measured Oct 1: the write takes 0.11 ms (median of 200; 1.95 ms at most), and the tap runs on the main run loop.
+  Locant never swallows, delays, or re-posts the user's key.
+- **Then.** On the text's receipt (R81), if the app is still frontmost and its focused element is editable text that
+  is not a code editor (R82's test), Locant writes the image item and posts one ⌘V of its own, marked as R63's are. In
+  a code editor, a terminal pane, or any other field, the text is all that is pasted. Then Return's item goes back, and
+  its change count is the capture's again, so the capture can be pasted elsewhere the same way.
+- **When it fails.** No receipt for the text (the paste went nowhere): Return's item goes back and nothing else
+  happens. Anything after the text fails: the text is already in place, which is the half that matters. R81's rules on
+  whose clipboard it is apply at every step.
+- **No switch in Settings.** `defaults write com.malikzhang.deixis completesPaste -bool NO` turns it off; the default
+  is on, in the pattern of every other setting. It works with Paste into your agent on or off.
+- **The label** beside the note field is R63's again: plain text, shown while Paste into your agent is on, no chevron,
+  no click. A long window title is cut in the middle.
+- **Agent apps** for R63's rule: its three, plus Antigravity (`com.google.antigravity`) and Grok Bot
+  (`com.anysphere.sand`), both verified Oct 1. This reverses the
+  Sep 22 decision to leave Locant unchanged for Grok Bot; Malik approved the reversal on Oct 1.
+
+**R84. Words.**
+- Settings › Agents › Paste into your agent: "After Return, Locant pastes the capture into the agent you used last: the
+  text, then the image. Locant never sends it; you do." Footnote: "Off, the capture waits on the clipboard: paste it into
+  the conversation you want. In Cursor, Codex, and Grok Bot, Locant adds the image after your paste."
+- Toasts: `Copied · Cursor didn't take the paste` and `Copied · no message box in Cursor` join R63's; the others are
+  unchanged.
+- README, Under the hood: the sentence that every other key passes through untouched gains what is now also true: after
+  a ⌘V of a capture in Cursor, Codex, or Grok Bot, Locant posts one paste of its own, for the image. Works where you
+  paste: the On paste cells for Cursor and Grok Bot, and a row for the Codex app, say both halves arrive, with the date.
+- Site: unchanged until the release that carries this; it describes the download. Then the Grok Bot row no longer
+  says a paste carries only the image.
+- `plugins/locant/README.md`: the line saying Paste into your agent never pastes into Grok Bot goes.
+- `CHANGELOG.md`, under Unreleased: one entry.
+
+## 3. Layout
+
+- `Locant/Payload/AgentPaste.swift`, pure and tested: Grok Bot in `bundleIds`; the apps R83 lists; the steps (text,
+  then image); the code-editor test; the message-box choice over plain values (role, DOM classes, frame, focused); R83's
+  "when" as one pure predicate; the two new toast texts. `AgentPaster` performs R80's two pastes and R83's one.
+  The window list, the picks, the menu model, and the terminal list of the first R83 go.
+- `Locant/Payload/HandoffPasteboard.swift`: the one-type lazy item with the transient marker, the receipt (a data
+  provider with an async wait and the 1 s and 300 ms limits), the change-count bookkeeping, and the write-back through
+  `PasteboardWriter.write(markdown:png:)`.
+- `Locant/Resolve/AccessibilityReader.swift`: find and focus the message box in a window (R82); whether the focused
+  element takes an image paste (R83). The window tokens of the first R83 go.
+- `Locant/Capture/KeyEventTap.swift`: a second handler for R83, asked before the hotkeys, which never swallows.
+- `Locant/Capture/SelectionOverlay.swift`: the label's click and menu go; the middle cut of a long title stays.
+- `Locant/App/AppState.swift`: the newest capture's Markdown, PNG, and change count, kept in memory for R83; the
+  hand-off after Return; the pick and the window list go.
+- `Locant/Store/Preferences.swift`: `completesPaste`, default true.
+- `Locant/App/SettingsView.swift`, `README.md`, `site/index.html`: R84's text.
+
+## 4. Tests
+
+- `AgentPasteTests`: Grok Bot is an agent; the steps are text, then image; `isCodeEditor` is true for Monaco's classes
+  and false for tiptap, ProseMirror, and none; the message box is the focused editable area when it is not a code
+  editor, else the lowest editable area that is not one, and none when only a code editor is editable; R83's predicate
+  is true only for a plain ⌘V key-down, not repeated, in a listed app, with the capture's change count, idle, and the
+  setting on, and false for Claude, for ⌘⇧V, and after anything else was copied; the new toast texts.
+- `HandoffPasteboardTests`, on a private named pasteboard released after each test: a one-type item carries the
+  transient marker; reading the type fires the receipt; a read before the paste is not a receipt; the change-count
+  check stops on a foreign write.
+- `PreferencesTests`: `completesPaste` defaults to true and round-trips.
+- The existing tests pass.
+- By hand, done Oct 1 on the first build (R80 to R82): Return with the option on landed the text and then the image in
+  Grok Bot, Cursor, Codex, and Claude, nothing sent, the agent on another Space included; with focus in Cursor's code
+  editor, focus moved to the message box and the code stayed untouched; copying during the hand-off stopped it and
+  kept the copy.
+- By hand, done Oct 1 on the second build (R83, Paste into your agent off): one capture, then a ⌘V in the message
+  box of Cursor 3.23.12, Codex, and Grok Bot in turn landed the text and then the image each time, nothing sent, the
+  clipboard ending with Return's item; in Cursor's code editor the text alone was pasted, nothing was attached, and no
+  file appeared; after copying something else, ⌘V pasted that and Locant did nothing. Not run: Claude and Terminal
+  (not listed, so the paste is the app's own), `completesPaste` off, and a clipboard history.
+- By hand, the list as written before that run, with Paste into your agent off: after Return, a ⌘V in the
+  message box of Cursor, Codex, and Grok Bot lands the text and then the image, nothing sent, and the clipboard ends
+  with Return's item; a second ⌘V in another of them does the same; in Cursor's code editor the text alone is pasted
+  and no file appears in the folder; in Claude and in Terminal the paste is what it is today; after copying something
+  else, ⌘V pastes that and Locant does nothing; with `completesPaste` off, ⌘V is today's; a clipboard history (turned
+  on for the check) shows only Return's item.
+
+### Dogfood checks (only use answers these)
+
+1. Whether the image arriving a moment after the text reads as one paste.
+2. Whether anyone pastes from the Edit menu, where Locant cannot help.
+3. Browser chats, Antigravity, and Gemini: one calibration run each before they join R83.

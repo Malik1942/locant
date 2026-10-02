@@ -675,14 +675,14 @@ struct AgentSettings: View {
     var body: some View {
         @Bindable var preferences = state.preferences
         Form {
-            // v0.8.1 R63: paste is the handoff, so it comes first; MCP below is how an agent looks back.
+            // v0.8.1 R63, specs/handoff.md R84: paste is the handoff, so it comes first; MCP below is how an agent looks back.
             Section {
                 Toggle(isOn: $preferences.pastesIntoAgent) {
                     Text("Paste into your agent")
-                    Text("After Return, Locant brings forward the agent app you used last, Claude, Cursor, or Codex, and pastes the capture into its message field. Locant never sends it; you do.")
+                    Text("After Return, Locant pastes the capture into the agent you used last: the text, then the image. Locant never sends it; you do.")
                 }
                 .toggleStyle(.switch)
-                Footnote(text: "The note field shows where the capture will go. The clipboard holds it either way, and connected agents can still fetch it.")
+                Footnote(text: "Off, the capture waits on the clipboard: paste it into the conversation you want. In Cursor, Codex, and Grok Bot, Locant adds the image after your paste.")
             }
             Section {
                 ForEach(Agent.allCases) { agent in
