@@ -258,6 +258,26 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertEqual(ModeClassifier.classify(source(app: "com.apple.Safari", url: "http://localhost:3000/x"), myApps: mine), .fix)
         XCTAssertEqual(ModeClassifier.classify(source(app: "com.apple.Safari", url: "https://example.com"), myApps: mine), .reference)
     }
+
+    /// Xcode 27: Device Hub is the simulator when its window shows one (the context then carries a
+    /// simulator block), and an Apple app like any other when it shows a physical device.
+    func testModeClassifierTreatsDeviceHubAsTheSimulatorItShows() {
+        var source = SourceInfo(
+            app: AppInfo(bundleId: "com.apple.dt.Devices", name: "Device Hub"),
+            window: WindowInfo(title: "iPhone 17 Pro – iOS 26.5"),
+            url: nil,
+            simulator: SimulatorInfo(device: "iPhone 17 Pro", appBundleId: "com.other.app")
+        )
+        let signals = ModeClassifier.signals(for: CaptureContext(source: source, frontPID: 0), myApps: [], userTeamIDs: [])
+        XCTAssertTrue(signals.isSimulator)
+        XCTAssertEqual(signals.simulatedBundleId, "com.other.app")
+        XCTAssertEqual(ModeClassifier.classify(source), .fix)
+
+        source.window = WindowInfo(title: "Malik’s iPhone – iOS 27.0")
+        source.simulator = nil
+        XCTAssertFalse(ModeClassifier.signals(for: CaptureContext(source: source, frontPID: 0), myApps: [], userTeamIDs: []).isSimulator)
+        XCTAssertEqual(ModeClassifier.classify(source), .reference)
+    }
 }
 
 /// Returns scripted snapshots in order, then nil forever. Counts calls.

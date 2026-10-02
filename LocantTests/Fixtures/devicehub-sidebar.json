@@ -1,0 +1,11 @@
+{
+  "element": { "AXRole": "AXStaticText", "AXValue": "iPhone 17 Pro", "AXIdentifier": "TableRow.Device.0EBF66EE-3E7D-48F9-9D44-E7B1A58DACF1", "AXFrame": { "x": 583, "y": 319.5, "w": 84.5, "h": 16 }, "AXChildrenCount": 0 },
+  "ancestors": [
+    { "AXRole": "AXCell", "AXFrame": { "x": 537, "y": 312, "w": 220, "h": 46 } },
+    { "AXRole": "AXRow", "AXSubrole": "AXOutlineRow", "AXFrame": { "x": 527, "y": 312, "w": 240, "h": 46 } },
+    { "AXRole": "AXOutline", "AXDescription": "Sidebar", "AXFrame": { "x": 526, "y": 279, "w": 242, "h": 696 } },
+    { "AXRole": "AXScrollArea", "AXFrame": { "x": 527, "y": 280, "w": 240, "h": 694 } },
+    { "AXRole": "AXGroup", "AXSubrole": "AXHostingView", "AXFrame": { "x": 527, "y": 190, "w": 240, "h": 784 } },
+    { "AXRole": "AXSplitGroup", "AXIdentifier": "com.apple.dt.DeviceKit.DeviceManagementWindow-AppWindow-1, SidebarNavigationSplitView", "AXFrame": { "x": 519, "y": 182, "w": 1100, "h": 800 } }
+  ]
+}
