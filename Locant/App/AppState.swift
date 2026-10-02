@@ -72,11 +72,11 @@ final class AppState {
     /// R52: NSWorkspace launch and activation observers, and whether an iteration is being collected.
     @ObservationIgnored private var appObservers: [any NSObjectProtocol] = []
     @ObservationIgnored private var collecting = false
-    /// v0.8.1 R63, v0.9.1 R83: where Return pastes: the agent app used last, or a window picked from the
-    /// label. `lastAgent` checks the app is still running.
-    @ObservationIgnored private var pasteTarget = AgentPaste.Target()
-    /// v0.9.1 R83: the agent and terminal windows read when the note field opened, for the label's menu.
-    @ObservationIgnored private var agentWindows = AgentPaste.WindowList()
+    /// v0.8.1 R63: the agent app that came forward last, by pid; `lastAgent` checks it is still that app.
+    @ObservationIgnored private var lastAgentPID: pid_t?
+    /// v0.9.1 R83: the newest capture as Return wrote it, and the clipboard's change count while it
+    /// still holds that item; what a ⌘V in an agent is completed from. In memory only.
+    @ObservationIgnored private var lastCapture: (markdown: String, png: Data, clipboardCount: Int)?
     /// v0.8.1 R63: a reader of its own for the target label, so a slow agent never holds up hover.
     @ObservationIgnored private let agentReader = AccessibilityReader()
     /// v0.8.1 R63: pastes under way; auto-verify ignores activations while any is. A count, since two
@@ -120,7 +120,6 @@ final class AppState {
         overlay.onCommit = { [weak self] note in self?.commit(note: note) }
         overlay.onOptionPressed = { [weak self] in self?.optionPressed() }
         overlay.onRegion = { [weak self] rect, start in self?.region(rect, start: start) }
-        overlay.onTargetLabelClicked = { [weak self] in self?.showPasteTargetMenu() }
         restartHotkey()
     }
 
@@ -133,6 +132,7 @@ final class AppState {
             bindings.append(HotkeyMonitor.Binding(key, fire: fire))
         }
         let monitor = HotkeyMonitor(bindings: bindings)
+        monitor.onKey = { [weak self] event in self?.completePasteIfOurs(event) }
         monitor.start()
         hotkeys = monitor
         ball?.ringHints = ringHints()
@@ -236,18 +236,14 @@ final class AppState {
     // MARK: Paste into the agent (v0.8.1 R63)
 
     /// Remembers the agent app that came forward last. An observer of its own: `appCameForward`
-    /// returns early while iterations are off or a capture runs, and would drop these. Activations that
-    /// Locant's own paste causes do not count (v0.9.1 R83).
+    /// returns early while iterations are off or a capture runs, and would drop these.
     private func watchAgentApps() {
         let center = NSWorkspace.shared.notificationCenter
         appObservers.append(center.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] note in
             guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
                   AgentPaste.isAgent(bundleId: app.bundleIdentifier) else { return }
             let pid = app.processIdentifier
-            MainActor.assumeIsolated {
-                guard let self else { return }
-                self.pasteTarget.agentCameForward(pid: pid, byLocant: self.pastesInFlight > 0)
-            }
+            MainActor.assumeIsolated { self?.lastAgentPID = pid }
         })
     }
 
@@ -257,31 +253,10 @@ final class AppState {
         showPasteTarget()
     }
 
-    /// Beside the note field, where Return will paste, while that option is on. The windows the label's
-    /// menu offers are read now, on the agent's reader, so a click opens it at once (v0.9.1 R83).
+    /// The app at once; its window title when the agent's own reader answers, if the field is
+    /// still open by then.
     private func showPasteTarget() {
         guard preferences.pastesIntoAgent else { return }
-        agentWindows = AgentPaste.WindowList()
-        showPasteTargetLabel()
-        let apps = pasteTargetApps()
-        Task { @MainActor in
-            let list = await agentReader.agentWindows(of: apps)
-            guard phase == .noting else { return }
-            agentWindows = list
-            if let pick = pasteTarget.pick, !list.windows.contains(where: { $0.token == pick.token }) {
-                pasteTarget.pickVanished()
-                showPasteTargetLabel()
-            }
-        }
-    }
-
-    /// The pick with its title, or the agent used last, its window's title when its reader answers, if
-    /// the field is still open by then.
-    private func showPasteTargetLabel() {
-        if let pick = pasteTarget.pick {
-            overlay.setNoteTarget(HudText.pasteTarget(AgentPaste.label(appName: pick.appName, windowTitle: pick.title)))
-            return
-        }
         guard let app = lastAgent else {
             overlay.setNoteTarget(HudText.pasteTarget(AgentPaste.label(appName: nil, windowTitle: nil)))
             return
@@ -291,36 +266,14 @@ final class AppState {
         let pid = app.processIdentifier
         Task { @MainActor in
             let title = await agentReader.agentWindowTitle(pid: pid)
-            guard phase == .noting, pasteTarget.pick == nil else { return }
+            guard phase == .noting else { return }
             overlay.setNoteTarget(HudText.pasteTarget(AgentPaste.label(appName: name, windowTitle: title)))
-        }
-    }
-
-    /// v0.9.1 R83: running agent apps, then running terminals, in launch order.
-    private func pasteTargetApps() -> [AgentPaste.AppRef] {
-        let running = NSWorkspace.shared.runningApplications.filter { !$0.isTerminated }
-        let agents = running.filter { AgentPaste.isAgent(bundleId: $0.bundleIdentifier) }
-        let terminals = running.filter { AgentPaste.isTerminal(bundleId: $0.bundleIdentifier) }
-        return (agents + terminals).map {
-            AgentPaste.AppRef(pid: $0.processIdentifier, name: $0.localizedName ?? "App",
-                              isTerminal: AgentPaste.isTerminal(bundleId: $0.bundleIdentifier))
-        }
-    }
-
-    /// v0.9.1 R83: the label was clicked. The menu lists what was read when the field opened; a choice is
-    /// the target until you bring another agent app forward yourself.
-    private func showPasteTargetMenu() {
-        guard phase == .noting, preferences.pastesIntoAgent else { return }
-        overlay.showTargetMenu(AgentPaste.menu(agentWindows, target: pasteTarget)) { [weak self] window in
-            guard let self else { return }
-            pasteTarget.picked(window)
-            showPasteTargetLabel()
         }
     }
 
     /// The last agent while it still runs as the same app; nil after it quits.
     private var lastAgent: NSRunningApplication? {
-        guard let pid = pasteTarget.lastAgentPID, let app = NSRunningApplication(processIdentifier: pid),
+        guard let pid = lastAgentPID, let app = NSRunningApplication(processIdentifier: pid),
               !app.isTerminated, AgentPaste.isAgent(bundleId: app.bundleIdentifier) else { return nil }
         return app
     }
@@ -335,26 +288,41 @@ final class AppState {
         let clipboard = HandoffPasteboard()
         try? await Task.sleep(for: .milliseconds(Int(DesignTokens.dismiss * 1000) + 40))
         guard phase == .idle, clipboard.isOwn else { return }
-        let handoff = await currentHandoff(markdown: markdown, png: png)
+        let handoff = lastAgent.map { Handoff(app: $0, markdown: markdown, png: png) }
         pastesInFlight += 1
         let outcome = await AgentPaster.paste(handoff, clipboard: clipboard, reader: agentReader) { self.phase != .idle }
         pastesInFlight -= 1
+        if clipboard.isOwn { lastCapture?.clipboardCount = NSPasteboard.general.changeCount }
         if let text = AgentPaste.toastText(outcome, appName: handoff?.app.localizedName) {
             toast.show(HudText.plain(text), near: anchor)
         }
     }
 
-    /// v0.9.1 R83: where Return pastes now: the picked window while it is open, else the agent app used
-    /// last.
-    private func currentHandoff(markdown: String, png: Data) async -> Handoff? {
-        if let pick = pasteTarget.pick {
-            if let app = NSRunningApplication(processIdentifier: pick.pid), !app.isTerminated,
-               await agentReader.windowExists(pick) {
-                return Handoff(app: app, window: pick, markdown: markdown, png: png)
+    /// v0.9.1 R83: the user's own ⌘V in a listed agent, while the clipboard still holds the newest
+    /// capture. Runs inside the key tap, before the key reaches the app: the clipboard becomes the text
+    /// alone (0.1 ms, measured), the key passes untouched and pastes it, and Locant adds the image
+    /// after. The key is never swallowed, delayed, or posted again.
+    private func completePasteIfOurs(_ event: KeyEventTap.KeyEvent) {
+        let modifiers: NSEvent.ModifierFlags = [.command, .shift, .option, .control]
+        guard event.kind == .keyDown, event.flags.intersection(modifiers) == .command,
+              let capture = lastCapture, let app = NSWorkspace.shared.frontmostApplication,
+              AgentPaste.completesPaste(
+                  enabled: preferences.completesPaste, plainCommandV: event.keyCode == AgentPaster.pasteKeyCode(),
+                  isRepeat: event.isRepeat, frontmost: app.bundleIdentifier,
+                  clipboardCount: NSPasteboard.general.changeCount, captureCount: capture.clipboardCount,
+                  idle: phase == .idle, inFlight: pastesInFlight > 0
+              ) else { return }
+        let clipboard = HandoffPasteboard()
+        clipboard.offer(Data(capture.markdown.utf8), as: .string)
+        clipboard.arm()
+        pastesInFlight += 1
+        Task { @MainActor in
+            await AgentPaster.addImage(after: clipboard, in: app, markdown: capture.markdown, png: capture.png, reader: agentReader) {
+                self.phase != .idle
             }
-            pasteTarget.pickVanished()
+            pastesInFlight -= 1
+            if clipboard.isOwn { lastCapture?.clipboardCount = NSPasteboard.general.changeCount }
         }
-        return lastAgent.map { Handoff(app: $0, window: nil, markdown: markdown, png: png) }
     }
 
     // MARK: Updates (v0.6 R45)
@@ -1125,6 +1093,7 @@ final class AppState {
                 let written = try store.write(png: image.png, capture: capture)
                 let markdown = MarkdownBuilder.build(written)
                 PasteboardWriter.write(markdown: markdown, png: image.png)
+                lastCapture = (markdown, image.png, NSPasteboard.general.changeCount)
                 reset()
                 if let count = targets?.count {
                     toast.show(HudText.plain("Copied · \(count) elements"), near: anchor)

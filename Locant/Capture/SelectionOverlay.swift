@@ -86,16 +86,15 @@ enum HudText {
         NSAttributedString(string: text, attributes: sansAttributes)
     }
 
-    /// v0.8.1 R63, v0.9.1 R83: "→ Cursor · <window title> ⌄" beside the note field, the title secondary.
+    /// v0.8.1 R63: "→ Cursor · <window title>" beside the note field, the title secondary.
     static func pasteTarget(_ label: AgentPaste.TargetLabel) -> NSAttributedString {
         let s = NSMutableAttributedString(string: label.lead, attributes: sansAttributes)
         if let title = label.title {
             s.append(NSAttributedString(string: " · ", attributes: sansAttributes))
             s.append(NSAttributedString(string: title, attributes: secondaryAttributes))
         }
-        s.append(NSAttributedString(string: " ⌄", attributes: secondaryAttributes)) // v0.9.1 R83: it opens a menu
-        // A long title is cut in the middle, so the chevron stays at the end: an attributed string's own
-        // paragraph style decides the line break, not the label's (a Terminal title was clipped on Oct 1).
+        // A long title is cut in the middle: an attributed string's own paragraph style decides the
+        // line break, not the label's.
         let paragraph = NSMutableParagraphStyle()
         paragraph.lineBreakMode = .byTruncatingMiddle
         s.addAttribute(.paragraphStyle, value: paragraph, range: NSRange(location: 0, length: s.length))
@@ -147,8 +146,6 @@ final class SelectionOverlay {
     var onOptionPressed: (() -> Void)?
     /// A drawn frame (CG points) and the drag's start point, for the window hit-test.
     var onRegion: ((CGRect, CGPoint) -> Void)?
-    /// v0.9.1 R83: the label beside the note field was clicked.
-    var onTargetLabelClicked: (() -> Void)?
 
     private var panels: [OverlayPanel] = []
     private var dismissing: [OverlayPanel] = []
@@ -226,10 +223,6 @@ final class SelectionOverlay {
         panels.first { $0.contentOverlay.hasNoteField }?.contentOverlay.setNoteTarget(text)
     }
 
-    /// v0.9.1 R83: the windows under the label; `choose` gets the one picked.
-    func showTargetMenu(_ sections: [AgentPaste.MenuSection], choose: @escaping @MainActor (AgentPaste.WindowRef) -> Void) {
-        panels.first { $0.contentOverlay.hasNoteField }?.contentOverlay.popUpTargetMenu(sections, choose: choose)
-    }
 
     // MARK: Called by the content views (AppKit screen coordinates)
 
@@ -327,8 +320,6 @@ final class OverlayContentView: NSView, NSTextFieldDelegate {
     private var noteAnchor: CGRect = .zero
     private var trackingArea: NSTrackingArea?
     private var locked = false
-    /// v0.9.1 R83: what a menu choice calls.
-    private var targetChoice: (@MainActor (AgentPaste.WindowRef) -> Void)?
 
     // R11 region gesture
     private static let dragThreshold: CGFloat = 6
@@ -394,12 +385,6 @@ final class OverlayContentView: NSView, NSTextFieldDelegate {
 
     override func mouseDown(with event: NSEvent) {
         if let picker { picker.clicked(); return }
-        // v0.9.1 R83: the label beside the note field takes a click. Its hitTest stays nil (accessibility
-        // hit tests reach it off the main thread), so its frame is tested here.
-        if noteField != nil, !targetLabel.isHidden, targetLabel.frame.contains(convert(event.locationInWindow, from: nil)) {
-            owner?.onTargetLabelClicked?()
-            return
-        }
         guard !locked else { return }
         let point = event.locationInWindow
         if let region = editRegion {
@@ -686,41 +671,6 @@ final class OverlayContentView: NSView, NSTextFieldDelegate {
         origin.y = min(max(origin.y, DesignTokens.spaceM), bounds.height - size.height - DesignTokens.spaceM)
         targetLabel.frame = CGRect(origin: origin, size: size)
         targetLabel.isHidden = false
-    }
-
-    /// v0.9.1 R83: the windows under the label, grouped by app, the target checked. The click took
-    /// first responder from the note field; it gets it back afterwards with the caret at the end, so the
-    /// typed note is kept, not selected.
-    func popUpTargetMenu(_ sections: [AgentPaste.MenuSection], choose: @escaping @MainActor (AgentPaste.WindowRef) -> Void) {
-        guard let field = noteField else { return }
-        let menu = NSMenu()
-        menu.autoenablesItems = false
-        if sections.isEmpty {
-            let none = NSMenuItem(title: "No agent windows open", action: nil, keyEquivalent: "")
-            none.isEnabled = false
-            menu.addItem(none)
-        }
-        for section in sections {
-            menu.addItem(NSMenuItem.sectionHeader(title: section.appName))
-            for entry in section.items {
-                let item = NSMenuItem(title: AgentPaste.menuTitle(entry.window.title), action: #selector(chooseTarget(_:)), keyEquivalent: "")
-                item.target = self
-                item.state = entry.checked ? .on : .off
-                item.representedObject = entry.window
-                menu.addItem(item)
-            }
-        }
-        targetChoice = choose
-        _ = menu.popUp(positioning: nil, at: CGPoint(x: targetLabel.frame.minX, y: targetLabel.frame.minY), in: self)
-        window?.makeFirstResponder(field.textField)
-        if let editor = field.textField.currentEditor() {
-            editor.selectedRange = NSRange(location: (editor.string as NSString).length, length: 0)
-        }
-    }
-
-    @objc private func chooseTarget(_ sender: NSMenuItem) {
-        guard let window = sender.representedObject as? AgentPaste.WindowRef else { return }
-        targetChoice?(window)
     }
 
     /// 8 pt below the element, or above it when within 40 pt of the screen bottom; kept on screen.

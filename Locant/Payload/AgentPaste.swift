@@ -18,16 +18,6 @@ enum AgentPaste {
         bundleId.map { bundleIds.contains($0) } ?? false
     }
 
-    /// v0.9.1 R83: terminals by exact bundle id. Each joins after its id is read from the installed app
-    /// and one text paste has been run into it: Terminal on Oct 1, 2026.
-    static let terminalBundleIds: Set<String> = [
-        "com.apple.Terminal",
-    ]
-
-    static func isTerminal(bundleId: String?) -> Bool {
-        bundleId.map { terminalBundleIds.contains($0) } ?? false
-    }
-
     /// Beside the note field: the arrow and the app, then the window's title once it is known.
     struct TargetLabel: Equatable, Sendable {
         var lead: String
@@ -78,11 +68,9 @@ enum AgentPaste {
         case text, image
     }
 
-    /// R80: the text first, then the image; a terminal takes the text alone. Measured Oct 1, 2026:
-    /// Cursor and Grok Bot keep only the image of an item carrying both, Codex only the text.
-    static func steps(terminal: Bool) -> [Step] {
-        terminal ? [.text] : [.text, .image]
-    }
+    /// R80: the text first, then the image. Measured Oct 1, 2026: Cursor and Grok Bot keep only the
+    /// image of an item carrying both, Codex only the text.
+    static let steps: [Step] = [.text, .image]
 
     /// R82: Monaco's input (`native-edit-context` since VS Code's EditContext, which Cursor 3.22 uses;
     /// the `inputarea` textarea before it), or anything within four levels of a `monaco-editor`. The
@@ -126,102 +114,38 @@ enum AgentPaste {
         focusTook || !areas.contains { $0.isFocused && $0.isCodeEditor }
     }
 
-    /// R83: a running app whose windows the menu may list.
-    struct AppRef: Equatable, Sendable {
-        var pid: pid_t
-        var name: String
-        var isTerminal: Bool
+    /// R83: the apps whose message box drops a half of Return's item, each after a calibration run:
+    /// Cursor, Codex, and Grok Bot on Oct 1, 2026. Claude keeps both halves and is not listed.
+    static let completingBundleIds: Set<String> = [
+        "com.todesktop.230313mzl4w4u92", // Cursor
+        "com.openai.codex", // Codex, installed as ChatGPT.app
+        "com.anysphere.sand", // Grok Bot
+    ]
+
+    /// R83: whether a key-down is the paste Locant completes: a plain ⌘V, not a repeat, in a listed
+    /// app, while the clipboard still holds the newest capture's item and Locant is doing nothing else.
+    static func completesPaste(
+        enabled: Bool, plainCommandV: Bool, isRepeat: Bool, frontmost: String?,
+        clipboardCount: Int, captureCount: Int?, idle: Bool, inFlight: Bool
+    ) -> Bool {
+        guard enabled, plainCommandV, !isRepeat, idle, !inFlight else { return false }
+        guard let frontmost, completingBundleIds.contains(frontmost) else { return false }
+        return captureCount == clipboardCount
     }
 
-    /// R83: one window, by the token `AccessibilityReader` maps to its element.
-    struct WindowRef: Equatable, Hashable, Sendable {
-        var pid: pid_t
-        var token: Int
-        var appName: String
-        var title: String
-        var isTerminal: Bool
-    }
-
-    /// R83: the windows the menu can offer, and the tokens of those that are their app's focused window.
-    struct WindowList: Equatable, Sendable {
-        var windows: [WindowRef] = []
-        var focused: Set<Int> = []
-    }
-
-    /// R83: where Return pastes: the agent you used or picked last; a terminal window only when picked.
-    struct Target: Equatable, Sendable {
-        private(set) var lastAgentPID: pid_t?
-        private(set) var pick: WindowRef?
-
-        /// An agent app came forward. Your doing replaces a pick in another app; Locant's own, while a
-        /// paste is in flight, changes nothing.
-        mutating func agentCameForward(pid: pid_t, byLocant: Bool) {
-            guard !byLocant else { return }
-            lastAgentPID = pid
-            if let pick, pick.pid != pid { self.pick = nil }
-        }
-
-        mutating func picked(_ window: WindowRef) {
-            pick = window
-        }
-
-        /// The picked window closed or its app quit: back to the agent used last.
-        mutating func pickVanished() {
-            pick = nil
-        }
-    }
-
-    /// R83: one row of the menu.
-    struct MenuItem: Equatable, Sendable {
-        var window: WindowRef
-        var checked: Bool
-    }
-
-    /// R83: one app's windows under its name.
-    struct MenuSection: Equatable, Sendable {
-        var appName: String
-        var items: [MenuItem]
-    }
-
-    /// R83: one section per app in the order the windows came, the current target checked: the pick,
-    /// or with none the focused window of the agent used last.
-    static func menu(_ list: WindowList, target: Target) -> [MenuSection] {
-        var sections: [MenuSection] = []
-        var index: [pid_t: Int] = [:]
-        for window in list.windows {
-            let checked = if let pick = target.pick {
-                window.token == pick.token
-            } else {
-                window.pid == target.lastAgentPID && list.focused.contains(window.token)
-            }
-            let item = MenuItem(window: window, checked: checked)
-            if let at = index[window.pid] {
-                sections[at].items.append(item)
-            } else {
-                index[window.pid] = sections.count
-                sections.append(MenuSection(appName: window.appName, items: [item]))
-            }
-        }
-        return sections
-    }
-
-    /// R83: a window title fit for a menu row: trimmed, at most 60 characters, cut in the middle.
-    static func menuTitle(_ title: String) -> String {
-        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.count > 60 else { return trimmed }
-        return String(trimmed.prefix(29)) + "…" + String(trimmed.suffix(30))
+    /// R83: whether the focused element takes an image paste: editable text that is neither a code
+    /// editor nor a terminal pane (xterm's input, as in Cursor's and VS Code's terminal).
+    static func takesImagePaste(editable: Bool, classes: [String], ancestorClasses: [[String]]) -> Bool {
+        editable && !classes.contains("xterm-helper-textarea")
+            && !isCodeEditor(classes: classes, ancestorClasses: ancestorClasses)
     }
 }
 
 /// v0.9.1 R80: what one hand-off delivers, and where.
 struct Handoff {
     let app: NSRunningApplication
-    /// The picked window (R83); nil for the app's own focused window.
-    let window: AgentPaste.WindowRef?
     let markdown: String
     let png: Data
-
-    var steps: [AgentPaste.Step] { AgentPaste.steps(terminal: window?.isTerminal ?? false) }
 }
 
 /// v0.8.1 R63, v0.9.1 R80–R82: brings the agent forward, puts focus in its message box, and pastes the
@@ -256,7 +180,7 @@ enum AgentPaster {
         guard proceed() else { return .superseded }
         guard await reader.focusMessageBox(pid: handoff.app.processIdentifier) else { return .noMessageBox }
         var pasted = false
-        for step in handoff.steps {
+        for step in AgentPaste.steps {
             if pasted { try? await Task.sleep(for: stepGap) }
             await waitForKeysUp()
             guard proceed() else { return pasted ? .pasted : .superseded }
@@ -286,7 +210,7 @@ enum AgentPaster {
         }
     }
 
-    /// Activates (a picked window is raised first, which also switches to its Space), then polls every
+    /// Activates, then polls every
     /// 25 ms up to `comeForwardLimit`: a notification never comes when the app is already in front.
     /// After 300 ms, accessibility raises it again; `proceed` is checked at the top of every tick,
     /// before that raise, so it never pulls the agent in front of a capture the user just started.
@@ -294,7 +218,6 @@ enum AgentPaster {
         _ handoff: Handoff, reader: AccessibilityReader, proceed: @MainActor @Sendable () -> Bool
     ) async -> Bool {
         let app = handoff.app
-        if let window = handoff.window { await reader.raise(window) }
         if await isInFront(handoff, reader: reader) { return true }
         _ = app.activate(options: [])
         let ticks = Int(comeForwardLimit / .milliseconds(25))
@@ -303,23 +226,33 @@ enum AgentPaster {
             guard proceed() else { return false }
             if await isInFront(handoff, reader: reader) { return true }
             if app.isTerminated { return false }
-            if tick == 12 {
-                if let window = handoff.window {
-                    await reader.raise(window)
-                } else {
-                    await reader.raise(pid: app.processIdentifier)
-                }
-            }
+            if tick == 12 { await reader.raise(pid: app.processIdentifier) }
         }
         return false
     }
 
-    /// R81: frontmost, with a window on screen (a Space switch has finished), and for a picked window,
-    /// that window focused.
+    /// R81: frontmost, with a window on screen (a Space switch has finished).
     private static func isInFront(_ handoff: Handoff, reader: AccessibilityReader) async -> Bool {
-        guard isFrontmost(handoff.app), hasWindowOnScreen(pid: handoff.app.processIdentifier) else { return false }
-        guard let window = handoff.window else { return true }
-        return await reader.isFocused(window)
+        isFrontmost(handoff.app) && hasWindowOnScreen(pid: handoff.app.processIdentifier)
+    }
+
+    /// R83: the user's own ⌘V is pasting the text item `clipboard` offered at the key. On its receipt,
+    /// if the caret is in a message box, the image follows with one ⌘V of Locant's; then Return's item
+    /// goes back. The user's ⌘ may still be down: the posted key carries ⌘ itself, so that is no leak.
+    static func addImage(
+        after clipboard: HandoffPasteboard, in app: NSRunningApplication, markdown: String, png: Data,
+        reader: AccessibilityReader, newerCapture: @escaping @MainActor @Sendable () -> Bool
+    ) async {
+        defer { clipboard.restore(markdown: markdown, png: png) }
+        guard await clipboard.receipt() else { return }
+        try? await Task.sleep(for: stepGap)
+        guard !newerCapture(), clipboard.isOwn, isFrontmost(app), CGPreflightPostEventAccess() else { return }
+        guard await reader.focusTakesImagePaste(pid: app.processIdentifier) else { return }
+        guard clipboard.isOwn, isFrontmost(app) else { return }
+        clipboard.offer(png, as: .png)
+        clipboard.arm()
+        post(keyCode: pasteKeyCode(), flags: .maskCommand)
+        _ = await clipboard.receipt()
     }
 
     private static func isFrontmost(_ app: NSRunningApplication) -> Bool {
@@ -351,7 +284,7 @@ enum AgentPaster {
     /// The key that makes ⌘V on the current layout: the ASCII-capable one, so an active Chinese or
     /// Japanese input method still finds it, read with Command held, so "Dvorak – QWERTY ⌘" pastes
     /// too. ANSI V when the layout cannot be read.
-    private static func pasteKeyCode() -> CGKeyCode {
+    static func pasteKeyCode() -> CGKeyCode {
         let fallback = CGKeyCode(kVK_ANSI_V)
         guard let source = TISCopyCurrentASCIICapableKeyboardLayoutInputSource()?.takeRetainedValue(),
               let property = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData) else { return fallback }

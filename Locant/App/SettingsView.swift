@@ -679,10 +679,10 @@ struct AgentSettings: View {
             Section {
                 Toggle(isOn: $preferences.pastesIntoAgent) {
                     Text("Paste into your agent")
-                    Text("After Return, Locant pastes the capture into the agent you used or picked last: the text, then the image. Locant never sends it; you do.")
+                    Text("After Return, Locant pastes the capture into the agent you used last: the text, then the image. Locant never sends it; you do.")
                 }
                 .toggleStyle(.switch)
-                Footnote(text: "Click where it goes, under the note field, to pick another window, a terminal included. A terminal gets the text, with the image path as its first line.")
+                Footnote(text: "Off, the capture waits on the clipboard: paste it into the conversation you want. In Cursor, Codex, and Grok Bot, Locant adds the image after your paste.")
             }
             Section {
                 ForEach(Agent.allCases) { agent in

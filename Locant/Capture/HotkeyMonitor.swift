@@ -27,6 +27,10 @@ final class HotkeyMonitor {
     private var heldModifiers: NSEvent.ModifierFlags = []
     private var lastTap: (modifier: HotkeyModifier, rightKey: Bool, time: TimeInterval)?
 
+    /// v0.9.1 R83: every key the tap sees, before the hotkeys and before the frontmost app; it only
+    /// looks. Not called without the tap: a monitor hears a key after the app has it.
+    var onKey: ((KeyEventTap.KeyEvent) -> Void)?
+
     /// True while the tap is in place, so matched chords stop at Locant.
     var swallowsChords: Bool { tap != nil }
 
@@ -43,7 +47,10 @@ final class HotkeyMonitor {
         guard tap == nil, monitors.isEmpty, !bindings.isEmpty else { return }
         heldModifiers = []
         lastTap = nil
-        if let tap = KeyEventTap(handler: { [weak self] event in self?.handle(event) ?? false }) {
+        if let tap = KeyEventTap(handler: { [weak self] event in
+            self?.onKey?(event)
+            return self?.handle(event) ?? false
+        }) {
             self.tap = tap
             return
         }
