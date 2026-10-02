@@ -107,18 +107,20 @@ final class FloatingBall {
     private static var visibleFrames: [CGRect] { NSScreen.screens.map(\.visibleFrame) }
 
     /// A saved origin is trusted only while the disc's center falls on a connected display: after
-    /// a display goes away the disc would otherwise sit where nothing shows it. Off every screen,
-    /// the whole disc is brought inside the visible frame it lies nearest. A docked origin passes
-    /// (the disc's center stays a few points inside the edge it tucks into).
-    static func onScreenOrigin(_ origin: CGPoint, screens: [CGRect]) -> CGPoint {
-        guard !screens.isEmpty else { return origin }
+    /// a display goes away the disc would otherwise sit where nothing shows it. A tuck or a home on
+    /// the bottom edge beside the Dock lies below `visibleFrame` but on the screen, so it passes.
+    /// Off every screen, the whole disc is brought inside the visible frame it lies nearest
+    /// (`visible`, which defaults to `screens`).
+    static func onScreenOrigin(_ origin: CGPoint, screens: [CGRect], visible: [CGRect]? = nil) -> CGPoint {
+        let targets = visible ?? screens
+        guard !screens.isEmpty, !targets.isEmpty else { return origin }
         let offset = Tokens.pad + Tokens.diameter / 2
         let center = CGPoint(x: origin.x + offset, y: origin.y + offset)
         if screens.contains(where: { $0.contains(center) }) { return origin }
         func distance(to frame: CGRect) -> CGFloat {
             hypot(max(frame.minX - center.x, 0, center.x - frame.maxX), max(frame.minY - center.y, 0, center.y - frame.maxY))
         }
-        guard let nearest = screens.min(by: { distance(to: $0) < distance(to: $1) }) else { return origin }
+        guard let nearest = targets.min(by: { distance(to: $0) < distance(to: $1) }) else { return origin }
         let radius = Tokens.diameter / 2
         let safe = CGPoint(
             x: min(max(center.x, nearest.minX + radius), nearest.maxX - radius),
