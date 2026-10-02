@@ -251,7 +251,7 @@ actor AccessibilityReader {
     /// R82: focus in the message box of the app's focused window. False when the only editable text
     /// there is a code editor, so a ⌘V would land in code. Usually the app already put focus back in
     /// its message box, and two reads settle it; otherwise the window is walked.
-    func focusMessageBox(pid: pid_t) -> Bool {
+    func focusMessageBox(pid: pid_t) async -> Bool {
         let app = AXUIElementCreateApplication(pid)
         AXUIElementSetMessagingTimeout(app, 0.25)
         if let focused = element(copy(app, kAXFocusedUIElementAttribute)), isEditable(focused),
@@ -271,9 +271,23 @@ actor AccessibilityReader {
         case .focus(let index):
             let box = found[index].element
             AXUIElementSetAttributeValue(box, kAXFocusedAttribute as CFString, kCFBooleanTrue)
-            let took = (copy(box, kAXFocusedAttribute) as? Bool) == true
+            let took = await focusTakes(box)
             return AgentPaste.canPaste(focusTook: took, areas: areas)
         }
+    }
+
+    /// R82: Chromium applies a focus change a moment later (44 ms in Cursor on Oct 1, 2026; read back
+    /// at once, it still says no), so the focus is read back every 40 ms for up to 400 ms, and once it
+    /// took the page gets one more beat before the keys follow.
+    private func focusTakes(_ element: AXUIElement) async -> Bool {
+        for _ in 0..<10 {
+            if (copy(element, kAXFocusedAttribute) as? Bool) == true {
+                try? await Task.sleep(for: .milliseconds(60))
+                return true
+            }
+            try? await Task.sleep(for: .milliseconds(40))
+        }
+        return false
     }
 
     /// Chromium exposes a contenteditable message box as a text area.
