@@ -193,6 +193,158 @@ actor AccessibilityReader {
         }
     }
 
+    // MARK: The hand-off (v0.9.1 R81–R83)
+
+    /// Windows handed out as tokens; the elements stay in this actor.
+    private var windowTokens: [(token: Int, element: AXUIElement)] = []
+    private var nextWindowToken = 1
+
+    /// R83: each app's standard windows that have a title and are not minimized, in the app's own
+    /// order, and which of them are their app's focused window. Reading them also switches an Electron
+    /// or Chromium app's tree on, so it is there by the time Return pastes (ChatGPT's took about 2 s on
+    /// Oct 1, 2026).
+    func agentWindows(of apps: [AgentPaste.AppRef]) -> AgentPaste.WindowList {
+        windowTokens.removeAll { !isAlive($0.element) }
+        var list = AgentPaste.WindowList()
+        for app in apps {
+            let element = AXUIElementCreateApplication(app.pid)
+            AXUIElementSetMessagingTimeout(element, 0.25)
+            enableAccessibilityIfNeeded(app: element, pid: app.pid)
+            let focused = self.element(copy(element, kAXFocusedWindowAttribute))
+            for window in windows(of: element) {
+                guard string(copy(window, kAXSubroleAttribute)) == kAXStandardWindowSubrole,
+                      let title = string(copy(window, kAXTitleAttribute))?.trimmingCharacters(in: .whitespacesAndNewlines),
+                      !title.isEmpty,
+                      (copy(window, kAXMinimizedAttribute) as? Bool) != true else { continue }
+                let token = token(for: window)
+                list.windows.append(AgentPaste.WindowRef(pid: app.pid, token: token, appName: app.name, title: title, isTerminal: app.isTerminal))
+                if let focused, CFEqual(focused, window) { list.focused.insert(token) }
+            }
+        }
+        return list
+    }
+
+    /// R83: whether a picked window is still open.
+    func windowExists(_ ref: AgentPaste.WindowRef) -> Bool {
+        window(for: ref) != nil
+    }
+
+    /// R81: a picked window raised and made main, its app frontmost; this also switches to its Space.
+    func raise(_ ref: AgentPaste.WindowRef) {
+        guard let window = window(for: ref) else { return }
+        let app = AXUIElementCreateApplication(ref.pid)
+        AXUIElementSetMessagingTimeout(app, 0.25)
+        AXUIElementSetAttributeValue(app, kAXFrontmostAttribute as CFString, kCFBooleanTrue)
+        AXUIElementSetAttributeValue(window, kAXMainAttribute as CFString, kCFBooleanTrue)
+        AXUIElementPerformAction(window, kAXRaiseAction as CFString)
+    }
+
+    /// R81: whether a picked window is its app's focused window.
+    func isFocused(_ ref: AgentPaste.WindowRef) -> Bool {
+        guard let window = window(for: ref) else { return false }
+        let app = AXUIElementCreateApplication(ref.pid)
+        AXUIElementSetMessagingTimeout(app, 0.25)
+        guard let focused = element(copy(app, kAXFocusedWindowAttribute)) else { return false }
+        return CFEqual(focused, window)
+    }
+
+    /// R82: focus in the message box of the app's focused window. False when the only editable text
+    /// there is a code editor, so a ⌘V would land in code. Usually the app already put focus back in
+    /// its message box, and two reads settle it; otherwise the window is walked.
+    func focusMessageBox(pid: pid_t) -> Bool {
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(app, 0.25)
+        if let focused = element(copy(app, kAXFocusedUIElementAttribute)), isEditable(focused),
+           !editableArea(focused).isCodeEditor {
+            return true
+        }
+        guard let window = element(copy(app, kAXFocusedWindowAttribute)) ?? element(copy(app, kAXMainWindowAttribute)) else {
+            return true
+        }
+        let found = editableAreas(in: window)
+        let areas = found.map(\.area)
+        switch AgentPaste.messageBox(in: areas) {
+        case .focused, .unknown:
+            return true
+        case .onlyCodeEditor:
+            return false
+        case .focus(let index):
+            let box = found[index].element
+            AXUIElementSetAttributeValue(box, kAXFocusedAttribute as CFString, kCFBooleanTrue)
+            let took = (copy(box, kAXFocusedAttribute) as? Bool) == true
+            return AgentPaste.canPaste(focusTook: took, areas: areas)
+        }
+    }
+
+    /// Chromium exposes a contenteditable message box as a text area.
+    private static let editableRoles: Set<String> = [kAXTextAreaRole, kAXTextFieldRole]
+
+    private func isEditable(_ element: AXUIElement) -> Bool {
+        string(copy(element, kAXRoleAttribute)).map { Self.editableRoles.contains($0) } ?? false
+    }
+
+    /// An editable element's classes and its four nearest ancestors' (R82's code-editor test), its
+    /// focus, and its bottom edge.
+    private func editableArea(_ element: AXUIElement) -> AgentPaste.EditableArea {
+        let classes = copy(element, "AXDOMClassList") as? [String] ?? []
+        var ancestors: [[String]] = []
+        var current = element
+        for _ in 0..<4 {
+            guard let parent = self.element(copy(current, kAXParentAttribute)) else { break }
+            ancestors.append(copy(parent, "AXDOMClassList") as? [String] ?? [])
+            current = parent
+        }
+        let frame = frame(copy(element, Self.frameAttribute))
+        return AgentPaste.EditableArea(
+            isFocused: (copy(element, kAXFocusedAttribute) as? Bool) == true,
+            isCodeEditor: AgentPaste.isCodeEditor(classes: classes, ancestorClasses: ancestors),
+            bottom: frame.map { $0.y + $0.h } ?? 0
+        )
+    }
+
+    /// Every editable text area in a window, breadth first, at most 3000 nodes; an editable area's own
+    /// children (its text) are not walked.
+    private func editableAreas(in window: AXUIElement) -> [(element: AXUIElement, area: AgentPaste.EditableArea)] {
+        var found: [(element: AXUIElement, area: AgentPaste.EditableArea)] = []
+        var queue: [AXUIElement] = [window]
+        var head = 0
+        while head < queue.count, head < 3000 {
+            let node = queue[head]
+            head += 1
+            if isEditable(node) {
+                found.append((node, editableArea(node)))
+                continue
+            }
+            queue.append(contentsOf: children(of: node))
+        }
+        return found
+    }
+
+    private func windows(of app: AXUIElement) -> [AXUIElement] {
+        guard let value = copy(app, kAXWindowsAttribute), let array = value as? [AnyObject] else { return [] }
+        return array.compactMap { CFGetTypeID($0) == AXUIElementGetTypeID() ? ($0 as! AXUIElement) : nil }
+    }
+
+    /// The same window keeps its token across reads, so a pick stays checked in the next menu.
+    private func token(for window: AXUIElement) -> Int {
+        if let known = windowTokens.first(where: { CFEqual($0.element, window) }) { return known.token }
+        let token = nextWindowToken
+        nextWindowToken += 1
+        windowTokens.append((token, window))
+        return token
+    }
+
+    private func window(for ref: AgentPaste.WindowRef) -> AXUIElement? {
+        guard let entry = windowTokens.first(where: { $0.token == ref.token }), isAlive(entry.element) else { return nil }
+        return entry.element
+    }
+
+    /// A closed window answers with `.invalidUIElement`.
+    private func isAlive(_ element: AXUIElement) -> Bool {
+        var value: CFTypeRef?
+        return AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &value) != .invalidUIElement
+    }
+
     // MARK: Reading
 
     private func hit(_ root: AXUIElement, at point: CGPoint) -> AXUIElement? {
