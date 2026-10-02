@@ -2,8 +2,8 @@
 # Casks/locant.rb; scripts/cask.sh fills version and sha256 here after scripts/release.sh, and the
 # file is copied over. Install: brew install Malik1942/locant/locant
 cask "locant" do
-  version "0.9.0"
-  sha256 "75748ca6d365c93c3fd196d89207d04ac5f4c16bab37f0fb541c77c51afbf36f"
+  version "0.9.1"
+  sha256 "2c5643c67d96b818addb1f2c7b99e0aa7946935ab88e54845dafaacab0945d29"
 
   url "https://github.com/Malik1942/locant/releases/download/v#{version}/Locant-#{version}.dmg"
   name "Locant"
