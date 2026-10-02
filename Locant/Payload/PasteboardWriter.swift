@@ -20,7 +20,7 @@ enum PasteboardWriter {
         pasteboard.setString(string, forType: .string)
     }
 
-    /// v0.9.1 R81: `pasteboard` is the general one except in tests.
+    /// specs/handoff.md R81: `pasteboard` is the general one except in tests.
     static func write(markdown: String, png: Data, to pasteboard: NSPasteboard = .general) {
         let item = NSPasteboardItem()
         item.setData(png, forType: .png)

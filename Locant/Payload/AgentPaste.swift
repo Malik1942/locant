@@ -1,7 +1,7 @@
 import AppKit
 import Carbon.HIToolbox
 
-/// v0.8.1 R63, v0.9.1 R80–R83: after Return, the capture is handed to the agent: the text, then the
+/// v0.8.1 R63, specs/handoff.md R80–R83: after Return, the capture is handed to the agent: the text, then the
 /// image. The decisions are pure and tested here; `AgentPaster` performs them.
 enum AgentPaste {
     /// Agent apps by exact bundle id, verified on this Mac on Sep 17, 2026 (Grok Bot and Antigravity on
@@ -12,8 +12,8 @@ enum AgentPaste {
         "com.anthropic.claudefordesktop", // Claude
         "com.todesktop.230313mzl4w4u92", // Cursor
         "com.openai.codex", // Codex, installed as ChatGPT.app
-        "com.anysphere.sand", // Grok Bot, v0.9.1 R83
-        "com.google.antigravity", // Antigravity, v0.9.1 R83
+        "com.anysphere.sand", // Grok Bot, specs/handoff.md R83
+        "com.google.antigravity", // Antigravity, specs/handoff.md R83
     ]
 
     static func isAgent(bundleId: String?) -> Bool {
@@ -36,9 +36,9 @@ enum AgentPaste {
     /// anything was pasted; the user has moved on, so nothing is said.
     enum Outcome: Equatable, Sendable {
         case pasted, noAgent, noPermission, didNotComeForward, superseded
-        /// v0.9.1 R81: the agent never read the text.
+        /// specs/handoff.md R81: the agent never read the text.
         case notTaken
-        /// v0.9.1 R82: the window's only editable text is a code editor.
+        /// specs/handoff.md R82: the window's only editable text is a code editor.
         case noMessageBox
     }
 
@@ -63,7 +63,7 @@ enum AgentPaste {
         userData == eventMarker
     }
 
-    // MARK: The hand-off (v0.9.1 R80–R83)
+    // MARK: The hand-off (specs/handoff.md R80–R83)
 
     /// R80: one paste of the hand-off.
     enum Step: Equatable, Sendable {
@@ -144,23 +144,23 @@ enum AgentPaste {
     }
 }
 
-/// v0.9.1 R80: what one hand-off delivers, and where.
+/// specs/handoff.md R80: what one hand-off delivers, and where.
 struct Handoff {
     let app: NSRunningApplication
     let markdown: String
     let png: Data
 }
 
-/// v0.8.1 R63, v0.9.1 R80–R82: brings the agent forward, puts focus in its message box, and pastes the
+/// v0.8.1 R63, specs/handoff.md R80–R82: brings the agent forward, puts focus in its message box, and pastes the
 /// text, then the image; never Return. Not pure; not unit tested. Every step checks the agent is still
 /// in front, so ⌘V never lands in the app the user pointed at.
 @MainActor
 enum AgentPaster {
     /// After the agent is frontmost, before ⌘V: Electron puts focus back in its composer.
     static let settle: Duration = .milliseconds(150)
-    /// v0.9.1 R81: a Space switch took up to about a second on Oct 1, 2026.
+    /// specs/handoff.md R81: a Space switch took up to about a second on Oct 1, 2026.
     static let comeForwardLimit: Duration = .milliseconds(1500)
-    /// v0.9.1 R81: between the text's receipt and the image's item.
+    /// specs/handoff.md R81: between the text's receipt and the image's item.
     static let stepGap: Duration = .milliseconds(120)
 
     /// `newerCapture` and the clipboard's ownership are asked before every step; `clipboard` was made

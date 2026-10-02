@@ -74,7 +74,7 @@ final class AppState {
     @ObservationIgnored private var collecting = false
     /// v0.8.1 R63: the agent app that came forward last, by pid; `lastAgent` checks it is still that app.
     @ObservationIgnored private var lastAgentPID: pid_t?
-    /// v0.9.1 R83: the newest capture as Return wrote it, and the clipboard's change count while it
+    /// specs/handoff.md R83: the newest capture as Return wrote it, and the clipboard's change count while it
     /// still holds that item; what a ⌘V in an agent is completed from. In memory only.
     @ObservationIgnored private var lastCapture: (markdown: String, png: Data, clipboardCount: Int)?
     /// v0.8.1 R63: a reader of its own for the target label, so a slow agent never holds up hover.
@@ -280,7 +280,7 @@ final class AppState {
     }
 
     /// After the clipboard: wait for the overlay to order out, so no Locant panel is key, then hand the
-    /// capture to the agent, the text and then the image (v0.9.1 R80). It never sends. A newer capture,
+    /// capture to the agent, the text and then the image (specs/handoff.md R80). It never sends. A newer capture,
     /// or anything else written to the clipboard, cancels it at any step, silently. The toast speaks
     /// only when nothing was pasted.
     private func pasteIntoAgent(near anchor: CGRect, markdown: String, png: Data) async {
@@ -299,7 +299,7 @@ final class AppState {
         }
     }
 
-    /// v0.9.1 R83: the user's own ⌘V in a listed agent, while the clipboard still holds the newest
+    /// specs/handoff.md R83: the user's own ⌘V in a listed agent, while the clipboard still holds the newest
     /// capture. Runs inside the key tap, before the key reaches the app: the clipboard becomes the text
     /// alone (0.1 ms, measured), the key passes untouched and pastes it, and Locant adds the image
     /// after. The key is never swallowed, delayed, or posted again.

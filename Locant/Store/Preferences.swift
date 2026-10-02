@@ -122,7 +122,7 @@ final class Preferences {
         static let lastUpdateCheck = "lastUpdateCheck"
         static let skippedUpdateVersion = "skippedUpdateVersion"
         static let pastesIntoAgent = "pastesIntoAgent" // v0.8.1 R63
-        static let completesPaste = "completesPaste" // v0.9.1 R83
+        static let completesPaste = "completesPaste" // specs/handoff.md R83
         static let trackpadTaps = "trackpadTaps" // v0.8.1 R61
         static let sounds = "sounds" // v0.8.1 R61
     }
@@ -281,7 +281,7 @@ final class Preferences {
         didSet { defaults.set(pastesIntoAgent, forKey: Key.pastesIntoAgent) }
     }
 
-    /// v0.9.1 R83: after the user's ⌘V of a capture in a listed agent, Locant adds the image. No
+    /// specs/handoff.md R83: after the user's ⌘V of a capture in a listed agent, Locant adds the image. No
     /// switch in Settings; a `defaults` key.
     var completesPaste: Bool {
         didSet { defaults.set(completesPaste, forKey: Key.completesPaste) }

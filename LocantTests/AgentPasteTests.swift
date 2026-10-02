@@ -2,7 +2,7 @@ import XCTest
 @testable import Locant
 
 final class AgentPasteTests: XCTestCase {
-    // 1: exact bundle ids; a shared word is not enough. Grok Bot joined in v0.9.1 R83.
+    // 1: exact bundle ids; a shared word is not enough. Grok Bot joined in specs/handoff.md R83.
     func testTheAgentAppsByExactBundleId() {
         XCTAssertTrue(AgentPaste.isAgent(bundleId: "com.anthropic.claudefordesktop"))
         XCTAssertTrue(AgentPaste.isAgent(bundleId: "com.todesktop.230313mzl4w4u92"))

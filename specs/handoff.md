@@ -1,4 +1,4 @@
-# Locant v0.9.1: the hand-off, text first, then the image
+# Locant: the hand-off, text first, then the image
 
 **Status:** Spec written Oct 1, 2026, after a calibration run on this Mac showed that the one clipboard item Return
 writes reaches most agents only in half. Decided with Malik the same day: the text goes first and the image second (his
@@ -12,6 +12,8 @@ Claude window holds many conversations); and it added friction. The target is ch
 and press ⌘V, and Locant makes that paste whole (the new R83). Pasting after Return stays the opt-in shortcut for
 someone with one agent, off by default, with the plain label R63 had. No ⌘↩ and no other new key: Malik's call, too
 many hotkeys.
+**Revision 3:** Oct 1, 2026, at the pull request: 0.9.1 was released the same day without this work, so the file is
+`specs/handoff.md`, named for what it is, as `specs/ball-edges.md` is; it ships in the release after 0.9.1.
 **Scope of this spec:** how a capture reaches an agent's message box whole: after Return while Paste into your agent
 (`specs/v0.8.1-paste.md`, R63) is on (R80, R81, R82), on the user's own ⌘V (R83), and the words (R84).
 **Out of scope:** any way to choose a target other than pasting there: a menu, dragging the note onto a window, a

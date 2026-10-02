@@ -675,7 +675,7 @@ struct AgentSettings: View {
     var body: some View {
         @Bindable var preferences = state.preferences
         Form {
-            // v0.8.1 R63, v0.9.1 R84: paste is the handoff, so it comes first; MCP below is how an agent looks back.
+            // v0.8.1 R63, specs/handoff.md R84: paste is the handoff, so it comes first; MCP below is how an agent looks back.
             Section {
                 Toggle(isOn: $preferences.pastesIntoAgent) {
                     Text("Paste into your agent")

@@ -2,7 +2,7 @@ import AppKit
 import XCTest
 @testable import Locant
 
-/// v0.9.1 R81, on a private named pasteboard: an in-process read calls the data provider just as
+/// specs/handoff.md R81, on a private named pasteboard: an in-process read calls the data provider just as
 /// another app's read does, and the user's clipboard is never touched.
 @MainActor
 final class HandoffPasteboardTests: XCTestCase {

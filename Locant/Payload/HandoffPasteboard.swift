@@ -1,7 +1,7 @@
 import AppKit
 import Synchronization
 
-/// v0.9.1 R81: the clipboard during a hand-off. Each paste gets an item of one type, offered lazily and
+/// specs/handoff.md R81: the clipboard during a hand-off. Each paste gets an item of one type, offered lazily and
 /// marked transient so clipboard histories skip it; the receiving app's read of that type is the
 /// receipt. Every write here is noted, so a copy of the user's, which moves the change count, stops the
 /// hand-off, and `restore` puts Return's item back whenever a temporary one would otherwise stay.
