@@ -94,6 +94,11 @@ enum HudText {
             s.append(NSAttributedString(string: title, attributes: secondaryAttributes))
         }
         s.append(NSAttributedString(string: " ⌄", attributes: secondaryAttributes)) // v0.9.1 R83: it opens a menu
+        // A long title is cut in the middle, so the chevron stays at the end: an attributed string's own
+        // paragraph style decides the line break, not the label's (a Terminal title was clipped on Oct 1).
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineBreakMode = .byTruncatingMiddle
+        s.addAttribute(.paragraphStyle, value: paragraph, range: NSRange(location: 0, length: s.length))
         return s
     }
 
