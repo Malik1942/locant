@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** The ball tucks into the bottom edge beside the Dock as well as the sides, wakes where it rests, shows a ghost of where a drop will tuck, and can be thrown at an edge (`specs/ball-edges.md`, R80–R85).
+**Goal:** The ball tucks into the bottom edge beside the Dock as well as the sides, wakes where it rests, shows a ghost of where a drop will tuck, and can be thrown at an edge (`specs/ball-edges.md`, R85–R90).
 
 **Architecture:** Two new pure units carry the geometry and the release rules (`BallEdges`, `Throw`); `Spring`/`Glide` gain an initial velocity; `AccessibilityReader` reads the Dock's tile frame; `FloatingBall` swaps its `visibleFrame` docking for `BallEdges`, keeps its home at the tuck, and passes drag velocity through; a small `BallGhost` panel previews the tuck.
 
@@ -168,7 +168,7 @@ git commit -m "motion: a spring can start with a velocity, and a glide settles t
 import XCTest
 @testable import Locant
 
-/// specs/ball-edges.md R80, on Malik's built-in display: 2056×1329, the Dock at the bottom with its
+/// specs/ball-edges.md R85, on Malik's built-in display: 2056×1329, the Dock at the bottom with its
 /// tiles from x 330 to 1726, the menu bar 39 pt.
 final class BallEdgesTests: XCTestCase {
     let screen = CGRect(x: 0, y: 0, width: 2056, height: 1329)
@@ -275,7 +275,7 @@ final class BallEdgesTests: XCTestCase {
 ```swift
 import CoreGraphics
 
-/// specs/ball-edges.md R80: where the ball may tuck on one screen, and how far in it must come for
+/// specs/ball-edges.md R85: where the ball may tuck on one screen, and how far in it must come for
 /// the ring. Pure. Everything is in AppKit coordinates (bottom-left origin, y up), and every
 /// position is the disc's center. Tucks use the screen's real edges, not `visibleFrame`: beside a
 /// Dock at the bottom the bottom of the screen is free, over the Dock it is not.
@@ -487,7 +487,7 @@ git commit -m "ball: the free stretches of a screen's edges, beside the Dock and
 import XCTest
 @testable import Locant
 
-/// specs/ball-edges.md R83, on the same display as `BallEdgesTests`.
+/// specs/ball-edges.md R88, on the same display as `BallEdgesTests`.
 final class ThrowTests: XCTestCase {
     let screen = CGRect(x: 0, y: 0, width: 2056, height: 1329)
     let visible = CGRect(x: 0, y: 52, width: 2056, height: 1238)
@@ -579,7 +579,7 @@ final class ThrowTests: XCTestCase {
 import CoreGraphics
 import Foundation
 
-/// specs/ball-edges.md R83: what letting go of the ball does. A release faster than `minimumSpeed`
+/// specs/ball-edges.md R88: what letting go of the ball does. A release faster than `minimumSpeed`
 /// is a throw, carried on the way iOS carries Picture in Picture; anything slower is a drop. Pure.
 enum Throw {
     struct Sample: Equatable, Sendable {
@@ -679,7 +679,7 @@ git commit -m "ball: a release reads the drag's speed, and a throw lands where i
 
 ```swift
     func testAHomeOnTheBottomEdgeBesideTheDockIsKept() {
-        // specs/ball-edges.md R82: the disc touching the real bottom, below the Dock's top.
+        // specs/ball-edges.md R87: the disc touching the real bottom, below the Dock's top.
         let screen = CGRect(x: 0, y: 0, width: 2056, height: 1329)
         let visible = CGRect(x: 0, y: 52, width: 2056, height: 1238)
         let home = CGPoint(x: 1806 - offset, y: 24 - offset)
@@ -726,7 +726,7 @@ git commit -m "ball: a release reads the drag's speed, and a throw lands where i
 In `AccessibilityReader`, after `raise(pid:)`:
 
 ```swift
-    /// specs/ball-edges.md R81: the Dock's tiles (its `AXList`), in CG coordinates. Nil without the
+    /// specs/ball-edges.md R86: the Dock's tiles (its `AXList`), in CG coordinates. Nil without the
     /// Dock, without trust, or without a list. A hidden Dock (a full-screen Space, auto-hide) reports
     /// a frame off the bottom of the screen; its span along the edge is still right.
     func dockFrame() -> CGRect? {
@@ -759,7 +759,7 @@ git commit -m "ball: the reader finds the Dock's tiles, and a saved spot below t
 - [ ] **Step 1: Wire the reader and the Dock cache.** In `FloatingBall`:
   - class doc: replace "tucks into a screen edge when left near one" with "tucks into the nearest free stretch of a screen edge (left, right, or the bottom beside the Dock; specs/ball-edges.md), which becomes its home,".
   - `Tokens`: add `/// After an app launches or quits, the Dock is read again once it has grown or shrunk.` `static let dockSettle: Duration = .milliseconds(600)`.
-  - stored properties: add `private let reader: AccessibilityReader`, `private var workspaceObservers: [NSObjectProtocol] = []`, `/// The spot the ball is tucked into while docked.` `private var tucked: BallEdges.Tuck?`, `/// R81: the Dock's tiles in AppKit coordinates, as last read; nil when unknown.` `private var dockFrame: CGRect?`, `private var dockRead: Task<Void, Never>?`. Change `freeOrigin`'s doc to `/// Home: where the ball rests and wakes from. A tuck moves it to the tucked spot (R82).`
+  - stored properties: add `private let reader: AccessibilityReader`, `private var workspaceObservers: [NSObjectProtocol] = []`, `/// The spot the ball is tucked into while docked.` `private var tucked: BallEdges.Tuck?`, `/// R86: the Dock's tiles in AppKit coordinates, as last read; nil when unknown.` `private var dockFrame: CGRect?`, `private var dockRead: Task<Void, Never>?`. Change `freeOrigin`'s doc to `/// Home: where the ball rests and wakes from. A tuck moves it to the tucked spot (R87).`
   - `init(origin:)` becomes `init(origin: CGPoint?, reader: AccessibilityReader)`; its first line uses `Self.onScreenOrigin($0, screens: Self.screenFrames, visible: Self.visibleFrames)`; assign `self.reader = reader` before `panel`.
   - add `private static var screenFrames: [CGRect] { NSScreen.screens.map(\.frame) }` beside `visibleFrames`, and the two conversions:
 
@@ -807,14 +807,14 @@ git commit -m "ball: the reader finds the Dock's tiles, and a saved spot below t
         }
     }
 
-    /// R80: the tucks and the ring's room on the screen the ball is on.
+    /// R85: the tucks and the ring's room on the screen the ball is on.
     private func edges() -> BallEdges? {
         guard let screen = panel.screen ?? NSScreen.main else { return nil }
         let others = NSScreen.screens.filter { $0 != screen }.map(\.frame)
         return BallEdges(frame: screen.frame, visible: screen.visibleFrame, dock: dockFrame, others: others)
     }
 
-    /// R82: tuck into the free spot nearest `point`. False when no edge has room; the ball stays put.
+    /// R87: tuck into the free spot nearest `point`. False when no edge has room; the ball stays put.
     @discardableResult
     private func tuck(nearest point: CGPoint) -> Bool {
         guard let edges = edges(), let spot = edges.tuck(nearest: point) else { return false }
@@ -834,7 +834,7 @@ git commit -m "ball: the reader finds the Dock's tiles, and a saved spot below t
         move(to: Self.origin(forCenter: spot.center), spring: .tuck, velocity: velocity)
     }
 
-    /// R81: read the Dock again, after `delay`. Decisions use the last answer and never wait on this one.
+    /// R86: read the Dock again, after `delay`. Decisions use the last answer and never wait on this one.
     private func refreshDock(after delay: Duration = .zero) {
         dockRead?.cancel()
         dockRead = Task { @MainActor in
@@ -848,7 +848,7 @@ git commit -m "ball: the reader finds the Dock's tiles, and a saved spot below t
         }
     }
 
-    /// R82: a tucked ball whose spot is no longer free (the Dock grew over it, a display came)
+    /// R87: a tucked ball whose spot is no longer free (the Dock grew over it, a display came)
     /// moves to the nearest free one.
     private func retuckIfCovered() {
         guard state == .docked, !view.isDragging, let tucked, let edges = edges(),
@@ -856,7 +856,7 @@ git commit -m "ball: the reader finds the Dock's tiles, and a saved spot below t
         tuck(into: spot, edges: edges)
     }
 
-    /// `origin` (window origin) pulled in far enough for the ring to open fully (R80): from the real
+    /// `origin` (window origin) pulled in far enough for the ring to open fully (R85): from the real
     /// edge beside the Dock, from the visible frame across it and toward the menu bar.
     private func ringSafeOrigin(_ origin: CGPoint) -> CGPoint {
         guard let edges = edges() else { return origin }
@@ -873,7 +873,7 @@ git commit -m "ball: the reader finds the Dock's tiles, and a saved spot below t
 - [ ] **Step 3: The press, the drag, and the release.** `pressBegan()`: first line `refreshDock()`. `dragged(to:)`: change `if state == .docked { state = .rest }` to `if state == .docked { state = .rest; tucked = nil }`. Replace `dragEnded()`:
 
 ```swift
-    /// R83: a drop near an edge tucks into the nearest free spot at once and stays until the cursor
+    /// R88: a drop near an edge tucks into the nearest free spot at once and stays until the cursor
     /// has left; a throw carries on and tucks where it was heading, or comes to rest in open space.
     /// A drop in the open stays ready under the cursor; leaving rests it.
     func dragEnded(velocity: CGPoint) {
@@ -912,7 +912,7 @@ git commit -m "ball: the reader finds the Dock's tiles, and a saved spot below t
             ball?.dragEnded(velocity: Throw.velocity(samples))
 ```
 
-- [ ] **Step 4: AppState.** In `updateBall()`, `FloatingBall(origin: preferences.ballPosition)` becomes `FloatingBall(origin: preferences.ballPosition, reader: AccessibilityReader())` with the comment `// specs/ball-edges.md R81: a reader of its own for the Dock, as the agent label has.` above it.
+- [ ] **Step 4: AppState.** In `updateBall()`, `FloatingBall(origin: preferences.ballPosition)` becomes `FloatingBall(origin: preferences.ballPosition, reader: AccessibilityReader())` with the comment `// specs/ball-edges.md R86: a reader of its own for the Dock, as the agent label has.` above it.
 
 - [ ] **Step 5: Build and run the full suite.** Expected: `** TEST SUCCEEDED **`, no new warnings in `FloatingBall.swift` (`grep -c warning` over the log for that file is 0).
 
@@ -936,7 +936,7 @@ git commit -m "ball: it tucks into the nearest free edge spot, beside the Dock t
 - [ ] **Step 1: `DiscView.hideGlow()`.** After `startGlow()` in `DiscView`:
 
 ```swift
-    /// The ghost (specs/ball-edges.md R84) is the glass alone, without the drifting light.
+    /// The ghost (specs/ball-edges.md R89) is the glass alone, without the drifting light.
     func hideGlow() {
         glow.removeAnimation(forKey: "glow")
         glow.opacity = 0
@@ -948,7 +948,7 @@ git commit -m "ball: it tucks into the nearest free edge spot, beside the Dock t
 ```swift
 import AppKit
 
-/// specs/ball-edges.md R84: where a release will tuck the ball. The disc's glass, faint, with no
+/// specs/ball-edges.md R89: where a release will tuck the ball. The disc's glass, faint, with no
 /// hand and no glow, in a panel of its own just under the ball; it never takes the mouse.
 @MainActor
 final class BallGhost {
@@ -1009,7 +1009,7 @@ final class BallGhost {
 - [ ] **Step 3: Use it in `FloatingBall`.** Add `private let ghost = BallGhost()` beside `ring`. In `hide()`, add `ghost.hide()`. At the end of `dragged(to:)`, call `showGhost()`. First line of `dragEnded(velocity:)`: `ghost.hide()`. Add:
 
 ```swift
-    /// R84: while a drop would tuck, the ghost shows where.
+    /// R89: while a drop would tuck, the ghost shows where.
     private func showGhost() {
         guard autoHide, let edges = edges(), edges.isNearEdge(discCenter),
               let spot = edges.tuck(nearest: discCenter) else {

@@ -1,7 +1,7 @@
 import XCTest
 @testable import Locant
 
-/// specs/ball-edges.md R80, on Malik's built-in display: 2056×1329, the Dock at the bottom with its
+/// specs/ball-edges.md R85, on Malik's built-in display: 2056×1329, the Dock at the bottom with its
 /// tiles from x 330 to 1726, the menu bar 39 pt.
 final class BallEdgesTests: XCTestCase {
     let screen = CGRect(x: 0, y: 0, width: 2056, height: 1329)

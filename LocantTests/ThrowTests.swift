@@ -1,7 +1,7 @@
 import XCTest
 @testable import Locant
 
-/// specs/ball-edges.md R83, on the same display as `BallEdgesTests`.
+/// specs/ball-edges.md R88, on the same display as `BallEdgesTests`.
 final class ThrowTests: XCTestCase {
     let screen = CGRect(x: 0, y: 0, width: 2056, height: 1329)
     let visible = CGRect(x: 0, y: 52, width: 2056, height: 1238)

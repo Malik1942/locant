@@ -53,7 +53,7 @@ final class FloatingBallTests: XCTestCase {
     }
 
     func testAHomeOnTheBottomEdgeBesideTheDockIsKept() {
-        // specs/ball-edges.md R82: the disc touching the real bottom, below the Dock's top.
+        // specs/ball-edges.md R87: the disc touching the real bottom, below the Dock's top.
         let screen = CGRect(x: 0, y: 0, width: 2056, height: 1329)
         let visible = CGRect(x: 0, y: 52, width: 2056, height: 1238)
         let home = CGPoint(x: 1806 - offset, y: 24 - offset)

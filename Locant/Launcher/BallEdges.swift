@@ -1,6 +1,6 @@
 import CoreGraphics
 
-/// specs/ball-edges.md R80: where the ball may tuck on one screen, and how far in it must come for
+/// specs/ball-edges.md R85: where the ball may tuck on one screen, and how far in it must come for
 /// the ring. Pure. Everything is in AppKit coordinates (bottom-left origin, y up), and every
 /// position is the disc's center. Tucks use the screen's real edges, not `visibleFrame`: beside a
 /// Dock at the bottom the bottom of the screen is free, over the Dock it is not.

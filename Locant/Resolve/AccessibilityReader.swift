@@ -193,7 +193,7 @@ actor AccessibilityReader {
         }
     }
 
-    /// specs/ball-edges.md R81: the Dock's tiles (its `AXList`), in CG coordinates. Nil without the
+    /// specs/ball-edges.md R86: the Dock's tiles (its `AXList`), in CG coordinates. Nil without the
     /// Dock, without trust, or without a list. A hidden Dock (a full-screen Space, auto-hide) reports
     /// a frame off the bottom of the screen; its span along the edge is still right.
     func dockFrame() -> CGRect? {

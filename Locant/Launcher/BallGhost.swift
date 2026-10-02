@@ -1,6 +1,6 @@
 import AppKit
 
-/// specs/ball-edges.md R84: where a release will tuck the ball. The disc's glass, faint, with no
+/// specs/ball-edges.md R89: where a release will tuck the ball. The disc's glass, faint, with no
 /// hand and no glow, in a panel of its own just under the ball; it never takes the mouse.
 @MainActor
 final class BallGhost {

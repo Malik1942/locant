@@ -80,13 +80,13 @@ final class FloatingBall {
     private var screenObserver: NSObjectProtocol?
     private var workspaceObservers: [NSObjectProtocol] = []
     private(set) var state: State = .rest
-    /// Home: where the ball rests and wakes from. A tuck moves it to the tucked spot (R82).
+    /// Home: where the ball rests and wakes from. A tuck moves it to the tucked spot (R87).
     private var freeOrigin: CGPoint
     /// Where the window was last sent (awake near an edge it sits inward of `freeOrigin`).
     private var shownOrigin: CGPoint
     /// The spot the ball is tucked into while docked.
     private var tucked: BallEdges.Tuck?
-    /// R81: the Dock's tiles in AppKit coordinates, as last read; nil when unknown.
+    /// R86: the Dock's tiles in AppKit coordinates, as last read; nil when unknown.
     private var dockFrame: CGRect?
     private var dockRead: Task<Void, Never>?
     private var dockTask: Task<Void, Never>?
@@ -314,14 +314,14 @@ final class FloatingBall {
         }
     }
 
-    /// R80: the tucks and the ring's room on the screen the ball is on.
+    /// R85: the tucks and the ring's room on the screen the ball is on.
     private func edges() -> BallEdges? {
         guard let screen = panel.screen ?? NSScreen.main else { return nil }
         let others = NSScreen.screens.filter { $0 != screen }.map(\.frame)
         return BallEdges(frame: screen.frame, visible: screen.visibleFrame, dock: dockFrame, others: others)
     }
 
-    /// R82: tuck into the free spot nearest `point`. False when no edge has room; the ball stays put.
+    /// R87: tuck into the free spot nearest `point`. False when no edge has room; the ball stays put.
     @discardableResult
     private func tuck(nearest point: CGPoint) -> Bool {
         guard let edges = edges(), let spot = edges.tuck(nearest: point) else { return false }
@@ -341,7 +341,7 @@ final class FloatingBall {
         move(to: Self.origin(forCenter: spot.center), spring: .tuck, velocity: velocity)
     }
 
-    /// R81: read the Dock again, after `delay`. Decisions use the last answer and never wait on this one.
+    /// R86: read the Dock again, after `delay`. Decisions use the last answer and never wait on this one.
     private func refreshDock(after delay: Duration = .zero) {
         dockRead?.cancel()
         dockRead = Task { @MainActor in
@@ -355,7 +355,7 @@ final class FloatingBall {
         }
     }
 
-    /// R82: a tucked ball whose spot is no longer free (the Dock grew over it, a display came)
+    /// R87: a tucked ball whose spot is no longer free (the Dock grew over it, a display came)
     /// moves to the nearest free one.
     private func retuckIfCovered() {
         guard state == .docked, !view.isDragging, !ringOpen, let tucked, let edges = edges(),
@@ -363,7 +363,7 @@ final class FloatingBall {
         tuck(into: spot, edges: edges)
     }
 
-    /// `origin` (window origin) pulled in far enough for the ring to open fully (R80): from the real
+    /// `origin` (window origin) pulled in far enough for the ring to open fully (R85): from the real
     /// edge beside the Dock, from the visible frame across it and toward the menu bar.
     private func ringSafeOrigin(_ origin: CGPoint) -> CGPoint {
         guard let edges = edges() else { return origin }
@@ -429,7 +429,7 @@ final class FloatingBall {
         showGhost()
     }
 
-    /// R84: while a drop would tuck, the ghost shows where.
+    /// R89: while a drop would tuck, the ghost shows where.
     private func showGhost() {
         guard autoHide, let edges = edges(), edges.isNearEdge(discCenter),
               let spot = edges.tuck(nearest: discCenter) else {
@@ -443,7 +443,7 @@ final class FloatingBall {
     /// AppKit screen frame of the panel, for anchoring a toast to the ball.
     var frame: CGRect { panel.frame }
 
-    /// R83: a drop near an edge tucks into the nearest free spot at once and stays until the cursor
+    /// R88: a drop near an edge tucks into the nearest free spot at once and stays until the cursor
     /// has left; a throw carries on and tucks where it was heading, or comes to rest in open space.
     /// A drop in the open stays ready under the cursor; leaving rests it.
     func dragEnded(velocity: CGPoint) {
@@ -478,7 +478,7 @@ final class BallView: NSView {
     private var dragStart: CGPoint?
     private var grabOffset: CGPoint = .zero
     private var dragMoved = false
-    /// R83: where the cursor was during the drag, for the release's speed.
+    /// R88: where the cursor was during the drag, for the release's speed.
     private var samples: [Throw.Sample] = []
     private var current: FloatingBall.State = .rest
     let disc: DiscView
@@ -671,7 +671,7 @@ final class DiscView: NSView {
         }
     }
 
-    /// The ghost (specs/ball-edges.md R84) is the glass alone, without the drifting light.
+    /// The ghost (specs/ball-edges.md R89) is the glass alone, without the drifting light.
     func hideGlow() {
         glow.removeAnimation(forKey: "glow")
         glow.opacity = 0

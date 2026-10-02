@@ -1,7 +1,7 @@
 import CoreGraphics
 import Foundation
 
-/// specs/ball-edges.md R83: what letting go of the ball does. A release faster than `minimumSpeed`
+/// specs/ball-edges.md R88: what letting go of the ball does. A release faster than `minimumSpeed`
 /// is a throw, carried on the way iOS carries Picture in Picture; anything slower is a drop. Pure.
 enum Throw {
     struct Sample: Equatable, Sendable {
