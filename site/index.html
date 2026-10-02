@@ -472,7 +472,7 @@
       </div>
       <div class="step">
         <div class="vis"><span class="n">3</span><div class="term"><span class="h">## Locant capture (fix)</span><br><span class="k">Image:</span> ~/Pictures/Locant/…<br>button · id=captureButton</div></div>
-        <div class="text"><h3>Paste</h3><p>Into Claude Code, Cursor, or Codex. The image path comes first.</p></div>
+        <div class="text"><h3>Paste</h3><p>⌘V in the conversation you want. The text and the image both arrive; a terminal gets the text, image path first.</p></div>
       </div>
     </div>
   </section>
@@ -670,14 +670,15 @@ make this rounded, match the other pills</pre>
   <section class="col" id="agents">
     <div class="sect-head">
       <h2>Paste it, or let the agent fetch it</h2>
-      <p class="lede">The payload is plain Markdown, so most agents take it on paste. Locant is also an MCP server: connect Claude Code, Cursor, or Codex in Settings › Agents, then say what should change and the agent pulls the capture itself, image included. Run end to end; each row says when:</p>
+      <p class="lede">You choose where a capture goes by pasting it there. Cursor, the Codex app, and Grok Bot keep only half of a capture pasted whole, so after your ⌘V Locant adds the image: the text and the image both arrive. Locant is also an MCP server: connect Claude Code, Cursor, or Codex in Settings › Agents, then say what should change and the agent pulls the capture itself, image included. Run end to end; each row says when:</p>
     </div>
     <div class="agents">
       <div class="agent"><b>Claude Code</b><span>Fetches the capture over MCP and opens the image; 80 measured runs above</span><span class="chip">Verified Sep 15, 2026</span></div>
-      <div class="agent"><b>Cursor</b><span>Fetches over MCP; Cursor asks once to enable the server</span><span class="chip">Verified Sep 15, 2026</span></div>
+      <div class="agent"><b>Cursor</b><span>A paste carries the text and the image; fetches over MCP too, after Cursor asks once to enable the server</span><span class="chip">Verified Oct 1, 2026</span></div>
+      <div class="agent"><b>Codex app</b><span>A paste carries the text and the image</span><span class="chip">Verified Oct 1, 2026</span></div>
       <div class="agent"><b>Codex CLI</b><span>Fetches over MCP and views the image at the path</span><span class="chip">Verified Sep 15, 2026</span></div>
       <div class="agent"><b>Grok Bot</b><span>Reads the capture on your Mac with the <a href="https://github.com/Malik1942/locant#in-grok-bot">Locant skill</a>; a paste carries the text and the image</span><span class="chip">Verified Oct 1, 2026</span></div>
-      <div class="agent"><b>Antigravity</b><span>Takes the paste and opens the image at the path</span><span class="chip">Verified Sep 18, 2026</span></div>
+      <div class="agent"><b>Antigravity</b><span>A paste carries the text and the image</span><span class="chip">Verified Oct 1, 2026</span></div>
       <div class="agent"><b>Gemini CLI</b><span>Paste, or the snippet from Settings › Agents</span><span class="chip dash">Untested</span></div>
     </div>
   </section>
