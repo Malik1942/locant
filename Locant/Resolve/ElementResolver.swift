@@ -312,6 +312,27 @@ enum HitRefiner {
         return rungs + [element]
     }
 
+    /// Xcode 27: Device Hub marks the simulated device's screen with this subrole.
+    static let simulatedScreenSubrole = "iOSContentGroup"
+
+    /// The simulated device's screen around a hit in Device Hub: the element or its nearest ancestor
+    /// marked `iOSContentGroup`. Nil on Device Hub's own sidebar and toolbar.
+    static func simulatedScreen(in snapshot: ElementSnapshot) -> CGRect? {
+        guard let frame = ([snapshot.element] + snapshot.ancestors).first(where: { $0.subrole == simulatedScreenSubrole })?.frame,
+              frame.w > 0, frame.h > 0 else { return nil }
+        return frame.cgRect
+    }
+
+    /// Xcode 27: Device Hub draws the simulated device beside a sidebar and under a toolbar, where
+    /// Simulator.app's window was the device. On the device, Snap and Cut end in its screen instead:
+    /// the rungs inside it, then the screen as the window rung.
+    static func endingInScreen(_ levels: [ResolvedElement?], screen: CGRect, appName: String?) -> [ResolvedElement?] {
+        let inside = levels.compactMap { $0 }.filter { rung in
+            screen.insetBy(dx: -1, dy: -1).contains(rung.frame.cgRect) && !matches(rung.frame, Frame(screen))
+        }
+        return addingWindow(inside, window: screen, appName: appName)
+    }
+
     /// Among descendants of a container hit, the best replacement: smallest area, real controls
     /// before containers, and only if smaller than the container itself. Nil means the container
     /// stands (blank area or edge).

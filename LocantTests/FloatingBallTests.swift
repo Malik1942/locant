@@ -51,4 +51,19 @@ final class FloatingBallTests: XCTestCase {
         let origin = CGPoint(x: -5000, y: -5000)
         XCTAssertEqual(FloatingBall.onScreenOrigin(origin, screens: []), origin)
     }
+
+    func testAHomeOnTheBottomEdgeBesideTheDockIsKept() {
+        // specs/ball-edges.md R87: the disc touching the real bottom, below the Dock's top.
+        let screen = CGRect(x: 0, y: 0, width: 2056, height: 1329)
+        let visible = CGRect(x: 0, y: 52, width: 2056, height: 1238)
+        let home = CGPoint(x: 1806 - offset, y: 24 - offset)
+        XCTAssertEqual(FloatingBall.onScreenOrigin(home, screens: [screen], visible: [visible]), home)
+    }
+
+    func testOffEveryScreenItStillComesInsideTheVisibleFrame() {
+        let screen = CGRect(x: 0, y: 0, width: 2056, height: 1329)
+        let visible = CGRect(x: 0, y: 52, width: 2056, height: 1238)
+        let safe = FloatingBall.onScreenOrigin(CGPoint(x: 900, y: -400), screens: [screen], visible: [visible])
+        XCTAssertEqual(safe.y + offset, 52 + FloatingBall.Tokens.diameter / 2)
+    }
 }

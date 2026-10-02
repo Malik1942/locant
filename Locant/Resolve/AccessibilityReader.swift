@@ -193,7 +193,7 @@ actor AccessibilityReader {
         }
     }
 
-    // MARK: The hand-off (v0.9.1 R81–R83)
+    // MARK: The hand-off (specs/handoff.md R81–R83)
 
     /// R82: focus in the message box of the app's focused window. False when the only editable text
     /// there is a code editor, so a ⌘V would land in code. Usually the app already put focus back in
@@ -294,6 +294,17 @@ actor AccessibilityReader {
             queue.append(contentsOf: children(of: node))
         }
         return found
+    }
+
+    /// specs/ball-edges.md R86: the Dock's tiles (its `AXList`), in CG coordinates. Nil without the
+    /// Dock, without trust, or without a list. A hidden Dock (a full-screen Space, auto-hide) reports
+    /// a frame off the bottom of the screen; its span along the edge is still right.
+    func dockFrame() -> CGRect? {
+        guard let dock = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first else { return nil }
+        let app = AXUIElementCreateApplication(dock.processIdentifier)
+        AXUIElementSetMessagingTimeout(app, 0.25)
+        let list = children(of: app).first { string(copy($0, kAXRoleAttribute)) == kAXListRole }
+        return list.flatMap { frame(copy($0, Self.frameAttribute))?.cgRect }
     }
 
     // MARK: Reading

@@ -38,31 +38,34 @@ struct ModeEnvironment: Sendable {
     static let live = ModeEnvironment(
         directoryEntries: { path in (try? FileManager.default.contentsOfDirectory(atPath: path)) ?? [] },
         derivedDataWorkspacePath: { folder in workspacePath(inDerivedDataFolder: folder) },
-        simulatorProjectRoot: { bundleId in
-            // Simulated apps run from the device container; the product that built them sits in
-            // DerivedData/<Project-hash>/Build/Products/<Config>-iphonesimulator/<App>.app.
-            // Several products can match (worktrees, old builds); the newest one wins.
-            let fm = FileManager.default
-            guard let projects = try? fm.contentsOfDirectory(at: derivedDataFolder, includingPropertiesForKeys: nil) else { return nil }
-            var best: (modified: Date, root: String)?
-            for project in projects {
-                let products = project.appending(path: "Build/Products")
-                guard let configs = try? fm.contentsOfDirectory(at: products, includingPropertiesForKeys: nil) else { continue }
-                for config in configs where config.lastPathComponent.contains("iphonesimulator") {
-                    guard let apps = try? fm.contentsOfDirectory(at: config, includingPropertiesForKeys: [.contentModificationDateKey]) else { continue }
-                    for app in apps where app.pathExtension == "app" {
-                        guard Bundle(url: app)?.bundleIdentifier == bundleId,
-                              let workspace = workspacePath(inDerivedDataFolder: project.path(percentEncoded: false)) else { continue }
-                        let modified = (try? app.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-                        if best == nil || modified > best!.modified {
-                            best = (modified, ModeInference.directoryPath(URL(filePath: workspace).deletingLastPathComponent()))
-                        }
+        simulatorProjectRoot: { bundleId in projectRoot(ofSimulatedApp: bundleId, derivedData: derivedDataFolder) }
+    )
+
+    /// Simulated apps run from the device container; the product that built them sits in
+    /// DerivedData/<Project-hash>/Build/Products/<Config>-iphonesimulator/<App>.app.
+    /// Several products can match (worktrees, old builds); the newest one wins.
+    static func projectRoot(ofSimulatedApp bundleId: String, derivedData: URL) -> String? {
+        let fm = FileManager.default
+        // DerivedData may be a symlink (to DerivedData.noindex, say); the URL listing does not follow one.
+        guard let projects = try? fm.contentsOfDirectory(at: derivedData.resolvingSymlinksInPath(), includingPropertiesForKeys: nil) else { return nil }
+        var best: (modified: Date, root: String)?
+        for project in projects {
+            let products = project.appending(path: "Build/Products")
+            guard let configs = try? fm.contentsOfDirectory(at: products, includingPropertiesForKeys: nil) else { continue }
+            for config in configs where config.lastPathComponent.contains("iphonesimulator") {
+                guard let apps = try? fm.contentsOfDirectory(at: config, includingPropertiesForKeys: [.contentModificationDateKey]) else { continue }
+                for app in apps where app.pathExtension == "app" {
+                    guard Bundle(url: app)?.bundleIdentifier == bundleId,
+                          let workspace = workspacePath(inDerivedDataFolder: project.path(percentEncoded: false)) else { continue }
+                    let modified = (try? app.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+                    if best == nil || modified > best!.modified {
+                        best = (modified, ModeInference.directoryPath(URL(filePath: workspace).deletingLastPathComponent()))
                     }
                 }
             }
-            return best?.root
         }
-    )
+        return best?.root
+    }
 
     static func workspacePath(inDerivedDataFolder folder: String) -> String? {
         let plist = URL(filePath: folder).appending(path: "info.plist")
@@ -75,6 +78,8 @@ struct ModeEnvironment: Sendable {
 
 enum ModeInference {
     static let simulatorBundleId = "com.apple.iphonesimulator"
+    /// Xcode 27 has no Simulator.app; Device Hub shows simulators, and physical devices too.
+    static let deviceHubBundleId = "com.apple.dt.Devices"
     static let projectMarkers = [".xcodeproj", ".xcworkspace", "Package.swift"]
     static let derivedDataMarker = "/Library/Developer/Xcode/DerivedData/"
     static let localHosts: Set<String> = ["localhost", "127.0.0.1", "0.0.0.0", "::1"]

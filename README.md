@@ -201,7 +201,7 @@ the hotkey.
 | **Payload** | One pasteboard item carrying both the PNG and the Markdown. The Markdown is derived from the JSON sidecar, never the other way around; the schema is the only contract with the outside. A failed capture never touches the clipboard. |
 | **Iterations** | After a Point capture in an app you build, each launch or activation of that app within a day is a chance to capture the element again. Locant refinds it by identifier, then by role and label, then by the nearest same-role frame. When the pixels differ beyond a tolerance, it records the git facts (commit at capture time versus HEAD, or the working tree when nothing was committed) and appends an iteration to the sidecar. **Show before & after** in the menu bar opens the newest: slide, side by side, or flip, with every iteration in a strip. Switch: Settings › Captures › Collect iterations. |
 | **Lifecycle** | Images older than the retention period (7, 30, 90 days, or forever) move to the Trash on launch and daily, with their sidecars. Captures an agent marked `resolved` in the sidecar stay, and so do pinned ones (extended attribute `app.locant.pinned`). Actions that make text or a value keep nothing. |
-| **The ball** | A 48 pt glass disc. Rests translucent, tucks into the nearest edge after two seconds without use, wakes as the cursor approaches, starts Point on click. Hold half a second for the ring: Snap ↑, Text →, Color ↓, Cut ←; release at center cancels. Drag it anywhere. |
+| **The ball** | A 48 pt glass disc. Rests translucent, tucks into the nearest edge after two seconds without use (left, right, or the bottom beside the Dock), wakes where it rests as the cursor approaches, starts Point on click. Hold half a second for the ring: Snap ↑, Text →, Color ↓, Cut ←; release at center cancels. Drag it anywhere, or flick it at an edge and it tucks where it was heading. |
 | **Hotkeys** | Point is ⌃⌃ by default; the actions are ⌃⌥ and their number in the menu (⌃⌥1 Point through ⌃⌥5 Cut). Re-record or clear any of them in Settings › Hotkeys, which refuses a clash inside Locant and warns when a chord is also a macOS shortcut. A matched chord is swallowed before the frontmost app sees it. |
 | **Feedback** | A light trackpad tap when the outline moves to a new element, when the ring opens and between its segments, and when a capture lands; a short, quiet note when a capture reaches the clipboard and a lower one when nothing did, fired with a tap of its own. The sounds follow the system's switch for interface sounds. Settings › General has a switch for each. |
 | **Updates** | Once a day, 10 s after launch, Locant asks the GitHub releases API for the newest version and offers Download, Later, or Skip This Version. The request carries the version number and nothing else. Settings › General has the switch and Check Now. There is no in-place update: you drag the new copy over the old one. |
@@ -243,13 +243,14 @@ macOS 15, an Intel Mac, a non-English system, or a second display is what 0.9 is
 - Hover picks the smallest control and sticks to it. Press Option to step to the parent.
 - iOS Simulator: which app it is showing is inferred from the most recently launched simulated process.
   With two apps in one device, the newer one is assumed. The tree is built lazily; Locant retries for up
-  to 600 ms before giving up.
+  to 600 ms before giving up. Xcode 27 shows simulators in Device Hub, which also shows physical devices:
+  only a booted simulator there counts as the Simulator, and the app is the one on that device.
 - Web pages and Electron apps: the DOM id and class list come through, and the page URL; a `localhost`
   page is fix mode. Tested in Chromium browsers and Electron; Safari exposes the same attributes but
   has not been exercised.
 - Menus and popovers stay open under the overlay, but an element inside another app's menu may not resolve.
-- Snap and Cut open on a normal window; on the desktop, the menu bar, or the Dock they open on the
-  largest element there is.
+- Snap and Cut open on a normal window, or on the device's screen in Xcode 27's Device Hub; on the
+  desktop, the menu bar, or the Dock they open on the largest element there is.
 
 ## Under the hood
 

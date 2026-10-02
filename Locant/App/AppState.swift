@@ -164,7 +164,8 @@ final class AppState {
         if preferences.ballEnabled {
             guard ball == nil else { return }
             let firstLaunch = preferences.ballPosition == nil
-            let newBall = FloatingBall(origin: preferences.ballPosition)
+            // specs/ball-edges.md R86: a reader of its own for the Dock, as the agent label has.
+            let newBall = FloatingBall(origin: preferences.ballPosition, reader: AccessibilityReader())
             newBall.autoHide = preferences.ballAutoHide
             newBall.onPoint = { [weak self] in self?.beginCapture() }
             newBall.onMoved = { [weak self] origin in self?.preferences.ballPosition = origin }
@@ -647,10 +648,15 @@ final class AppState {
             var freshLevels = fresh.map { HitRefiner.selectionLevels(for: $0, at: point) } ?? []
             if action == .snap || action == .cut {
                 // v0.9 R77: the same ladder as Point, ending in the window under the cursor, which
-                // comes from the window list and needs no accessibility.
+                // comes from the window list and needs no accessibility. On a device in Xcode 27's
+                // Device Hub, ending in the device's screen.
                 let window = Geometry.windowOwner(at: point, windows: windows, excludingPID: ownPID)
-                let name = window.flatMap { NSRunningApplication(processIdentifier: $0.ownerPID)?.localizedName }
-                freshLevels = HitRefiner.addingWindow(freshLevels, window: window?.bounds, appName: name)
+                let owner = window.flatMap { NSRunningApplication(processIdentifier: $0.ownerPID) }
+                if owner?.bundleIdentifier == ModeInference.deviceHubBundleId, let screen = fresh.flatMap(HitRefiner.simulatedScreen(in:)) {
+                    freshLevels = HitRefiner.endingInScreen(freshLevels, screen: screen, appName: owner?.localizedName)
+                } else {
+                    freshLevels = HitRefiner.addingWindow(freshLevels, window: window?.bounds, appName: owner?.localizedName)
+                }
             }
             let freshElement = freshLevels.first ?? nil
             let freshIsVague = freshElement.map { ElementResolver.containerRoles.contains($0.role) } ?? true
