@@ -2,9 +2,10 @@ import AppKit
 import QuartzCore
 
 /// v0.3 R20, PRD P1.11: the quiet second entry point. A 48 pt glass disc that rests translucent,
-/// tucks into a screen edge when left near one, wakes as the cursor approaches (moving in far
-/// enough for the ring to open on screen), and starts Point on click. Excluded from captures
-/// through the own-windows filter.
+/// tucks into the nearest free stretch of a screen edge (left, right, or the bottom beside the
+/// Dock; specs/ball-edges.md), which becomes its home, wakes there as the cursor approaches (moving
+/// in far enough for the ring to open on screen), and starts Point on click. Excluded from
+/// captures through the own-windows filter.
 @MainActor
 final class FloatingBall {
     enum State: Equatable { case rest, docked, awake, ready }
@@ -36,11 +37,13 @@ final class FloatingBall {
         static let wakeFromScale: CGFloat = 0.94
         static let iconInset: CGFloat = 13
         static let firstLaunchReveal: TimeInterval = 0.8
+        /// After an app launches or quits, the Dock is read again once it has grown or shrunk.
+        static let dockSettle: Duration = .milliseconds(600)
     }
 
     /// Click: start Point.
     var onPoint: (() -> Void)?
-    /// The user dragged the ball; persist the new origin (AppKit screen points, window origin).
+    /// The ball's home moved (a drag, a throw, a tuck); persist it (AppKit screen points, window origin).
     var onMoved: ((CGPoint) -> Void)?
     /// A ring segment was chosen; `clipboardOnly` when ⌘ was held (v0.9 R78; ⌥ until 0.8.1).
     var onAction: ((Ring.Segment, Bool) -> Void)?
@@ -64,6 +67,7 @@ final class FloatingBall {
     }
 
     private let ring = Ring()
+    private let reader: AccessibilityReader
     private var holdTask: Task<Void, Never>?
     private(set) var ringOpen = false
 
@@ -73,19 +77,27 @@ final class FloatingBall {
     private var globalMonitor: Any?
     private var localMonitor: Any?
     private var screenObserver: NSObjectProtocol?
+    private var workspaceObservers: [NSObjectProtocol] = []
     private(set) var state: State = .rest
+    /// Home: where the ball rests and wakes from. A tuck moves it to the tucked spot (R82).
     private var freeOrigin: CGPoint
     /// Where the window was last sent (awake near an edge it sits inward of `freeOrigin`).
     private var shownOrigin: CGPoint
+    /// The spot the ball is tucked into while docked.
+    private var tucked: BallEdges.Tuck?
+    /// R81: the Dock's tiles in AppKit coordinates, as last read; nil when unknown.
+    private var dockFrame: CGRect?
+    private var dockRead: Task<Void, Never>?
     private var dockTask: Task<Void, Never>?
     /// After a drop docks the disc, the cursor is still on it; stay docked until it has left.
     private var holdDock = false
     /// The saved origin was off every connected display and had to be pulled onto one.
     private let restoredOffScreen: Bool
 
-    init(origin: CGPoint?) {
+    init(origin: CGPoint?, reader: AccessibilityReader) {
         let size = NSSize(width: Tokens.panelSide, height: Tokens.panelSide)
-        let start = origin.map { Self.onScreenOrigin($0, screens: Self.visibleFrames) } ?? Self.firstLaunchOrigin()
+        let start = origin.map { Self.onScreenOrigin($0, screens: Self.screenFrames, visible: Self.visibleFrames) } ?? Self.firstLaunchOrigin()
+        self.reader = reader
         restoredOffScreen = origin != nil && start != origin
         freeOrigin = start
         shownOrigin = start
@@ -104,7 +116,18 @@ final class FloatingBall {
         view.ball = self
     }
 
+    private static var screenFrames: [CGRect] { NSScreen.screens.map(\.frame) }
     private static var visibleFrames: [CGRect] { NSScreen.screens.map(\.visibleFrame) }
+
+    private static var centerOffset: CGFloat { Tokens.pad + Tokens.diameter / 2 }
+
+    private static func origin(forCenter center: CGPoint) -> CGPoint {
+        CGPoint(x: center.x - centerOffset, y: center.y - centerOffset)
+    }
+
+    private static func center(forOrigin origin: CGPoint) -> CGPoint {
+        CGPoint(x: origin.x + centerOffset, y: origin.y + centerOffset)
+    }
 
     /// A saved origin is trusted only while the disc's center falls on a connected display: after
     /// a display goes away the disc would otherwise sit where nothing shows it. A tuck or a home on
@@ -147,6 +170,7 @@ final class FloatingBall {
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             panel.animator().alphaValue = Tokens.restAlpha
         }
+        refreshDock()
         startMonitors()
         scheduleDock()
     }
@@ -156,6 +180,7 @@ final class FloatingBall {
         glide.cancel()
         dockTask?.cancel()
         dockTask = nil
+        dockRead?.cancel()
         NSAnimationContext.runAnimationGroup { context in
             context.duration = DesignTokens.dismiss
             panel.animator().alphaValue = 0
@@ -184,12 +209,20 @@ final class FloatingBall {
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.screensChanged() }
         }
+        let workspace = NSWorkspace.shared.notificationCenter
+        workspaceObservers = [NSWorkspace.didLaunchApplicationNotification, NSWorkspace.didTerminateApplicationNotification].map { name in
+            workspace.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.refreshDock(after: Tokens.dockSettle) }
+            }
+        }
     }
 
     private func stopMonitors() {
         if let globalMonitor { NSEvent.removeMonitor(globalMonitor) }
         if let localMonitor { NSEvent.removeMonitor(localMonitor) }
         if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) }
+        for observer in workspaceObservers { NSWorkspace.shared.notificationCenter.removeObserver(observer) }
+        workspaceObservers = []
         globalMonitor = nil
         localMonitor = nil
         screenObserver = nil
@@ -198,10 +231,10 @@ final class FloatingBall {
     /// A display came or went. A disc left where nothing shows it comes back onto the nearest
     /// display, and the new spot is saved so the next launch starts there too.
     private func screensChanged() {
+        refreshDock()
         guard !view.isDragging, !ringOpen else { return }
-        let frames = Self.visibleFrames
-        let safe = Self.onScreenOrigin(freeOrigin, screens: frames)
-        let shownOnScreen = frames.contains { $0.contains(discCenter) }
+        let safe = Self.onScreenOrigin(freeOrigin, screens: Self.screenFrames, visible: Self.visibleFrames)
+        let shownOnScreen = Self.screenFrames.contains { $0.contains(discCenter) }
         guard safe != freeOrigin || !shownOnScreen else { return }
         glide.cancel()
         dockTask?.cancel()
@@ -240,6 +273,7 @@ final class FloatingBall {
         let oldState = state
         let wasDocked = oldState == .docked
         state = newState
+        if newState != .docked { tucked = nil }
         switch newState {
         case .awake, .ready:
             dockTask?.cancel()
@@ -270,52 +304,74 @@ final class FloatingBall {
 
     private func scheduleDock() {
         dockTask?.cancel()
+        refreshDock()
         dockTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(Tokens.dockDelay))
             guard !Task.isCancelled, self.autoHide, self.state == .rest, !self.view.isDragging else { return }
-            self.dock(ifWithin: .infinity)
+            self.tuck(nearest: self.discCenter)
         }
     }
 
-    /// Tuck into the nearest edge of the visible screen (left, right, or bottom; the Dock and menu
-    /// bar never cover it), leaving `dockedVisible` of the disc showing. Only when the disc's
-    /// center is within `limit` of that edge.
+    /// R80: the tucks and the ring's room on the screen the ball is on.
+    private func edges() -> BallEdges? {
+        guard let screen = panel.screen ?? NSScreen.main else { return nil }
+        let others = NSScreen.screens.filter { $0 != screen }.map(\.frame)
+        return BallEdges(frame: screen.frame, visible: screen.visibleFrame, dock: dockFrame, others: others)
+    }
+
+    /// R82: tuck into the free spot nearest `point`. False when no edge has room; the ball stays put.
     @discardableResult
-    private func dock(ifWithin limit: CGFloat) -> Bool {
-        guard let screen = panel.screen ?? NSScreen.main else { return false }
-        let frame = screen.visibleFrame
-        let hidden = Tokens.diameter * (1 - Tokens.dockedVisible)
-        let visible = Tokens.diameter - hidden
-        let center = discCenter
-        let candidates: [(distance: CGFloat, origin: CGPoint)] = [
-            (center.x - frame.minX, CGPoint(x: frame.minX - Tokens.pad - hidden, y: freeOrigin.y)),
-            (frame.maxX - center.x, CGPoint(x: frame.maxX - Tokens.pad - visible, y: freeOrigin.y)),
-            (center.y - frame.minY, CGPoint(x: freeOrigin.x, y: frame.minY - Tokens.pad - hidden)),
-        ]
-        guard let nearest = candidates.min(by: { $0.distance < $1.distance }), nearest.distance <= limit else { return false }
-        set(.docked)
-        move(to: nearest.origin, spring: .tuck)
+    private func tuck(nearest point: CGPoint) -> Bool {
+        guard let edges = edges(), let spot = edges.tuck(nearest: point) else { return false }
+        tuck(into: spot, edges: edges)
         return true
     }
 
-    /// `origin` (window origin) pulled in from the visible screen edges far enough for the ring to open fully.
+    /// Tucks into `spot`, which becomes home and is saved; a throw passes the hand's speed on.
+    private func tuck(into spot: BallEdges.Tuck, edges: BallEdges, velocity: CGPoint = .zero) {
+        let home = Self.origin(forCenter: edges.home(for: spot))
+        if home != freeOrigin {
+            freeOrigin = home
+            onMoved?(home)
+        }
+        set(.docked)
+        tucked = spot
+        move(to: Self.origin(forCenter: spot.center), spring: .tuck, velocity: velocity)
+    }
+
+    /// R81: read the Dock again, after `delay`. Decisions use the last answer and never wait on this one.
+    private func refreshDock(after delay: Duration = .zero) {
+        dockRead?.cancel()
+        dockRead = Task { @MainActor in
+            if delay > .zero { try? await Task.sleep(for: delay) }
+            guard !Task.isCancelled else { return }
+            let frame = await self.reader.dockFrame()
+            guard !Task.isCancelled else { return }
+            let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
+            self.dockFrame = frame.map { Geometry.appKitRect(fromCG: $0, primaryHeight: primaryHeight) }
+            self.retuckIfCovered()
+        }
+    }
+
+    /// R82: a tucked ball whose spot is no longer free (the Dock grew over it, a display came)
+    /// moves to the nearest free one.
+    private func retuckIfCovered() {
+        guard state == .docked, !view.isDragging, !ringOpen, let tucked, let edges = edges(),
+              let spot = edges.tuck(nearest: tucked.center), spot != tucked else { return }
+        tuck(into: spot, edges: edges)
+    }
+
+    /// `origin` (window origin) pulled in far enough for the ring to open fully (R80): from the real
+    /// edge beside the Dock, from the visible frame across it and toward the menu bar.
     private func ringSafeOrigin(_ origin: CGPoint) -> CGPoint {
-        guard let screen = panel.screen ?? NSScreen.main else { return origin }
-        let frame = screen.visibleFrame
-        guard frame.width > 2 * Tokens.ringMargin, frame.height > 2 * Tokens.ringMargin else { return origin }
-        let offset = Tokens.pad + Tokens.diameter / 2
-        let center = CGPoint(x: origin.x + offset, y: origin.y + offset)
-        let safe = CGPoint(
-            x: min(max(center.x, frame.minX + Tokens.ringMargin), frame.maxX - Tokens.ringMargin),
-            y: min(max(center.y, frame.minY + Tokens.ringMargin), frame.maxY - Tokens.ringMargin)
-        )
-        return CGPoint(x: safe.x - offset, y: safe.y - offset)
+        guard let edges = edges() else { return origin }
+        return Self.origin(forCenter: edges.ringSafe(Self.center(forOrigin: origin)))
     }
 
     /// The disc glides on a spring; the window animator cannot, so `Glide` steps it per frame.
-    private func move(to origin: CGPoint, spring: Spring) {
+    private func move(to origin: CGPoint, spring: Spring, velocity: CGPoint = .zero) {
         shownOrigin = origin
-        glide.move(to: origin, spring: spring)
+        glide.move(to: origin, spring: spring, velocity: velocity)
     }
 
     // MARK: From the view
@@ -326,6 +382,7 @@ final class FloatingBall {
 
     /// R27: mouse down starts the hold; `Ring.Tokens.holdDelay` without a drag opens the ring.
     func pressBegan() {
+        refreshDock()
         holdTask?.cancel()
         holdTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(Ring.Tokens.holdDelay))
@@ -366,20 +423,33 @@ final class FloatingBall {
         panel.setFrameOrigin(origin)
         freeOrigin = origin
         shownOrigin = origin
-        if state == .docked { state = .rest }
+        if state == .docked { state = .rest; tucked = nil }
     }
 
     var origin: CGPoint { panel.frame.origin }
     /// AppKit screen frame of the panel, for anchoring a toast to the ball.
     var frame: CGRect { panel.frame }
 
-    /// Dropped near a screen edge, the disc tucks into it at once and stays until the cursor has
-    /// left. Otherwise the cursor is still on it, so it stays ready; leaving rests it.
-    func dragEnded() {
-        onMoved?(freeOrigin)
-        if autoHide, dock(ifWithin: Tokens.edgeSnap) {
+    /// R83: a drop near an edge tucks into the nearest free spot at once and stays until the cursor
+    /// has left; a throw carries on and tucks where it was heading, or comes to rest in open space.
+    /// A drop in the open stays ready under the cursor; leaving rests it.
+    func dragEnded(velocity: CGPoint) {
+        guard let edges = edges() else {
+            onMoved?(freeOrigin)
+            set(.ready)
+            return
+        }
+        let release = Throw.release(center: discCenter, velocity: velocity, edges: edges, autoHide: autoHide)
+        if let spot = release.tuck {
+            tuck(into: spot, edges: edges, velocity: release.thrown ? velocity : .zero)
             holdDock = true
+        } else if release.thrown {
+            freeOrigin = Self.origin(forCenter: release.landing)
+            onMoved?(freeOrigin)
+            move(to: freeOrigin, spring: .settle, velocity: velocity)
+            if state == .rest { scheduleDock() } else { set(.rest) }
         } else {
+            onMoved?(freeOrigin)
             set(.ready)
         }
     }
@@ -394,6 +464,8 @@ final class BallView: NSView {
     private var dragStart: CGPoint?
     private var grabOffset: CGPoint = .zero
     private var dragMoved = false
+    /// R83: where the cursor was during the drag, for the release's speed.
+    private var samples: [Throw.Sample] = []
     private var current: FloatingBall.State = .rest
     let disc: DiscView
 
@@ -433,6 +505,7 @@ final class BallView: NSView {
         guard pressed else { return }
         let location = NSEvent.mouseLocation
         dragStart = location
+        samples = [Throw.Sample(time: event.timestamp, point: location)]
         let origin = ball?.origin ?? .zero
         grabOffset = CGPoint(x: location.x - origin.x, y: location.y - origin.y)
         dragMoved = false
@@ -446,6 +519,8 @@ final class BallView: NSView {
             ball?.pressMoved(to: now)
             return
         }
+        samples.append(Throw.Sample(time: event.timestamp, point: now))
+        samples.removeAll { event.timestamp - $0.time > 2 * Throw.window }
         if !dragMoved, hypot(now.x - start.x, now.y - start.y) <= 6 { return }
         dragMoved = true
         isDragging = true
@@ -454,10 +529,11 @@ final class BallView: NSView {
 
     override func mouseUp(with event: NSEvent) {
         guard pressed else { return }
-        defer { pressed = false; dragStart = nil; isDragging = false }
+        defer { pressed = false; dragStart = nil; isDragging = false; samples = [] }
         if ball?.pressEnded(at: NSEvent.mouseLocation) == true { return }
         if dragMoved {
-            ball?.dragEnded()
+            samples.append(Throw.Sample(time: event.timestamp, point: NSEvent.mouseLocation))
+            ball?.dragEnded(velocity: Throw.velocity(samples))
         } else {
             ball?.clicked()
         }
