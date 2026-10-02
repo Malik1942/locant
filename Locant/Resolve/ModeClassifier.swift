@@ -8,7 +8,9 @@ enum ModeClassifier {
     static func signals(for context: CaptureContext, myApps: [String], userTeamIDs: Set<String>) -> ModeSignals {
         ModeSignals(
             bundleId: context.source.app.bundleId,
-            isSimulator: context.source.app.bundleId == simulatorBundleId,
+            // The simulator block is there exactly when the window shows a simulator (Device Hub also
+            // shows physical devices).
+            isSimulator: context.source.simulator != nil,
             simulatedBundleId: context.source.simulator?.appBundleId,
             bundlePath: context.bundlePath,
             urlHost: context.source.url.flatMap { URL(string: $0)?.host },

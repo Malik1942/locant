@@ -1,0 +1,11 @@
+{
+  "element": { "AXRole": "AXGroup", "AXSubrole": "iOSContentGroup", "AXFrame": { "x": 1043.81, "y": 261.55, "w": 298.89, "h": 648.9 }, "AXChildrenCount": 16 },
+  "ancestors": [
+    { "AXRole": "AXGroup", "AXSubrole": "AXHostingView", "AXFrame": { "x": 519, "y": 182, "w": 1100, "h": 800 } },
+    { "AXRole": "AXSplitGroup", "AXIdentifier": "com.apple.dt.DeviceKit.DeviceManagementWindow-AppWindow-1, SidebarNavigationSplitView", "AXFrame": { "x": 519, "y": 182, "w": 1100, "h": 800 } },
+    { "AXRole": "AXGroup", "AXSubrole": "AXHostingView", "AXFrame": { "x": 519, "y": 182, "w": 1100, "h": 800 } },
+    { "AXRole": "AXSplitGroup", "AXFrame": { "x": 519, "y": 182, "w": 1100, "h": 800 } },
+    { "AXRole": "AXGroup", "AXSubrole": "AXHostingView", "AXFrame": { "x": 519, "y": 182, "w": 1100, "h": 800 } },
+    { "AXRole": "AXWindow", "AXSubrole": "AXStandardWindow", "AXTitle": "iPhone 17 Pro – iOS 26.5", "AXIdentifier": "com.apple.dt.DeviceKit.DeviceManagementWindow-AppWindow-1", "AXFrame": { "x": 519, "y": 182, "w": 1100, "h": 800 } }
+  ]
+}
