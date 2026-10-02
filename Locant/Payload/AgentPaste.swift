@@ -1,20 +1,31 @@
 import AppKit
 import Carbon.HIToolbox
 
-/// v0.8.1 R63: after Return, the capture is pasted into the agent app the user used last. The
-/// decisions are pure and tested here; `AgentPaster` activates the app and posts ⌘V.
+/// v0.8.1 R63, v0.9.1 R80–R83: after Return, the capture is handed to the agent: the text, then the
+/// image. The decisions are pure and tested here; `AgentPaster` performs them.
 enum AgentPaste {
-    /// Agent apps by exact bundle id, verified on this Mac on Sep 17, 2026. Never matched by name:
-    /// ChatGPT Classic (`com.openai.chat`), CodexBar, and the Claude app's background-only Claude
-    /// Code copies share words with these and are not agents.
+    /// Agent apps by exact bundle id, verified on this Mac on Sep 17, 2026 (Grok Bot on Oct 1). Never
+    /// matched by name: ChatGPT Classic (`com.openai.chat`), CodexBar, and the Claude app's
+    /// background-only Claude Code copies share words with these and are not agents.
     static let bundleIds: Set<String> = [
         "com.anthropic.claudefordesktop", // Claude
         "com.todesktop.230313mzl4w4u92", // Cursor
         "com.openai.codex", // Codex, installed as ChatGPT.app
+        "com.anysphere.sand", // Grok Bot, v0.9.1 R83
     ]
 
     static func isAgent(bundleId: String?) -> Bool {
         bundleId.map { bundleIds.contains($0) } ?? false
+    }
+
+    /// v0.9.1 R83: terminals by exact bundle id. Each joins after its id is read from the installed app
+    /// and one text paste has been run into it: Terminal on Oct 1, 2026.
+    static let terminalBundleIds: Set<String> = [
+        "com.apple.Terminal",
+    ]
+
+    static func isTerminal(bundleId: String?) -> Bool {
+        bundleId.map { terminalBundleIds.contains($0) } ?? false
     }
 
     /// Beside the note field: the arrow and the app, then the window's title once it is known.
@@ -29,19 +40,26 @@ enum AgentPaste {
         return TargetLabel(lead: "→ \(appName)", title: (title?.isEmpty ?? true) ? nil : title)
     }
 
-    /// How a paste ended. `.superseded`: a newer capture started, or the clipboard changed, before
-    /// ⌘V; the user has moved on, so nothing is said.
+    /// How a hand-off ended. `.superseded`: a newer capture started, or the clipboard changed, before
+    /// anything was pasted; the user has moved on, so nothing is said.
     enum Outcome: Equatable, Sendable {
         case pasted, noAgent, noPermission, didNotComeForward, superseded
+        /// v0.9.1 R81: the agent never read the text.
+        case notTaken
+        /// v0.9.1 R82: the window's only editable text is a code editor.
+        case noMessageBox
     }
 
     /// What the toast says when nothing was pasted; nil when the paste itself is the feedback.
     static func toastText(_ outcome: Outcome, appName: String?) -> String? {
-        switch outcome {
+        let app = appName ?? "the agent"
+        return switch outcome {
         case .pasted, .superseded: nil
         case .noAgent: "Copied · no agent yet"
         case .noPermission: "Copied · pasting needs Accessibility"
-        case .didNotComeForward: "Copied · \(appName ?? "the agent") didn't come forward"
+        case .didNotComeForward: "Copied · \(app) didn't come forward"
+        case .notTaken: "Copied · \(app) didn't take the paste"
+        case .noMessageBox: "Copied · no message box in \(app)"
         }
     }
 
@@ -51,6 +69,147 @@ enum AgentPaste {
 
     static func isOwnEvent(userData: Int64) -> Bool {
         userData == eventMarker
+    }
+
+    // MARK: The hand-off (v0.9.1 R80–R83)
+
+    /// R80: one paste of the hand-off.
+    enum Step: Equatable, Sendable {
+        case text, image
+    }
+
+    /// R80: the text first, then the image; a terminal takes the text alone. Measured Oct 1, 2026:
+    /// Cursor and Grok Bot keep only the image of an item carrying both, Codex only the text.
+    static func steps(terminal: Bool) -> [Step] {
+        terminal ? [.text] : [.text, .image]
+    }
+
+    /// R82: Monaco's input (`native-edit-context` since VS Code's EditContext, which Cursor 3.22 uses;
+    /// the `inputarea` textarea before it), or anything within four levels of a `monaco-editor`. The
+    /// window-wide `monaco-workbench` does not count: Cursor's and VS Code's chat boxes sit in it too.
+    static func isCodeEditor(classes: [String], ancestorClasses: [[String]]) -> Bool {
+        if classes.contains("native-edit-context") { return true }
+        if classes.contains("inputarea"), classes.contains("monaco-mouse-cursor-text") { return true }
+        return ancestorClasses.prefix(4).contains { $0.contains("monaco-editor") }
+    }
+
+    /// R82: one editable text area in the target window, as the reader saw it.
+    struct EditableArea: Equatable, Sendable {
+        var isFocused: Bool
+        var isCodeEditor: Bool
+        /// The bottom edge in screen points, top-left origin: larger is lower on screen.
+        var bottom: Double
+    }
+
+    /// R82: where the paste goes in the target window.
+    enum MessageBox: Equatable, Sendable {
+        /// Focus is already in a message box.
+        case focused
+        /// Put focus in the area at this index first.
+        case focus(Int)
+        /// Only a code editor takes text here: no paste.
+        case onlyCodeEditor
+        /// Nothing editable was read (no tree yet): paste where the app's own focus is.
+        case unknown
+    }
+
+    static func messageBox(in areas: [EditableArea]) -> MessageBox {
+        if areas.contains(where: { $0.isFocused && !$0.isCodeEditor }) { return .focused }
+        let boxes = areas.indices.filter { !areas[$0].isCodeEditor }
+        if let lowest = boxes.max(by: { areas[$0].bottom < areas[$1].bottom }) { return .focus(lowest) }
+        return areas.isEmpty ? .unknown : .onlyCodeEditor
+    }
+
+    /// R82: after Locant set focus on a message box. When it did not take and a code editor still holds
+    /// the focus, a ⌘V would land in code: no paste.
+    static func canPaste(focusTook: Bool, areas: [EditableArea]) -> Bool {
+        focusTook || !areas.contains { $0.isFocused && $0.isCodeEditor }
+    }
+
+    /// R83: a running app whose windows the menu may list.
+    struct AppRef: Equatable, Sendable {
+        var pid: pid_t
+        var name: String
+        var isTerminal: Bool
+    }
+
+    /// R83: one window, by the token `AccessibilityReader` maps to its element.
+    struct WindowRef: Equatable, Hashable, Sendable {
+        var pid: pid_t
+        var token: Int
+        var appName: String
+        var title: String
+        var isTerminal: Bool
+    }
+
+    /// R83: the windows the menu can offer, and the tokens of those that are their app's focused window.
+    struct WindowList: Equatable, Sendable {
+        var windows: [WindowRef] = []
+        var focused: Set<Int> = []
+    }
+
+    /// R83: where Return pastes: the agent you used or picked last; a terminal window only when picked.
+    struct Target: Equatable, Sendable {
+        private(set) var lastAgentPID: pid_t?
+        private(set) var pick: WindowRef?
+
+        /// An agent app came forward. Your doing replaces a pick in another app; Locant's own, while a
+        /// paste is in flight, changes nothing.
+        mutating func agentCameForward(pid: pid_t, byLocant: Bool) {
+            guard !byLocant else { return }
+            lastAgentPID = pid
+            if let pick, pick.pid != pid { self.pick = nil }
+        }
+
+        mutating func picked(_ window: WindowRef) {
+            pick = window
+        }
+
+        /// The picked window closed or its app quit: back to the agent used last.
+        mutating func pickVanished() {
+            pick = nil
+        }
+    }
+
+    /// R83: one row of the menu.
+    struct MenuItem: Equatable, Sendable {
+        var window: WindowRef
+        var checked: Bool
+    }
+
+    /// R83: one app's windows under its name.
+    struct MenuSection: Equatable, Sendable {
+        var appName: String
+        var items: [MenuItem]
+    }
+
+    /// R83: one section per app in the order the windows came, the current target checked: the pick,
+    /// or with none the focused window of the agent used last.
+    static func menu(_ list: WindowList, target: Target) -> [MenuSection] {
+        var sections: [MenuSection] = []
+        var index: [pid_t: Int] = [:]
+        for window in list.windows {
+            let checked = if let pick = target.pick {
+                window.token == pick.token
+            } else {
+                window.pid == target.lastAgentPID && list.focused.contains(window.token)
+            }
+            let item = MenuItem(window: window, checked: checked)
+            if let at = index[window.pid] {
+                sections[at].items.append(item)
+            } else {
+                index[window.pid] = sections.count
+                sections.append(MenuSection(appName: window.appName, items: [item]))
+            }
+        }
+        return sections
+    }
+
+    /// R83: a window title fit for a menu row: trimmed, at most 60 characters, cut in the middle.
+    static func menuTitle(_ title: String) -> String {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > 60 else { return trimmed }
+        return String(trimmed.prefix(29)) + "…" + String(trimmed.suffix(30))
     }
 }
 
