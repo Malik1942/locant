@@ -4,7 +4,8 @@ import Carbon.HIToolbox
 /// v0.8.1 R63, v0.9.1 R80–R83: after Return, the capture is handed to the agent: the text, then the
 /// image. The decisions are pure and tested here; `AgentPaster` performs them.
 enum AgentPaste {
-    /// Agent apps by exact bundle id, verified on this Mac on Sep 17, 2026 (Grok Bot on Oct 1). Never
+    /// Agent apps by exact bundle id, verified on this Mac on Sep 17, 2026 (Grok Bot and Antigravity on
+    /// Oct 1, each after a run showing its message box takes the text and then the image). Never
     /// matched by name: ChatGPT Classic (`com.openai.chat`), CodexBar, and the Claude app's
     /// background-only Claude Code copies share words with these and are not agents.
     static let bundleIds: Set<String> = [
@@ -12,6 +13,7 @@ enum AgentPaste {
         "com.todesktop.230313mzl4w4u92", // Cursor
         "com.openai.codex", // Codex, installed as ChatGPT.app
         "com.anysphere.sand", // Grok Bot, v0.9.1 R83
+        "com.google.antigravity", // Antigravity, v0.9.1 R83
     ]
 
     static func isAgent(bundleId: String?) -> Bool {
@@ -115,7 +117,8 @@ enum AgentPaste {
     }
 
     /// R83: the apps whose message box drops a half of Return's item, each after a calibration run:
-    /// Cursor, Codex, and Grok Bot on Oct 1, 2026. Claude keeps both halves and is not listed.
+    /// Cursor, Codex, and Grok Bot on Oct 1, 2026. Claude and Antigravity keep both halves and are not
+    /// listed.
     static let completingBundleIds: Set<String> = [
         "com.todesktop.230313mzl4w4u92", // Cursor
         "com.openai.codex", // Codex, installed as ChatGPT.app

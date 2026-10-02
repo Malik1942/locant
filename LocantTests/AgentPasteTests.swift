@@ -8,6 +8,7 @@ final class AgentPasteTests: XCTestCase {
         XCTAssertTrue(AgentPaste.isAgent(bundleId: "com.todesktop.230313mzl4w4u92"))
         XCTAssertTrue(AgentPaste.isAgent(bundleId: "com.openai.codex"))
         XCTAssertTrue(AgentPaste.isAgent(bundleId: "com.anysphere.sand"))
+        XCTAssertTrue(AgentPaste.isAgent(bundleId: "com.google.antigravity"))
         for other in [
             "com.openai.chat", "com.steipete.codexbar", "com.anthropic.claude-code",
             "com.anthropic.claude-code-url-handler", "com.anthropic.claudefordesktop.helper",
@@ -104,6 +105,7 @@ final class AgentPasteTests: XCTestCase {
         XCTAssertTrue(completes(frontmost: "com.openai.codex"))
         XCTAssertTrue(completes(frontmost: "com.anysphere.sand"))
         XCTAssertFalse(completes(frontmost: "com.anthropic.claudefordesktop")) // keeps both halves itself
+        XCTAssertFalse(completes(frontmost: "com.google.antigravity")) // so does Antigravity
         XCTAssertFalse(completes(frontmost: "com.apple.Terminal"))
         XCTAssertFalse(completes(frontmost: nil))
         XCTAssertFalse(completes(enabled: false))
