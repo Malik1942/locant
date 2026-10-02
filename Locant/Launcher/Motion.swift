@@ -30,12 +30,26 @@ struct Spring: Sendable, Equatable {
         return 1 - decay * (cos(omegaD * t) + (zeta * omega / omegaD) * sin(omegaD * t))
     }
 
-    /// When the envelope is within half a percent of rest. The bracket in `value` swings up to
-    /// 1/√(1-ζ²), so the decay has to cover that too.
-    var settleTime: Double {
+    /// The offset from rest after `t` seconds, in the caller's units, of a spring let go
+    /// `displacement` from rest while moving at `velocity` per second. With no velocity it is
+    /// `displacement · (1 − value(at: t))`; a velocity is how a thrown ball keeps the hand's speed.
+    func offset(at t: Double, displacement: Double, velocity: Double) -> Double {
+        guard t > 0 else { return displacement }
+        let omega = 2 * Double.pi / response
         let zeta = min(damping, 0.999)
-        let envelope = 1 / (1 - zeta * zeta).squareRoot()
-        return -log(0.005 / envelope) / (zeta * 2 * Double.pi / response)
+        let omegaD = omega * (1 - zeta * zeta).squareRoot()
+        let decay = exp(-zeta * omega * t)
+        return decay * (displacement * cos(omegaD * t) + (zeta * omega * displacement + velocity) / omegaD * sin(omegaD * t))
+    }
+
+    /// When `offset` stays within `tolerance` of rest: the swing's envelope has decayed that far.
+    func settleTime(displacement: Double, velocity: Double, tolerance: Double = 0.25) -> Double {
+        let omega = 2 * Double.pi / response
+        let zeta = min(damping, 0.999)
+        let omegaD = omega * (1 - zeta * zeta).squareRoot()
+        let amplitude = hypot(displacement, (zeta * omega * displacement + velocity) / omegaD)
+        guard amplitude > tolerance else { return 0 }
+        return log(amplitude / tolerance) / (zeta * omega)
     }
 }
 
@@ -47,6 +61,7 @@ final class Glide {
     private var link: CADisplayLink?
     private var from = CGPoint.zero
     private var to = CGPoint.zero
+    private var velocity = CGPoint.zero
     private var spring = Spring.settle
     private var start: CFTimeInterval = 0
     private var duration: Double = 0
@@ -55,7 +70,8 @@ final class Glide {
         self.window = window
     }
 
-    func move(to target: CGPoint, spring: Spring) {
+    /// `velocity`, in points per second, is the window's speed as it is let go; a thrown ball keeps it.
+    func move(to target: CGPoint, spring: Spring, velocity: CGPoint = .zero) {
         cancel()
         guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
             window.setFrameOrigin(target)
@@ -63,9 +79,11 @@ final class Glide {
         }
         from = window.frame.origin
         to = target
+        self.velocity = velocity
         self.spring = spring
         start = CACurrentMediaTime()
-        duration = spring.settleTime
+        duration = max(spring.settleTime(displacement: from.x - to.x, velocity: velocity.x),
+                       spring.settleTime(displacement: from.y - to.y, velocity: velocity.y))
         let link = window.displayLink(target: self, selector: #selector(tick))
         link.add(to: .main, forMode: .common)
         self.link = link
@@ -83,8 +101,10 @@ final class Glide {
             cancel()
             return
         }
-        let progress = spring.value(at: t)
-        window.setFrameOrigin(CGPoint(x: from.x + (to.x - from.x) * progress, y: from.y + (to.y - from.y) * progress))
+        window.setFrameOrigin(CGPoint(
+            x: to.x + spring.offset(at: t, displacement: from.x - to.x, velocity: velocity.x),
+            y: to.y + spring.offset(at: t, displacement: from.y - to.y, velocity: velocity.y)
+        ))
     }
 }
 
