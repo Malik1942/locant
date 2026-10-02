@@ -160,7 +160,8 @@ final class AppState {
         if preferences.ballEnabled {
             guard ball == nil else { return }
             let firstLaunch = preferences.ballPosition == nil
-            let newBall = FloatingBall(origin: preferences.ballPosition)
+            // specs/ball-edges.md R86: a reader of its own for the Dock, as the agent label has.
+            let newBall = FloatingBall(origin: preferences.ballPosition, reader: AccessibilityReader())
             newBall.autoHide = preferences.ballAutoHide
             newBall.onPoint = { [weak self] in self?.beginCapture() }
             newBall.onMoved = { [weak self] origin in self?.preferences.ballPosition = origin }

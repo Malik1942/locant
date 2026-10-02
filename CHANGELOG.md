@@ -2,6 +2,10 @@
 
 Every release is a signed, notarized `Locant.dmg` on [GitHub Releases](https://github.com/Malik1942/locant/releases). Drag the new copy over the old one; the permissions carry over.
 
+## Unreleased
+
+- **The ball rests at the bottom too.** Besides the left and right edges, it tucks into the bottom of the screen beside the Dock, never on or behind it, and far enough from the Dock's ends that reaching for them does not wake it. Where it tucks is its home: coming near brings it out right there, instead of back to wherever it was before. While you drag it toward an edge, a faint ghost shows where it will tuck; flick it at an edge and it flies there and tucks.
+
 ## 0.9.1 (2026-10-01)
 
 - **Xcode 27.** The simulator now shows in Device Hub instead of Simulator.app. Pointing at an app there is fix mode again, and the payload names the device, the app, and its project; a physical device in Device Hub is reference mode. Snap and Cut on a simulated device open on its screen rather than the whole Device Hub window.
