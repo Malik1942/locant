@@ -67,6 +67,7 @@ final class FloatingBall {
     }
 
     private let ring = Ring()
+    private let ghost = BallGhost()
     private let reader: AccessibilityReader
     private var holdTask: Task<Void, Never>?
     private(set) var ringOpen = false
@@ -177,6 +178,7 @@ final class FloatingBall {
 
     func hide() {
         stopMonitors()
+        ghost.hide()
         glide.cancel()
         dockTask?.cancel()
         dockTask = nil
@@ -424,6 +426,17 @@ final class FloatingBall {
         freeOrigin = origin
         shownOrigin = origin
         if state == .docked { state = .rest; tucked = nil }
+        showGhost()
+    }
+
+    /// R84: while a drop would tuck, the ghost shows where.
+    private func showGhost() {
+        guard autoHide, let edges = edges(), edges.isNearEdge(discCenter),
+              let spot = edges.tuck(nearest: discCenter) else {
+            ghost.hide()
+            return
+        }
+        ghost.show(at: Self.origin(forCenter: spot.center), below: panel)
     }
 
     var origin: CGPoint { panel.frame.origin }
@@ -434,6 +447,7 @@ final class FloatingBall {
     /// has left; a throw carries on and tucks where it was heading, or comes to rest in open space.
     /// A drop in the open stays ready under the cursor; leaving rests it.
     func dragEnded(velocity: CGPoint) {
+        ghost.hide()
         guard let edges = edges() else {
             onMoved?(freeOrigin)
             set(.ready)
@@ -655,6 +669,12 @@ final class DiscView: NSView {
             gradient.draw(in: NSBezierPath(ovalIn: rect), relativeCenterPosition: .zero)
             return true
         }
+    }
+
+    /// The ghost (specs/ball-edges.md R84) is the glass alone, without the drifting light.
+    func hideGlow() {
+        glow.removeAnimation(forKey: "glow")
+        glow.opacity = 0
     }
 
     /// `ball.glow`: the center light drifts `glowLow` → `glowHigh` → `glowLow` over 6 s; steady under Reduce Motion.
