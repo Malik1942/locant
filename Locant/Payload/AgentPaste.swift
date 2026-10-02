@@ -213,31 +213,64 @@ enum AgentPaste {
     }
 }
 
-/// v0.8.1 R63: brings the agent app forward and posts ⌘V, never Return: sending stays the user's, in
-/// the agent, where the paste can still be edited or deleted. Not pure; not unit tested. Every step
-/// checks the agent is still in front, so ⌘V never lands in the app the user pointed at.
+/// v0.9.1 R80: what one hand-off delivers, and where.
+struct Handoff {
+    let app: NSRunningApplication
+    /// The picked window (R83); nil for the app's own focused window.
+    let window: AgentPaste.WindowRef?
+    let markdown: String
+    let png: Data
+
+    var steps: [AgentPaste.Step] { AgentPaste.steps(terminal: window?.isTerminal ?? false) }
+}
+
+/// v0.8.1 R63, v0.9.1 R80–R82: brings the agent forward, puts focus in its message box, and pastes the
+/// text, then the image; never Return. Not pure; not unit tested. Every step checks the agent is still
+/// in front, so ⌘V never lands in the app the user pointed at.
 @MainActor
 enum AgentPaster {
     /// After the agent is frontmost, before ⌘V: Electron puts focus back in its composer.
     static let settle: Duration = .milliseconds(150)
+    /// v0.9.1 R81: a Space switch took up to about a second on Oct 1, 2026.
+    static let comeForwardLimit: Duration = .milliseconds(1500)
+    /// v0.9.1 R81: between the text's receipt and the image's item.
+    static let stepGap: Duration = .milliseconds(120)
 
-    /// `proceed` is asked before the agent is brought forward, while waiting for it, and before ⌘V;
-    /// false means a newer capture or a clipboard write won.
+    /// `newerCapture` and the clipboard's ownership are asked before every step; `clipboard` was made
+    /// right after Return's write. Whenever the hand-off ends with a temporary item of its own on the
+    /// clipboard, Return's item goes back.
     static func paste(
-        into app: NSRunningApplication?, reader: AccessibilityReader,
-        proceed: @MainActor @Sendable () -> Bool
+        _ handoff: Handoff?, clipboard: HandoffPasteboard, reader: AccessibilityReader,
+        newerCapture: @escaping @MainActor @Sendable () -> Bool
     ) async -> AgentPaste.Outcome {
-        guard let app, !app.isTerminated else { return .noAgent }
+        guard let handoff, !handoff.app.isTerminated else { return .noAgent }
         guard CGPreflightPostEventAccess() else { return .noPermission }
+        defer { clipboard.restore(markdown: handoff.markdown, png: handoff.png) }
+        let proceed: @MainActor @Sendable () -> Bool = { !newerCapture() && clipboard.isOwn }
         await waitForKeysUp()
         guard proceed() else { return .superseded }
-        guard await bringForward(app, reader: reader, proceed: proceed) else {
+        guard await bringForward(handoff, reader: reader, proceed: proceed) else {
             return proceed() ? .didNotComeForward : .superseded
         }
         try? await Task.sleep(for: settle)
         guard proceed() else { return .superseded }
-        guard isFrontmost(app) else { return .didNotComeForward }
-        post(keyCode: pasteKeyCode(), flags: .maskCommand)
+        guard await reader.focusMessageBox(pid: handoff.app.processIdentifier) else { return .noMessageBox }
+        var pasted = false
+        for step in handoff.steps {
+            if pasted { try? await Task.sleep(for: stepGap) }
+            await waitForKeysUp()
+            guard proceed() else { return pasted ? .pasted : .superseded }
+            guard await isInFront(handoff, reader: reader) else { return pasted ? .pasted : .didNotComeForward }
+            switch step {
+            case .text: clipboard.offer(Data(handoff.markdown.utf8), as: .string)
+            case .image: clipboard.offer(handoff.png, as: .png)
+            }
+            clipboard.arm()
+            post(keyCode: pasteKeyCode(), flags: .maskCommand)
+            let read = await clipboard.receipt()
+            if step == .text, !read { return .notTaken }
+            pasted = true
+        }
         return .pasted
     }
 
@@ -253,27 +286,54 @@ enum AgentPaster {
         }
     }
 
-    /// Activates, then polls every 25 ms for a second: a notification never comes when the app is
-    /// already in front. After 300 ms, accessibility raises it, which reaches a window on another
-    /// Space; `proceed` is checked at the top of every tick, before that raise, so it never pulls the
-    /// agent in front of a capture the user just started.
+    /// Activates (a picked window is raised first, which also switches to its Space), then polls every
+    /// 25 ms up to `comeForwardLimit`: a notification never comes when the app is already in front.
+    /// After 300 ms, accessibility raises it again; `proceed` is checked at the top of every tick,
+    /// before that raise, so it never pulls the agent in front of a capture the user just started.
     private static func bringForward(
-        _ app: NSRunningApplication, reader: AccessibilityReader, proceed: @MainActor @Sendable () -> Bool
+        _ handoff: Handoff, reader: AccessibilityReader, proceed: @MainActor @Sendable () -> Bool
     ) async -> Bool {
-        if isFrontmost(app) { return true }
+        let app = handoff.app
+        if let window = handoff.window { await reader.raise(window) }
+        if await isInFront(handoff, reader: reader) { return true }
         _ = app.activate(options: [])
-        for tick in 1...40 {
+        let ticks = Int(comeForwardLimit / .milliseconds(25))
+        for tick in 1...ticks {
             try? await Task.sleep(for: .milliseconds(25))
             guard proceed() else { return false }
-            if isFrontmost(app) { return true }
+            if await isInFront(handoff, reader: reader) { return true }
             if app.isTerminated { return false }
-            if tick == 12 { await reader.raise(pid: app.processIdentifier) }
+            if tick == 12 {
+                if let window = handoff.window {
+                    await reader.raise(window)
+                } else {
+                    await reader.raise(pid: app.processIdentifier)
+                }
+            }
         }
         return false
     }
 
+    /// R81: frontmost, with a window on screen (a Space switch has finished), and for a picked window,
+    /// that window focused.
+    private static func isInFront(_ handoff: Handoff, reader: AccessibilityReader) async -> Bool {
+        guard isFrontmost(handoff.app), hasWindowOnScreen(pid: handoff.app.processIdentifier) else { return false }
+        guard let window = handoff.window else { return true }
+        return await reader.isFocused(window)
+    }
+
     private static func isFrontmost(_ app: NSRunningApplication) -> Bool {
         NSWorkspace.shared.frontmostApplication?.processIdentifier == app.processIdentifier
+    }
+
+    /// A normal-layer window of the app, taller than a title strip, among the windows on screen now.
+    private static func hasWindowOnScreen(pid: pid_t) -> Bool {
+        let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
+        return list.contains { info in
+            guard info[kCGWindowOwnerPID as String] as? pid_t == pid, info[kCGWindowLayer as String] as? Int == 0,
+                  let bounds = info[kCGWindowBounds as String] as? [String: Any], let height = bounds["Height"] as? Double else { return false }
+            return height > 100
+        }
     }
 
     /// Key down and up with the flags on the events themselves: separate Command events would feed

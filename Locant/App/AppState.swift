@@ -72,8 +72,9 @@ final class AppState {
     /// R52: NSWorkspace launch and activation observers, and whether an iteration is being collected.
     @ObservationIgnored private var appObservers: [any NSObjectProtocol] = []
     @ObservationIgnored private var collecting = false
-    /// v0.8.1 R63: the agent app that came forward last, by pid; `lastAgent` checks it is still that app.
-    @ObservationIgnored private var lastAgentPID: pid_t?
+    /// v0.8.1 R63, v0.9.1 R83: where Return pastes: the agent app used last, or a window picked from the
+    /// label. `lastAgent` checks the app is still running.
+    @ObservationIgnored private var pasteTarget = AgentPaste.Target()
     /// v0.8.1 R63: a reader of its own for the target label, so a slow agent never holds up hover.
     @ObservationIgnored private let agentReader = AccessibilityReader()
     /// v0.8.1 R63: pastes under way; auto-verify ignores activations while any is. A count, since two
@@ -232,14 +233,18 @@ final class AppState {
     // MARK: Paste into the agent (v0.8.1 R63)
 
     /// Remembers the agent app that came forward last. An observer of its own: `appCameForward`
-    /// returns early while iterations are off or a capture runs, and would drop these.
+    /// returns early while iterations are off or a capture runs, and would drop these. Activations that
+    /// Locant's own paste causes do not count (v0.9.1 R83).
     private func watchAgentApps() {
         let center = NSWorkspace.shared.notificationCenter
         appObservers.append(center.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] note in
             guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
                   AgentPaste.isAgent(bundleId: app.bundleIdentifier) else { return }
             let pid = app.processIdentifier
-            MainActor.assumeIsolated { self?.lastAgentPID = pid }
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.pasteTarget.agentCameForward(pid: pid, byLocant: self.pastesInFlight > 0)
+            }
         })
     }
 
@@ -269,29 +274,33 @@ final class AppState {
 
     /// The last agent while it still runs as the same app; nil after it quits.
     private var lastAgent: NSRunningApplication? {
-        guard let pid = lastAgentPID, let app = NSRunningApplication(processIdentifier: pid),
+        guard let pid = pasteTarget.lastAgentPID, let app = NSRunningApplication(processIdentifier: pid),
               !app.isTerminated, AgentPaste.isAgent(bundleId: app.bundleIdentifier) else { return nil }
         return app
     }
 
-    /// After the clipboard: wait for the overlay to order out, so no Locant panel is key, then bring
-    /// the last agent forward and paste into its message field. It never sends. A newer capture, or
-    /// anything else written to the clipboard, cancels it at any step, silently. The toast speaks
+    /// After the clipboard: wait for the overlay to order out, so no Locant panel is key, then hand the
+    /// capture to the agent, the text and then the image (v0.9.1 R80). It never sends. A newer capture,
+    /// or anything else written to the clipboard, cancels it at any step, silently. The toast speaks
     /// only when nothing was pasted.
-    private func pasteIntoAgent(near anchor: CGRect) async {
-        // Read first: commit(note:) calls this right after PasteboardWriter.write, reset(), and the
-        // toast, with no other clipboard write between, so this is what Return itself wrote.
-        let clipboard = NSPasteboard.general.changeCount
-        let proceed: @MainActor @Sendable () -> Bool = { self.phase == .idle && NSPasteboard.general.changeCount == clipboard }
+    private func pasteIntoAgent(near anchor: CGRect, markdown: String, png: Data) async {
+        // Made first: commit(note:) calls this right after PasteboardWriter.write, reset(), and the
+        // toast, with no other clipboard write between, so the count it notes is Return's.
+        let clipboard = HandoffPasteboard()
         try? await Task.sleep(for: .milliseconds(Int(DesignTokens.dismiss * 1000) + 40))
-        guard proceed() else { return }
-        let app = lastAgent
+        guard phase == .idle, clipboard.isOwn else { return }
+        let handoff = await currentHandoff(markdown: markdown, png: png)
         pastesInFlight += 1
-        let outcome = await AgentPaster.paste(into: app, reader: agentReader, proceed: proceed)
+        let outcome = await AgentPaster.paste(handoff, clipboard: clipboard, reader: agentReader) { self.phase != .idle }
         pastesInFlight -= 1
-        if let text = AgentPaste.toastText(outcome, appName: app?.localizedName) {
+        if let text = AgentPaste.toastText(outcome, appName: handoff?.app.localizedName) {
             toast.show(HudText.plain(text), near: anchor)
         }
+    }
+
+    /// v0.9.1 R83: where Return pastes now.
+    private func currentHandoff(markdown: String, png: Data) async -> Handoff? {
+        lastAgent.map { Handoff(app: $0, window: nil, markdown: markdown, png: png) }
     }
 
     // MARK: Updates (v0.6 R45)
@@ -1060,7 +1069,8 @@ final class AppState {
                     capture.ocr = lines.joined(separator: "\n")
                 }
                 let written = try store.write(png: image.png, capture: capture)
-                PasteboardWriter.write(markdown: MarkdownBuilder.build(written), png: image.png)
+                let markdown = MarkdownBuilder.build(written)
+                PasteboardWriter.write(markdown: markdown, png: image.png)
                 reset()
                 if let count = targets?.count {
                     toast.show(HudText.plain("Copied · \(count) elements"), near: anchor)
@@ -1070,7 +1080,7 @@ final class AppState {
                 feedback?.play(.landed)
                 // v0.8.1 R63: with the option on, the hint about fetching over MCP stays unspent.
                 if preferences.pastesIntoAgent {
-                    await pasteIntoAgent(near: anchor)
+                    await pasteIntoAgent(near: anchor, markdown: markdown, png: image.png)
                 } else {
                     showAgentHintIfNeeded()
                 }
