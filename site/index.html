@@ -238,31 +238,48 @@
   .stage .field.shake { animation: shake .3s ease; }
   @keyframes shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
   .stage .toast { font-weight: 600; }
-  /* the ball: FloatingBall.Tokens, 48 pt of clear glass (NSGlassEffectView .clear). The scene shows through the
-     middle and bends at the rim (the lens filter where the browser has it, a soft blur where not), the rim is lit
-     from the top left like the app's fallback rim, a light drifts inside (glowAlpha .14, 6 s), ready tints it accent */
+  /* the ball: FloatingBall.Tokens, 48 pt of clear glass (NSGlassEffectView .clear), in layers that every browser
+     draws: the body darkens and softens the scene behind it, a frosted band around the edge is the thick glass
+     (brighter, more blurred), the top edge catches light and the bottom edge glows back, an inner shadow gives it
+     depth. Where the browser takes an SVG filter in backdrop-filter the scene also bends at the rim. A light drifts
+     inside (glowAlpha .14, 6 s), ready tints it the accent at 28 percent and scales it 1.04. */
   .stage .ball, .stage .ghost {
     position: absolute; left: 0; top: 0; width: 48px; height: 48px; border-radius: 50%; margin: 0; padding: 0; border: 0;
     background: transparent; will-change: transform; transition: scale .4s var(--hover);
+    filter: drop-shadow(0 6px 10px rgba(0,0,0,.30));
   }
+  .stage .ball > i, .stage .ball::before, .stage .ball::after, .stage .ghost::before, .stage .ghost::after { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; }
+  /* the body */
   .stage .ball::before, .stage .ghost::before {
-    content: ""; position: absolute; inset: 0; border-radius: 50%;
-    background: rgba(20, 22, 28, .16);
-    -webkit-backdrop-filter: blur(1.2px) saturate(1.05) brightness(.96); backdrop-filter: blur(1.2px) saturate(1.05) brightness(.96);
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,.28), inset 2px 3px 6px rgba(255,255,255,.28), inset -3px -5px 10px rgba(0,0,0,.28), 0 6px 16px rgba(0,0,0,.30), 0 1px 2px rgba(0,0,0,.25);
+    content: ""; background: rgba(34, 38, 46, .34);
+    -webkit-backdrop-filter: blur(2.5px) saturate(1.25) brightness(1.02); backdrop-filter: blur(2.5px) saturate(1.25) brightness(1.02);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.22), inset 0 -8px 14px rgba(0,0,0,.30), inset 0 10px 14px rgba(255,255,255,.08);
   }
   @supports (backdrop-filter: url("#lens")) or (-webkit-backdrop-filter: url("#lens")) {
-    .stage .ball::before, .stage .ghost::before { -webkit-backdrop-filter: url("#lens") saturate(1.05) brightness(.96); backdrop-filter: url("#lens") saturate(1.05) brightness(.96); }
+    .stage .ball::before, .stage .ghost::before { -webkit-backdrop-filter: url("#lens") saturate(1.25) brightness(1.02); backdrop-filter: url("#lens") saturate(1.25) brightness(1.02); }
   }
+  /* the edge: a 7 px band, blurred more and lit, masked to the rim, the thick part of the lens */
+  .stage .ball .edge, .stage .ghost .edge {
+    -webkit-backdrop-filter: blur(5px) brightness(1.35) saturate(1.5); backdrop-filter: blur(5px) brightness(1.35) saturate(1.5);
+    background: rgba(255,255,255,.10);
+    -webkit-mask: radial-gradient(circle, transparent 60%, #000 72%, #000 100%); mask: radial-gradient(circle, transparent 60%, #000 72%, #000 100%);
+  }
+  /* the light: a thin rim, bright at the top left, a glint at the top, a softer glow back at the bottom */
   .stage .ball::after, .stage .ghost::after {
-    content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
-    /* the rim: white .6 at the top left fading to nothing past the middle, masked to the outer 1.5 px */
-    background: linear-gradient(135deg, rgba(255,255,255,.6) 0%, rgba(255,255,255,.15) 50%, rgba(255,255,255,0) 80%);
-    -webkit-mask: radial-gradient(circle, transparent calc(50% - 2px), #000 calc(50% - 1px)); mask: radial-gradient(circle, transparent calc(50% - 2px), #000 calc(50% - 1px));
+    content: "";
+    background:
+      radial-gradient(60% 34% at 50% 14%, rgba(255,255,255,.55), rgba(255,255,255,0) 100%),
+      radial-gradient(70% 30% at 50% 92%, rgba(255,255,255,.28), rgba(255,255,255,0) 100%),
+      linear-gradient(135deg, rgba(255,255,255,.75) 0%, rgba(255,255,255,.25) 45%, rgba(255,255,255,.05) 65%, rgba(255,255,255,.35) 100%);
+    box-shadow: inset 0 0 0 1.25px rgba(255,255,255,.55);
+    opacity: .9;
+    -webkit-mask: radial-gradient(circle, transparent 0, transparent calc(50% - 7px), rgba(0,0,0,.35) calc(50% - 4px), #000 calc(50% - 1px));
+    mask: radial-gradient(circle, transparent 0, transparent calc(50% - 7px), rgba(0,0,0,.35) calc(50% - 4px), #000 calc(50% - 1px));
   }
-  .stage .ball .glow { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; background: radial-gradient(circle at 38% 32%, rgba(255,255,255,.14), rgba(255,255,255,0) 62%); animation: drift 6s ease-in-out infinite alternate; }
+  .stage .ball .glint { background: radial-gradient(55% 28% at 50% 16%, rgba(255,255,255,.42), rgba(255,255,255,0) 100%); }
+  .stage .ball .glow { background: radial-gradient(circle at 38% 32%, rgba(255,255,255,.14), rgba(255,255,255,0) 62%); animation: drift 6s ease-in-out infinite alternate; }
   @keyframes drift { from { opacity: .35; } to { opacity: 1; } }
-  .stage .ball .tint { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; background: var(--accent); opacity: 0; box-shadow: 0 0 0 1px var(--accent); transition: opacity .4s var(--hover); }
+  .stage .ball .tint { background: var(--accent); opacity: 0; box-shadow: 0 0 0 1px var(--accent); transition: opacity .4s var(--hover); }
   .stage .ball:hover .tint { opacity: .28; }
   .stage .ball:hover { scale: 1.04; }
   .stage .ball { cursor: url("assets/cursor-pointing-hand.png") 16 14, pointer; touch-action: none; transition: transform .7s var(--settle), opacity .2s ease, scale .4s var(--hover); }
@@ -271,20 +288,25 @@
   .stage .ball.drag { transition: none; }
   .stage .ball.gone { opacity: 0; pointer-events: none; }
   .stage .ghost { opacity: 0; transition: opacity .2s ease; pointer-events: none; }
+  .stage .ghost .edge { position: absolute; inset: 0; border-radius: 50%; }
   .stage .ghost.on { opacity: .35; }
   @media (prefers-reduced-motion: reduce) { .stage .ball .glow { animation: none; opacity: .7; } }
   /* the ring: Ring.Tokens, 92 pt around the disc on the hover glass, four wedges split on the diagonals,
      the symbols 54 pt out, the labels after 0.2 s, the hand at center; it unfolds from disc size on the wake spring */
   .stage .ring {
     position: absolute; left: 0; top: 0; width: 184px; height: 184px; margin: -92px 0 0 -92px; border-radius: 50%;
-    background: rgba(70, 76, 88, .34); box-shadow: inset 0 0 0 1px rgba(255,255,255,.18), inset 0 -10px 24px rgba(0,0,0,.18), 0 12px 32px rgba(0,0,0,.32);
-    -webkit-backdrop-filter: blur(22px) saturate(1.5); backdrop-filter: blur(22px) saturate(1.5);
+    background: rgba(96, 102, 114, .46);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.26), inset 0 0 36px rgba(0,0,0,.16), inset 0 -18px 30px rgba(0,0,0,.14), inset 0 14px 24px rgba(255,255,255,.08), 0 14px 36px rgba(0,0,0,.34);
+    -webkit-backdrop-filter: blur(26px) saturate(1.6) brightness(1.04); backdrop-filter: blur(26px) saturate(1.6) brightness(1.04);
     opacity: 0; transform: scale(.26); pointer-events: none; transition: transform .18s ease-in, opacity .18s ease-in;
   }
   .stage .ring::before {
     content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
-    background: linear-gradient(135deg, rgba(255,255,255,.55) 0%, rgba(255,255,255,.12) 50%, rgba(255,255,255,0) 80%);
-    -webkit-mask: radial-gradient(circle, transparent calc(50% - 2px), #000 calc(50% - 1px)); mask: radial-gradient(circle, transparent calc(50% - 2px), #000 calc(50% - 1px));
+    background:
+      radial-gradient(55% 22% at 50% 6%, rgba(255,255,255,.35), rgba(255,255,255,0) 100%),
+      linear-gradient(135deg, rgba(255,255,255,.7) 0%, rgba(255,255,255,.22) 45%, rgba(255,255,255,.04) 65%, rgba(255,255,255,.3) 100%);
+    -webkit-mask: radial-gradient(circle, transparent 0, transparent calc(50% - 9px), rgba(0,0,0,.3) calc(50% - 5px), #000 calc(50% - 1px));
+    mask: radial-gradient(circle, transparent 0, transparent calc(50% - 9px), rgba(0,0,0,.3) calc(50% - 5px), #000 calc(50% - 1px));
   }
   .stage .ring.open { opacity: 1; transform: none; transition: transform .8s var(--wake), opacity .1s ease; }
   .stage .ring svg { position: absolute; inset: -1px; width: 184px; height: 184px; }
@@ -498,8 +520,8 @@
       <div class="hud tag"></div>
       <div class="hud field"><input type="text" placeholder="What should change?" aria-label="Note" autocomplete="off"><span class="hint">↩ copy · esc cancel</span></div>
       <div class="hud toast">Copied</div>
-      <div class="ghost"></div>
-      <button class="ball" type="button" aria-label="The Locant ball: click to point, press and hold for the ring"><span class="glow"></span><span class="tint"></span></button>
+      <div class="ghost"><i class="edge"></i></div>
+      <button class="ball" type="button" aria-label="The Locant ball: click to point, press and hold for the ring"><i class="edge"></i><i class="glint"></i><i class="glow"></i><i class="tint"></i></button>
       <div class="ring" aria-hidden="true"><svg viewBox="0 0 184 184" aria-hidden="true"><path class="wedge snap" d="M157.1 26.9 A92 92 0 0 0 26.9 26.9 L74.3 74.3 A25 25 0 0 1 109.7 74.3 Z"/><path class="wedge text" d="M157.1 157.1 A92 92 0 0 0 157.1 26.9 L109.7 74.3 A25 25 0 0 1 109.7 109.7 Z"/><path class="wedge color" d="M26.9 157.1 A92 92 0 0 0 157.1 157.1 L109.7 109.7 A25 25 0 0 1 74.3 109.7 Z"/><path class="wedge cut" d="M26.9 26.9 A92 92 0 0 0 26.9 157.1 L74.3 109.7 A25 25 0 0 1 74.3 74.3 Z"/><g class="sep"><line x1="109.7" y1="74.3" x2="157.1" y2="26.9"/><line x1="74.3" y1="74.3" x2="26.9" y2="26.9"/><line x1="74.3" y1="109.7" x2="26.9" y2="157.1"/><line x1="109.7" y1="109.7" x2="157.1" y2="157.1"/><circle cx="92" cy="92" r="25"/></g></svg><div class="seg snap"><i class="glyph snap"></i><span>Snap</span></div><div class="seg text"><i class="glyph text"></i><span>Text</span></div><div class="seg color"><i class="glyph color"></i><span>Color</span></div><div class="seg cut"><i class="glyph cut"></i><span>Cut</span></div><div class="hand"></div></div>
     </div>
 
@@ -649,9 +671,14 @@
   function rel(e) { var r = stage.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
   function near(p) { return Math.hypot(p.x - c.x, p.y - c.y) < WAKE; }
 
-  // init: tucked into the right edge, a little above the middle
-  c.y = Math.round(H() * 0.42); ball.style.transition = 'none'; place(tuckPt(side)); void ball.offsetWidth; ball.style.transition = '';
-  window.addEventListener('resize', function () { if (state === 'docked') place(tuckPt(side)); else if (state !== 'ring') { c.y = Math.min(c.y, H() - R); place(homePt(side)); } });
+  // init: tucked into the right edge, a little above the middle; again on load if the stage had no height yet
+  function settle() {
+    if (H() < D * 2) return;
+    if (c.y < R || c.y > H() - R) c.y = Math.round(H() * 0.42);
+    ball.style.transition = 'none'; place(state === 'docked' ? tuckPt(side) : homePt(side)); void ball.offsetWidth; ball.style.transition = '';
+  }
+  settle(); window.addEventListener('load', settle);
+  window.addEventListener('resize', function () { if (state !== 'ring' && !press) settle(); });
 
   // waking and settling follow the pointer; a scroll tucks an awake ball at once
   stage.addEventListener('pointermove', function (e) {
