@@ -33,6 +33,7 @@
     --frame: #e9e9ee;
     --frame-chrome: #f7f7fa;
     --dim: rgba(0, 0, 0, 0.2);
+    --stage: linear-gradient(160deg, #dbe9f6 0%, #8fb8dc 45%, #3f6f9f 100%);
     --code-bg: #ffffff;
     --key-bg: #ffffff;
     --shadow: 0 1px 2px rgba(0,0,0,.06), 0 12px 32px rgba(0,0,0,.08);
@@ -57,6 +58,7 @@
       --frame: #2c2c2e;
       --frame-chrome: #3a3a3c;
       --dim: rgba(0, 0, 0, 0.2);
+      --stage: linear-gradient(160deg, #2a3a4d 0%, #1b2b3d 50%, #0e1a28 100%);
       --code-bg: #1c1c1e;
       --key-bg: #2c2c2e;
       --shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.5);
@@ -81,6 +83,7 @@
     --frame: #2c2c2e;
     --frame-chrome: #3a3a3c;
     --dim: rgba(0, 0, 0, 0.2);
+    --stage: linear-gradient(160deg, #2a3a4d 0%, #1b2b3d 50%, #0e1a28 100%);
     --code-bg: #1c1c1e;
     --key-bg: #2c2c2e;
     --shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.5);
@@ -178,24 +181,6 @@
   .sect-head { display: grid; gap: 10px; margin-bottom: 32px; max-width: 640px; }
   .sect-head .lede { font-size: 21px; }
 
-  /* three steps, each with the thing you see */
-  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
-  .step { display: grid; gap: 12px; align-content: start; }
-  .step .vis {
-    position: relative; height: 120px; border-radius: 14px; background: var(--surface); box-shadow: 0 0 0 1px var(--hair);
-    display: grid; grid-template-columns: minmax(0, 1fr); place-items: center; padding: 32px 12px 14px; overflow: hidden;
-  }
-  .step .vis .n { position: absolute; top: 10px; left: 14px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .step .text { display: grid; gap: 4px; }
-  .step h3 { font-size: 19px; }
-  .step p { font-size: 17px; color: var(--muted); }
-  kbd {
-    font-family: inherit; font-size: 13px; font-weight: 600; color: var(--ink);
-    border: 1px solid var(--hair); border-bottom-width: 2px; border-radius: 6px; padding: 1px 7px; background: var(--key-bg);
-  }
-  .keys { display: flex; align-items: center; gap: 8px; }
-  .keys kbd { font-size: 22px; padding: 6px 14px; border-radius: 9px; }
-  .keys .plus { color: var(--muted); font-size: 13px; }
   /* the note field: label.bg at 6 pt, 28 pt tall, label.sans 12 pt, the hint right-aligned in the secondary color */
   .hud {
     background: var(--hud); border: 1px solid var(--hud-edge); border-radius: 6px; height: 28px; padding: 0 8px;
@@ -206,43 +191,95 @@
   .hud .hint { flex: none; }
   .hud .caret { display: inline-block; width: 1px; height: 14px; background: var(--ink); vertical-align: -3px; margin-left: 1px; }
   .hud .hint { color: var(--muted); }
-  .term {
-    width: 100%; background: var(--ground); color: var(--ink); border: 1px solid var(--hair); border-radius: 8px; padding: 8px 12px;
-    font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11.5px; line-height: 1.5; text-align: left; white-space: nowrap; overflow: hidden;
+  /* the demo: step line, then the stage with the mock app, the overlay, and the ball */
+  .steps { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin: -12px 0 18px; font-size: 15px; color: var(--muted); }
+  .steps .s { display: inline-flex; align-items: center; gap: 7px; transition: color .25s ease; }
+  .steps .s b { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; font-size: 12px; font-weight: 600; color: var(--muted); box-shadow: 0 0 0 1px var(--hair); transition: background .25s ease, color .25s ease, box-shadow .25s ease; }
+  .steps .s.on { color: var(--ink); }
+  .steps .s.on b { background: var(--accent); color: #fff; box-shadow: none; }
+  .steps .say { flex-basis: 100%; color: var(--ink); min-height: 1.5em; }
+  @media (min-width: 721px) { .steps .say { flex-basis: auto; margin-left: auto; } }
+
+  .stage {
+    position: relative; aspect-ratio: 16 / 9; max-height: 520px; border-radius: 18px; overflow: hidden;
+    background: var(--stage); box-shadow: var(--shadow); user-select: none; -webkit-user-select: none;
   }
-  .term .h { color: var(--muted); }
-  .term .k { color: var(--accent); }
-
-  /* the overlay, up close: four real frames */
-  .frames { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-  .frame { display: grid; gap: 10px; align-content: start; }
-  .frame .pic { aspect-ratio: 3 / 2; border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); }
-  .frame .pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .frame h3 { font-size: 17px; }
-  .frame p { font-size: 17px; color: var(--muted); }
-  .frame code { font-size: 0.9em; }
-
-  /* the ball: four real states */
-  .states { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-  .state { display: grid; gap: 10px; align-content: start; }
-  .state .pic { aspect-ratio: 1; border-radius: 16px; overflow: hidden; box-shadow: 0 0 0 1px var(--hair); }
-  .state .pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .state h3 { font-size: 17px; }
-  .state p { font-size: 17px; color: var(--muted); }
-
-  /* payload with what each line is for */
-  .payload-wrap { display: grid; gap: 24px; }
-  pre.payload {
-    margin: 0; background: var(--code-bg); border: 1px solid var(--hair); border-radius: 12px;
-    padding: 18px 20px; overflow-x: auto; line-height: 1.6; font-size: 13px;
+  .stage.pointing { cursor: crosshair; }
+  /* the mock app: a small Mac window, off center so the ball has the right edge */
+  .app {
+    position: absolute; left: 44%; top: 50%; transform: translate(-50%, -50%); width: min(460px, 68%);
+    background: var(--surface); border-radius: 12px; box-shadow: 0 0 0 1px var(--hair), 0 12px 32px rgba(0,0,0,.18);
+    font-size: 14px; color: var(--ink); overflow: hidden;
   }
-  pre.payload .h { color: var(--muted); }
-  pre.payload .k { color: var(--accent); }
-  /* the same cards as Privacy */
-  .notes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-  .note { display: grid; gap: 6px; align-content: start; padding: 18px 20px; background: var(--surface); border-radius: 16px; box-shadow: 0 0 0 1px var(--hair); }
-  .note h3 { font-size: 17px; }
-  .note p { font-size: 17px; color: var(--muted); }
+  .app .tb { height: 34px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding-inline: 10px; background: var(--frame-chrome); border-bottom: 1px solid var(--hair); }
+  .app .dots { display: flex; gap: 6px; }
+  .app .dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--hair); display: block; }
+  .app .title { font-weight: 600; color: var(--muted); font-size: 12px; }
+  .app .bar { display: flex; gap: 8px; align-items: center; padding: 10px 12px; }
+  .app .search { flex: 1; color: var(--muted); background: var(--frame); border-radius: 7px; padding: 5px 9px; }
+  .app .pill { background: var(--accent); color: #fff; font-weight: 600; padding: 5px 12px; border-radius: 980px; }
+  .app .list { display: grid; }
+  .app .row { display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; border-top: 1px solid var(--hair); }
+  .app .badge { font-size: 11px; color: var(--muted); background: var(--frame); border-radius: 6px; padding: 2px 7px; }
+  .app .badge.ready { color: #fff; background: #34c759; }
+  .app .foot { display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; border-top: 1px solid var(--hair); color: var(--muted); }
+  .app .toggle { position: relative; width: 30px; height: 18px; border-radius: 9px; background: #34c759; }
+  .app .toggle i { position: absolute; top: 2px; right: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; }
+  @media (max-width: 720px) {
+    .stage { aspect-ratio: 4 / 5; max-height: none; }
+    .app { left: 45%; width: 80%; }
+  }
+  /* the overlay: a dim over everything, the accent outline on the element, the label under it */
+  .stage .dim { position: absolute; inset: 0; background: rgba(0,0,0,.28); opacity: 0; transition: opacity .2s ease; pointer-events: none; }
+  .stage.pointing .dim { opacity: 1; }
+  .stage .outline { position: absolute; border: 2px solid var(--accent); border-radius: 6px; opacity: 0; pointer-events: none; transition: top .12s ease, left .12s ease, width .12s ease, height .12s ease, opacity .12s ease; }
+  .stage .outline.on { opacity: 1; }
+  .stage .hud { position: absolute; opacity: 0; pointer-events: none; transition: opacity .12s ease; }
+  .stage .hud.on { opacity: 1; }
+  .stage .tag { font-family: ui-monospace, "SF Mono", Menlo, monospace; height: 26px; }
+  .stage .field { pointer-events: auto; width: 260px; max-width: calc(100% - 24px); }
+  .stage .field input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: inherit; font: inherit; }
+  .stage .field.shake { animation: shake .3s ease; }
+  @keyframes shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+  .stage .toast { font-weight: 600; }
+  /* the ball: FloatingBall.Tokens, 48 pt, a glass disc with the rim lit from above */
+  .stage .ball, .stage .ghost {
+    position: absolute; left: 0; top: 0; width: 48px; height: 48px; border-radius: 50%; margin: 0; padding: 0; border: 0;
+    background: radial-gradient(circle at 50% 26%, rgba(255,255,255,.62), rgba(255,255,255,.10) 56%, rgba(255,255,255,0) 70%), rgba(44,44,48,.40);
+    -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.55), inset 0 -8px 14px rgba(0,0,0,.14), 0 6px 18px rgba(0,0,0,.28);
+    will-change: transform;
+  }
+  .stage .ball { cursor: url("assets/cursor-pointing-hand.png") 16 14, pointer; touch-action: none; transition: transform .7s var(--settle), opacity .2s ease; }
+  .stage .ball.wake { transition-duration: .8s; transition-timing-function: var(--wake); }
+  .stage .ball.tuck { transition-duration: .55s; transition-timing-function: var(--tuck); }
+  .stage .ball.drag { transition: none; }
+  .stage .ball.gone { opacity: 0; pointer-events: none; }
+  .stage .ball::after { content: ""; position: absolute; inset: 0; border-radius: 50%; box-shadow: 0 0 0 0 rgba(255,255,255,0); transition: transform .4s var(--hover); }
+  .stage .ball:hover::after { transform: scale(1.04); }
+  .stage .ghost { opacity: 0; transition: opacity .2s ease; pointer-events: none; }
+  .stage .ghost.on { opacity: .35; }
+  :root { --wake: linear(0.0000 0.0%, 0.0275 2.5%, 0.0957 5.0%, 0.1872 7.5%, 0.2895 10.0%, 0.3936 12.5%, 0.4936 15.0%, 0.5856 17.5%, 0.6678 20.0%, 0.7391 22.5%, 0.7996 25.0%, 0.8499 27.5%, 0.8909 30.0%, 0.9235 32.5%, 0.9490 35.0%, 0.9685 37.5%, 0.9830 40.0%, 0.9934 42.5%, 1.0007 45.0%, 1.0054 47.5%, 1.0083 50.0%, 1.0097 52.5%, 1.0102 55.0%, 1.0100 57.5%, 1.0093 60.0%, 1.0084 62.5%, 1.0074 65.0%, 1.0063 67.5%, 1.0053 70.0%, 1.0043 72.5%, 1.0035 75.0%, 1.0027 77.5%, 1.0021 80.0%, 1.0016 82.5%, 1.0012 85.0%, 1.0008 87.5%, 1.0005 90.0%, 1.0003 92.5%, 1.0002 95.0%, 1.0001 97.5%, 1.0000 100.0%); --settle: linear(0.0000 0.0%, 0.0258 2.5%, 0.0892 5.0%, 0.1739 7.5%, 0.2681 10.0%, 0.3640 12.5%, 0.4563 15.0%, 0.5419 17.5%, 0.6191 20.0%, 0.6871 22.5%, 0.7460 25.0%, 0.7961 27.5%, 0.8382 30.0%, 0.8731 32.5%, 0.9016 35.0%, 0.9248 37.5%, 0.9433 40.0%, 0.9579 42.5%, 0.9694 45.0%, 0.9783 47.5%, 0.9850 50.0%, 0.9901 52.5%, 0.9938 55.0%, 0.9965 57.5%, 0.9984 60.0%, 0.9997 62.5%, 1.0006 65.0%, 1.0011 67.5%, 1.0014 70.0%, 1.0015 72.5%, 1.0015 75.0%, 1.0014 77.5%, 1.0013 80.0%, 1.0012 82.5%, 1.0010 85.0%, 1.0009 87.5%, 1.0008 90.0%, 1.0006 92.5%, 1.0005 95.0%, 1.0004 97.5%, 1.0000 100.0%); --tuck: linear(0.0000 0.0%, 0.0204 2.5%, 0.0712 5.0%, 0.1403 7.5%, 0.2190 10.0%, 0.3009 12.5%, 0.3819 15.0%, 0.4592 17.5%, 0.5311 20.0%, 0.5966 22.5%, 0.6555 25.0%, 0.7077 27.5%, 0.7535 30.0%, 0.7932 32.5%, 0.8275 35.0%, 0.8568 37.5%, 0.8817 40.0%, 0.9027 42.5%, 0.9204 45.0%, 0.9351 47.5%, 0.9474 50.0%, 0.9575 52.5%, 0.9658 55.0%, 0.9727 57.5%, 0.9783 60.0%, 0.9828 62.5%, 0.9865 65.0%, 0.9894 67.5%, 0.9918 70.0%, 0.9936 72.5%, 0.9951 75.0%, 0.9963 77.5%, 0.9972 80.0%, 0.9979 82.5%, 0.9985 85.0%, 0.9989 87.5%, 0.9992 90.0%, 0.9995 92.5%, 0.9997 95.0%, 0.9998 97.5%, 1.0000 100.0%); --hover: linear(0.0000 0.0%, 0.0169 2.5%, 0.0596 5.0%, 0.1183 7.5%, 0.1860 10.0%, 0.2575 12.5%, 0.3294 15.0%, 0.3993 17.5%, 0.4656 20.0%, 0.5273 22.5%, 0.5840 25.0%, 0.6355 27.5%, 0.6819 30.0%, 0.7233 32.5%, 0.7601 35.0%, 0.7925 37.5%, 0.8210 40.0%, 0.8460 42.5%, 0.8677 45.0%, 0.8866 47.5%, 0.9029 50.0%, 0.9171 52.5%, 0.9292 55.0%, 0.9397 57.5%, 0.9487 60.0%, 0.9564 62.5%, 0.9630 65.0%, 0.9686 67.5%, 0.9734 70.0%, 0.9775 72.5%, 0.9809 75.0%, 0.9839 77.5%, 0.9864 80.0%, 0.9885 82.5%, 0.9903 85.0%, 0.9918 87.5%, 0.9931 90.0%, 0.9942 92.5%, 0.9951 95.0%, 0.9959 97.5%, 1.0000 100.0%); }
+
+  /* the result: the payload, one line each, with what the line is for beside it */
+  .result { margin-top: 28px; display: grid; gap: 10px; }
+  .result h3 { font-size: 21px; }
+  .result .lede { font-size: 17px; color: var(--muted); margin-bottom: 8px; }
+  .lines { display: grid; background: var(--surface); border-radius: 14px; box-shadow: 0 0 0 1px var(--hair); overflow: hidden; transition: box-shadow .4s ease; }
+  .lines.flash { box-shadow: 0 0 0 2px var(--accent); }
+  .ln { display: grid; grid-template-columns: 1.25fr 1fr; gap: 6px 24px; align-items: baseline; padding: 11px 18px; }
+  .ln + .ln { border-top: 1px solid var(--hair); }
+  .ln code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+  .ln code .h { color: var(--muted); }
+  .ln code .k { color: var(--accent); }
+  .ln span { font-size: 15px; color: var(--muted); }
+  @media (max-width: 720px) { .ln { grid-template-columns: 1fr; } }
+
+  /* scroll: blocks rise in once, the way a page on apple.com does; off when motion is reduced */
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal { opacity: 0; transform: translateY(16px); transition: opacity .7s ease, transform .7s cubic-bezier(.2,.7,.2,1); }
+    .reveal.in { opacity: 1; transform: none; }
+  }
 
   /* why: three numbers from the measurement, then where the method is */
   .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
@@ -330,22 +367,14 @@
     .hero { padding-block: 56px 36px; }
     /* phones get the loop cut at 4:5 (hero-mobile.mp4): the same take, framed on each shot's subject */
     .demo { aspect-ratio: 4 / 5; object-fit: cover; border-radius: 14px; }
-    pre.payload { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; padding: 14px 16px; }
     footer .links { margin-left: 0; flex-basis: 100%; }
     .app-icon { width: 96px; height: 96px; border-radius: 21.5px; }
-    .grid2, .notes, .tiles { grid-template-columns: 1fr; }
+    .grid2, .tiles { grid-template-columns: 1fr; }
     .with .lab { flex-basis: 100%; }
-    .steps { grid-template-columns: 1fr; gap: 16px; }
-    .step { grid-template-columns: 224px 1fr; align-items: center; gap: 20px; }
-    .step .vis { height: 108px; padding: 28px 12px 12px; }
-    .step .hud .hint { display: none; }
-    .step .term { font-size: 10.5px; padding: 8px 10px; }
-    .actions, .states { grid-template-columns: 1fr 1fr; }
-    .frames { grid-template-columns: 1fr; }
+    .actions { grid-template-columns: 1fr 1fr; }
     .split { grid-template-columns: 1fr; }
   }
   @media (max-width: 440px) {
-    .step { grid-template-columns: 1fr; }
     .actions { grid-template-columns: 1fr; }
   }
 </style>
@@ -393,113 +422,57 @@
     <figcaption>Click the ball, hover, click, say what should change, paste.</figcaption>
   </figure>
 
-  <section class="wide" id="how">
-    <div class="col"><div class="sect-head">
-      <h2>Three seconds, start to paste</h2>
-    </div></div>
-    <div class="steps">
-      <div class="step">
-        <div class="vis"><span class="n">1</span><div class="keys"><kbd>⌃</kbd><span class="plus">twice</span></div></div>
-        <div class="text"><h3>Point</h3><p>Double-tap Control, or click the ball. Hover, then click the element, in any app.</p></div>
-      </div>
-      <div class="step">
-        <div class="vis"><span class="n">2</span><div class="hud"><span>make this rounded<span class="caret"></span></span><span class="hint">↩ copy · esc cancel</span></div></div>
-        <div class="text"><h3>Note</h3><p>Type what should change. Enter captures it.</p></div>
-      </div>
-      <div class="step">
-        <div class="vis"><span class="n">3</span><div class="term"><span class="h">## Locant capture (fix)</span><br><span class="k">Image:</span> ~/Pictures/Locant/…<br>button · id=captureButton</div></div>
-        <div class="text"><h3>Paste</h3><p>⌘V in the conversation you want. The text and the image both arrive.</p></div>
-      </div>
-    </div>
-  </section>
-
-  <section class="wide" id="point">
-    <div class="col">
-      <div class="sect-head">
-        <h2>Point, up close</h2>
-        <p class="lede">The overlay over Calculator.</p>
-      </div>
-    </div>
-    <div class="frames">
-      <div class="frame">
-        <div class="pic"><img src="assets/overlay-hover.jpg" width="1260" height="840" alt="The overlay over Calculator: the 8 key outlined in blue, with the label button · Eight beneath it"></div>
-        <h3>Hover</h3><p>The element under the cursor, with its identifier: <code>button · Eight</code>.</p>
-      </div>
-      <div class="frame">
-        <div class="pic"><img src="assets/overlay-option.jpg" width="1260" height="840" alt="With Option held, the whole keypad is outlined and the label reads group · CalculatorKeypadView"></div>
-        <h3>Option</h3><p>Steps up to the parent: <code>group · CalculatorKeypadView</code>.</p>
-      </div>
-      <div class="frame">
-        <div class="pic"><img src="assets/overlay-drag.jpg" width="1260" height="840" alt="A dragged frame around the number keys with a 161 by 167 point readout"></div>
-        <h3>Drag</h3><p>A frame, with every element inside it listed.</p>
-      </div>
-      <div class="frame">
-        <div class="pic"><img src="assets/overlay-note.jpg" width="1260" height="840" alt="After the click, a note field under the highlighted key reads make this key bigger, with Return to copy and Escape to cancel"></div>
-        <h3>Note</h3><p>Click, say what should change, Return.</p>
-      </div>
-    </div>
-  </section>
-
-  <section class="col" id="ball">
+  <section class="col" id="how">
     <div class="sect-head">
-      <h2>The ball</h2>
-      <p class="lede">A glass disc at the edge of the screen. Out of the way until you reach for it.</p>
+      <h2>Try it here</h2>
+      <p class="lede">The ball and the overlay, in the page. Same moves as on your Mac.</p>
     </div>
-    <div class="states">
-      <div class="state">
-        <div class="pic"><img src="assets/ball-docked.png" width="200" height="200" alt="The ball docked: a half disc tucked into the screen edge"></div>
-        <h3>Docked</h3><p>Tucks into the nearest edge when you are not using it.</p>
-      </div>
-      <div class="state">
-        <div class="pic"><img src="assets/ball-awake.png" width="220" height="220" alt="The ball awake: a full glass disc on the desktop"></div>
-        <h3>Awake</h3><p>Move toward it and it comes out. Drag it anywhere.</p>
-      </div>
-      <div class="state">
-        <div class="pic"><img src="assets/ball-ready.png" width="220" height="220" alt="The ball ready: the pointing hand appears on the disc"></div>
-        <h3>Ready</h3><p>Under the cursor the hand appears. Click to point.</p>
-      </div>
-      <div class="state">
-        <div class="pic"><img src="assets/ball-ring.png" width="520" height="520" alt="The ring: Snap, Text, Color and Cut around the ball, revealed by pressing and holding"></div>
-        <h3>The ring</h3><p>Press and hold for Snap, Text, Color, and Cut.</p>
-      </div>
+    <div class="steps" id="steps" aria-live="polite">
+      <span class="s on"><b>1</b>Point</span><span class="s"><b>2</b>Note</span><span class="s"><b>3</b>Paste</span>
+      <span class="say" id="say">The ball rests at the edge. Move toward it, then click it.</span>
     </div>
-  </section>
-
-  <section class="col" id="payload">
-    <div class="sect-head">
-      <h2>What your agent receives</h2>
-      <p class="lede">Enough to open the right file on the first try.</p>
-    </div>
-    <div class="payload-wrap">
-<pre class="payload"><span class="h">## Locant capture (fix)</span>
-<span class="k">Image:</span> ~/Pictures/Locant/locant-simulator-20260913-153012-k7q2.png
-<span class="k">App:</span> Simulator (com.example.myapp) · Window: iPhone 17 Pro
-<span class="k">Captured:</span> 2026-09-13 15:30 · Image region: 450×130 pt @2x (element + 40 pt)
-
-<span class="h">### Target element</span>
-button · id=captureButton
-<span class="k">Frame:</span> x=43 y=894 w=370 h=50
-<span class="k">Path:</span> application > window > group > group > button#captureButton
-
-<span class="h">### Note</span>
-make this rounded, match the other pills</pre>
-      <div class="notes">
-        <div class="note"><h3>Image first</h3><p>The path leads, so the agent opens the PNG itself.</p></div>
-        <div class="note"><h3>Identifier and path</h3><p>The identifier is what the agent greps for. The path says where in the view tree it sits.</p></div>
-        <div class="note"><h3>On disk too</h3><p>A PNG and a JSON sidecar in Pictures, for later.</p></div>
+    <div class="stage" id="stage">
+      <div class="app" data-role="window" data-label="Orders">
+        <div class="tb"><span class="dots"><i></i><i></i><i></i></span><span class="title">Orders</span></div>
+        <div class="bar" data-role="group">
+          <div class="search" data-role="textField" data-id="searchField" data-label="Search">Search</div>
+          <div class="pill" data-role="button" data-id="newOrderButton" data-label="New order">New order</div>
+        </div>
+        <div class="list" data-role="table" data-id="ordersTable">
+          <div class="row" data-role="row" data-id="order.1042"><span>Blueberry, 6</span><span class="badge ready">Ready</span></div>
+          <div class="row" data-role="row" data-id="order.1043"><span>Lemon, 12</span><span class="badge">Preparing</span></div>
+          <div class="row" data-role="row" data-id="order.1044"><span>Matcha, 3</span><span class="badge">Preparing</span></div>
+        </div>
+        <div class="foot" data-role="group">
+          <span>Notify when ready</span>
+          <span class="toggle" data-role="checkBox" data-id="notifyToggle" data-label="Notify when ready"><i></i></span>
+        </div>
       </div>
+      <div class="dim"></div>
+      <div class="outline"></div>
+      <div class="hud tag"></div>
+      <div class="hud field"><input type="text" placeholder="What should change?" aria-label="Note" autocomplete="off"><span class="hint">↩ copy · esc cancel</span></div>
+      <div class="hud toast">Copied</div>
+      <div class="ghost"></div>
+      <button class="ball" type="button" aria-label="The Locant ball: click to point"></button>
+    </div>
+
+    <div class="result" id="result">
+      <h3>What your agent receives</h3>
+      <p class="lede">After Return, this text is on the clipboard. Paste it anywhere.</p>
+      <div class="lines" id="lines"></div>
     </div>
   </section>
 
   <section class="col" id="why">
     <div class="sect-head">
       <h2>Why Locant</h2>
-      <p class="lede">Measured against a screenshot: same crop, same note, same model. The app on screen was built in one worktree and the agent worked in another, as happens when every session gets its own.</p>
+      <p class="lede">Tested against a screenshot: same picture, same note, same model. The agent had two copies of the code, and only one was on screen.</p>
     </div>
     <div class="tiles">
-      <div class="tile"><span class="big">0 of 20</span><p>Locant runs that changed the wrong copy of the code. With a screenshot: 14 of 20.</p></div>
-      <div class="tile"><span class="big">39 s</span><p>To the first change in the right file. With a screenshot: 80 s.</p></div>
-      <div class="tile"><span class="big">About half</span><p>What a run cost, in tokens and in dollars.</p></div>
+      <div class="tile"><span class="big">0 of 20</span><p>Locant runs that edited the wrong copy. With a screenshot: 14 of 20.</p></div>
+      <div class="tile"><span class="big">2× faster</span><p>39 seconds to the right file, against 80.</p></div>
+      <div class="tile"><span class="big">Half the cost</span><p>About half the tokens and dollars per run.</p></div>
     </div>
     <p class="method">80 runs on Claude Code, graded blind. Method and statistics: <a href="https://github.com/Malik1942/locant/blob/main/docs/video/11-measurement-worktrees.md">the report</a>.</p>
   </section>
@@ -601,3 +574,185 @@ make this rounded, match the other pills</pre>
     </div>
   </footer>
 </main>
+
+<script>
+// The demo: the ball (FloatingBall.Tokens: 48 pt, 60 percent showing when tucked, an 80 pt wake radius,
+// 2 s idle before it tucks, the springs from Motion.swift) and the overlay (dim, outline, label, note).
+(function () {
+  var stage = document.getElementById('stage'); if (!stage) return;
+  var app = stage.querySelector('.app'), ball = stage.querySelector('.ball'), ghost = stage.querySelector('.ghost'),
+      box = stage.querySelector('.outline'), tag = stage.querySelector('.tag'), field = stage.querySelector('.field'),
+      input = field.querySelector('input'), toast = stage.querySelector('.toast'), say = document.getElementById('say'),
+      steps = document.querySelectorAll('#steps .s'), lines = document.getElementById('lines'), linesBox = document.getElementById('result');
+  var D = 48, R = 24, SHOW = 0.6, WAKE = 80, SNAP = 48, OUT = 100, IDLE = 2000;
+  var state = 'docked', side = 'right', c = { x: 0, y: 0 }, idle = null, level = 0, base = null, target = null, press = null, pointedAt = 0;
+  var W = function () { return stage.clientWidth; }, H = function () { return stage.clientHeight; };
+  var tuckPt = function (sd) { return { x: sd === 'right' ? W() - (SHOW * D - R) : (SHOW * D - R), y: c.y }; };
+  var homePt = function (sd) { return { x: sd === 'right' ? W() - R : R, y: c.y }; };
+  var outPt = function (sd) { return { x: sd === 'right' ? W() - OUT : OUT, y: c.y }; };
+  function place(pt, cls) {
+    ball.classList.remove('wake', 'tuck', 'drag'); if (cls) ball.classList.add(cls);
+    c.x = pt.x; c.y = pt.y; ball.style.transform = 'translate(' + (pt.x - R) + 'px,' + (pt.y - R) + 'px)';
+  }
+  function setStep(n, text) { steps.forEach(function (el, i) { el.classList.toggle('on', i === n - 1); }); if (text) say.textContent = text; }
+  function later(fn) { clearTimeout(idle); idle = setTimeout(fn, IDLE); }
+  function tuck() { state = 'docked'; place(tuckPt(side), 'tuck'); }
+  function home() { state = 'awake'; place(homePt(side)); later(tuck); }
+  function wake() { state = 'awake'; place(outPt(side), 'wake'); clearTimeout(idle); }
+  function rel(e) { var r = stage.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+  function near(p) { return Math.hypot(p.x - c.x, p.y - c.y) < WAKE; }
+
+  // init: tucked into the right edge, a little above the middle
+  c.y = Math.round(H() * 0.42); ball.style.transition = 'none'; place(tuckPt(side)); void ball.offsetWidth; ball.style.transition = '';
+  window.addEventListener('resize', function () { if (state === 'docked') place(tuckPt(side)); else if (state === 'awake') place(homePt(side)); });
+
+  // waking and settling follow the pointer; a scroll tucks an awake ball at once
+  stage.addEventListener('pointermove', function (e) {
+    if (press) return;
+    var p = rel(e);
+    if (state === 'docked' && near(p)) wake();
+    else if (state === 'awake') { if (near(p)) { clearTimeout(idle); if (ball.classList.contains('tuck')) place(outPt(side), 'wake'); } else if (!idle) later(tuck); }
+    else if (state === 'point') hover(e);
+  });
+  stage.addEventListener('pointerleave', function () { if (state === 'awake') home(); });
+  window.addEventListener('scroll', function () { if (state === 'awake') tuck(); }, { passive: true });
+
+  // the ball: a click points, a drag moves it, a drop near an edge tucks it there (the ghost says where)
+  ball.addEventListener('pointerdown', function (e) {
+    if (state === 'point' || state === 'note') return;
+    e.preventDefault(); ball.setPointerCapture(e.pointerId); clearTimeout(idle);
+    press = { x: e.clientX, y: e.clientY, moved: false };
+  });
+  ball.addEventListener('pointermove', function (e) {
+    if (!press) return;
+    if (!press.moved && Math.hypot(e.clientX - press.x, e.clientY - press.y) < 4) return;
+    press.moved = true; state = 'awake';
+    var p = rel(e); p.x = Math.max(R, Math.min(W() - R, p.x)); p.y = Math.max(R, Math.min(H() - R, p.y));
+    place(p, 'drag');
+    var sd = p.x < SNAP ? 'left' : (p.x > W() - SNAP ? 'right' : null);
+    if (sd) { var t = tuckPt(sd); ghost.style.transform = 'translate(' + (t.x - R) + 'px,' + (t.y - R) + 'px)'; ghost.classList.add('on'); }
+    else ghost.classList.remove('on');
+  });
+  ball.addEventListener('pointerup', function (e) {
+    if (!press) return; var moved = press.moved; press = null; ghost.classList.remove('on');
+    if (!moved) { point(); return; }
+    var p = rel(e); side = p.x < W() / 2 ? 'left' : 'right';
+    if (p.x < SNAP || p.x > W() - SNAP) tuck(); else { ball.classList.remove('drag'); state = 'awake'; later(home); }
+  });
+  ball.addEventListener('pointercancel', function () { press = null; ghost.classList.remove('on'); home(); });
+  ball.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); point(); } });
+
+  // point mode: the stage dims, the element under the cursor gets the outline and the label
+  function point() {
+    state = 'point'; level = 0; base = null; pointedAt = Date.now(); clearTimeout(idle);
+    ball.classList.add('gone'); stage.classList.add('pointing');
+    setStep(1, 'Hover, then click the element. Option steps up to its parent. Esc cancels.');
+    document.addEventListener('keydown', keys);
+  }
+  function chain(el) { var out = []; while (el && el !== app.parentNode) { if (el.dataset && el.dataset.role) out.push(el); el = el.parentNode; } return out; }
+  function nameOf(el) { var d = el.dataset; return d.role + ' · ' + (d.id ? 'id=' + d.id : '"' + (d.label || el.textContent.trim()) + '"'); }
+  function pathOf(el) { return ['application'].concat(chain(el).reverse().map(function (n) { return n.dataset.role + (n.dataset.id ? '#' + n.dataset.id : ''); })).join(' > '); }
+  function frame(el) { var r = el.getBoundingClientRect(), a = app.getBoundingClientRect(); return { x: Math.round(r.left - a.left), y: Math.round(r.top - a.top), w: Math.round(r.width), h: Math.round(r.height) }; }
+  function show(el) {
+    target = el; var r = el.getBoundingClientRect(), st = stage.getBoundingClientRect();
+    box.style.left = (r.left - st.left - 3) + 'px'; box.style.top = (r.top - st.top - 3) + 'px';
+    box.style.width = (r.width + 6) + 'px'; box.style.height = (r.height + 6) + 'px'; box.classList.add('on');
+    tag.textContent = nameOf(el); tag.classList.add('on');
+    var left = Math.min(r.left - st.left, W() - tag.offsetWidth - 10), top = r.bottom - st.top + 10;
+    if (top + 30 > H()) top = r.top - st.top - 36;
+    tag.style.left = Math.max(10, left) + 'px'; tag.style.top = top + 'px';
+  }
+  function hide() { box.classList.remove('on'); tag.classList.remove('on'); target = null; }
+  function hover(e) {
+    var el = document.elementFromPoint(e.clientX, e.clientY), b = el && el.closest && el.closest('[data-role]');
+    if (!b || !app.contains(b)) { hide(); base = null; return; }
+    if (b !== base) { base = b; level = 0; }
+    var up = chain(base); show(up[Math.min(level, up.length - 1)]);
+  }
+  stage.addEventListener('pointerup', function (e) {
+    if (state !== 'point' || Date.now() - pointedAt < 150) return;
+    if (!target) hover(e); if (!target) return;
+    note();
+  });
+  function keys(e) {
+    if (e.key === 'Escape') { e.preventDefault(); cancel(); return; }
+    if (state === 'point' && e.key === 'Alt' && !e.repeat && base) { e.preventDefault(); var up = chain(base); level = Math.min(level + 1, up.length - 1); show(up[level]); }
+  }
+
+  // the note: the field under the element, Return copies, Esc cancels and nothing is written
+  function note() {
+    state = 'note'; var r = target.getBoundingClientRect(), st = stage.getBoundingClientRect();
+    tag.classList.remove('on');
+    var left = Math.min(r.left - st.left, W() - field.offsetWidth - 12), top = r.bottom - st.top + 10;
+    if (top + 36 > H()) top = r.top - st.top - 40;
+    field.style.left = Math.max(12, left) + 'px'; field.style.top = top + 'px'; field.classList.add('on');
+    input.value = ''; input.focus(); setStep(2, 'Say what should change, then Return.');
+  }
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { e.preventDefault(); cancel(); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (!input.value.trim()) { field.classList.remove('shake'); void field.offsetWidth; field.classList.add('shake'); return; } capture(input.value.trim()); }
+  });
+  function end() {
+    document.removeEventListener('keydown', keys); field.classList.remove('on'); hide(); stage.classList.remove('pointing'); input.blur();
+    ball.classList.remove('gone'); home();
+  }
+  function cancel() { end(); setStep(1, 'Nothing written. Click the ball to try again.'); }
+
+  // the capture: the payload the app puts on the clipboard, here too
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function capture(text) {
+    var el = target, f = frame(el), d = new Date(), id = Math.random().toString(36).slice(2, 6);
+    var stamp = d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '-' + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
+    var when = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    var rows = [
+      ['<span class="h">## Locant capture (fix)</span>', 'Fix: this is your own app, so the agent should change its code.'],
+      ['<span class="k">Image:</span> ~/Pictures/Locant/locant-orders-' + stamp + '-' + id + '.png', 'The picture of the element, saved on your Mac. First, so the agent opens it.'],
+      ['<span class="k">App:</span> Orders (com.example.orders) · Window: Orders', 'Which app and window it is in.'],
+      ['<span class="k">Captured:</span> ' + when + ' · Image region: ' + (f.w + 80) + '×' + (f.h + 80) + ' pt @2x (element + 40 pt)', 'When, and how much around the element the picture shows.'],
+      ['<span class="h">### Target element</span><br>' + esc(nameOf(el)), 'The element\'s name in the code. The agent searches for it and lands in the right file.'],
+      ['<span class="k">Frame:</span> x=' + f.x + ' y=' + f.y + ' w=' + f.w + ' h=' + f.h, 'Where it is and how big, in points.'],
+      ['<span class="k">Path:</span> ' + esc(pathOf(el)), 'Where it sits in the view tree.'],
+      ['<span class="h">### Note</span><br>' + esc(text), 'Your words, as you typed them.']
+    ];
+    lines.innerHTML = rows.map(function (r) { return '<div class="ln"><code>' + r[0] + '</code><span>' + r[1] + '</span></div>'; }).join('');
+    var md = '## Locant capture (fix)\nImage: ~/Pictures/Locant/locant-orders-' + stamp + '-' + id + '.png\nApp: Orders (com.example.orders) · Window: Orders\nCaptured: ' + when + ' · Image region: ' + (f.w + 80) + '×' + (f.h + 80) + ' pt @2x (element + 40 pt)\n\n### Target element\n' + nameOf(el) + '\nFrame: x=' + f.x + ' y=' + f.y + ' w=' + f.w + ' h=' + f.h + '\nPath: ' + pathOf(el) + '\n\n### Note\n' + text + '\n';
+    try { navigator.clipboard && navigator.clipboard.writeText(md); } catch (err) {}
+    var r = el.getBoundingClientRect(), st = stage.getBoundingClientRect();
+    toast.style.left = Math.max(12, Math.min(r.left - st.left, W() - 90)) + 'px'; toast.style.top = Math.max(12, r.top - st.top - 36) + 'px'; toast.classList.add('on');
+    setTimeout(function () { toast.classList.remove('on'); }, 1200);
+    end(); setStep(3, 'Copied, for real. Paste it in your agent; this is what arrives:');
+    lines.classList.add('flash'); setTimeout(function () { lines.classList.remove('flash'); }, 900);
+    if (window.innerWidth <= 720) linesBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+  function esc(t) { return t.replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+
+  // before the first capture, the sample: the New order button
+  (function sample() {
+    var el = app.querySelector('[data-id="newOrderButton"]'), f = frame(el);
+    var rows = [
+      ['<span class="h">## Locant capture (fix)</span>', 'Fix: this is your own app, so the agent should change its code.'],
+      ['<span class="k">Image:</span> ~/Pictures/Locant/locant-orders-20261013-153012-k7q2.png', 'The picture of the element, saved on your Mac. First, so the agent opens it.'],
+      ['<span class="k">App:</span> Orders (com.example.orders) · Window: Orders', 'Which app and window it is in.'],
+      ['<span class="k">Captured:</span> 2026-10-13 15:30 · Image region: ' + (f.w + 80) + '×' + (f.h + 80) + ' pt @2x (element + 40 pt)', 'When, and how much around the element the picture shows.'],
+      ['<span class="h">### Target element</span><br>' + esc(nameOf(el)), 'The element\'s name in the code. The agent searches for it and lands in the right file.'],
+      ['<span class="k">Frame:</span> x=' + f.x + ' y=' + f.y + ' w=' + f.w + ' h=' + f.h, 'Where it is and how big, in points.'],
+      ['<span class="k">Path:</span> ' + esc(pathOf(el)), 'Where it sits in the view tree.'],
+      ['<span class="h">### Note</span><br>make this rounded, match the other pills', 'Your words, as you typed them.']
+    ];
+    lines.innerHTML = rows.map(function (r) { return '<div class="ln"><code>' + r[0] + '</code><span>' + r[1] + '</span></div>'; }).join('');
+  })();
+})();
+
+// Scroll: each block rises in once as it enters the viewport. Without JS nothing is hidden.
+(function () {
+  if (!('IntersectionObserver' in window) || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var els = document.querySelectorAll('section .sect-head, .steps, .stage, .result, .tile, .method, .action, .ba, .split .sect-head, .grid2 .item, .with');
+  els.forEach(function (el) { el.classList.add('reveal'); });
+  var groups = {};
+  document.querySelectorAll('.tiles, .actions, .grid2').forEach(function (g) { Array.prototype.forEach.call(g.children, function (ch, i) { ch.style.transitionDelay = (i * 70) + 'ms'; }); });
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (en) { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } });
+  }, { rootMargin: '0px 0px -8% 0px', threshold: 0.1 });
+  els.forEach(function (el) { io.observe(el); });
+})();
+</script>
