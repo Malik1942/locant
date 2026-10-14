@@ -32,8 +32,6 @@
     --glass-edge: rgba(255, 255, 255, 0.55);
     --frame: #e9e9ee;
     --frame-chrome: #f7f7fa;
-    --dim: rgba(0, 0, 0, 0.2);
-    --stage: linear-gradient(160deg, #dbe9f6 0%, #8fb8dc 45%, #3f6f9f 100%);
     --code-bg: #ffffff;
     --key-bg: #ffffff;
     --shadow: 0 1px 2px rgba(0,0,0,.06), 0 12px 32px rgba(0,0,0,.08);
@@ -57,8 +55,6 @@
       --glass-edge: rgba(255, 255, 255, 0.28);
       --frame: #2c2c2e;
       --frame-chrome: #3a3a3c;
-      --dim: rgba(0, 0, 0, 0.2);
-      --stage: linear-gradient(160deg, #2a3a4d 0%, #1b2b3d 50%, #0e1a28 100%);
       --code-bg: #1c1c1e;
       --key-bg: #2c2c2e;
       --shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.5);
@@ -82,8 +78,6 @@
     --glass-edge: rgba(255, 255, 255, 0.28);
     --frame: #2c2c2e;
     --frame-chrome: #3a3a3c;
-    --dim: rgba(0, 0, 0, 0.2);
-    --stage: linear-gradient(160deg, #2a3a4d 0%, #1b2b3d 50%, #0e1a28 100%);
     --code-bg: #1c1c1e;
     --key-bg: #2c2c2e;
     --shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.5);
@@ -202,7 +196,7 @@
 
   .stage {
     position: relative; aspect-ratio: 16 / 9; max-height: 520px; border-radius: 18px; overflow: hidden;
-    background: var(--stage); box-shadow: var(--shadow); user-select: none; -webkit-user-select: none;
+    background: var(--ground) url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 1600 1000%22 preserveAspectRatio=%22xMidYMid slice%22%3E%0A%3Cdefs%3E%0A%3ClinearGradient id=%22sky%22 x1=%220%22 y1=%220%22 x2=%220%22 y2=%221%22%3E%3Cstop offset=%220%22 stop-color=%22%231f4f8f%22/%3E%3Cstop offset=%22.55%22 stop-color=%22%236fa6dc%22/%3E%3Cstop offset=%221%22 stop-color=%22%23cfe3f3%22/%3E%3C/linearGradient%3E%0A%3ClinearGradient id=%22lake%22 x1=%220%22 y1=%220%22 x2=%220%22 y2=%221%22%3E%3Cstop offset=%220%22 stop-color=%22%232d8fb6%22/%3E%3Cstop offset=%22.5%22 stop-color=%22%231e6f98%22/%3E%3Cstop offset=%221%22 stop-color=%22%230f3f66%22/%3E%3C/linearGradient%3E%0A%3ClinearGradient id=%22ridge%22 x1=%220%22 y1=%220%22 x2=%220%22 y2=%221%22%3E%3Cstop offset=%220%22 stop-color=%22%23e9f1f8%22/%3E%3Cstop offset=%22.18%22 stop-color=%22%239fb6c9%22/%3E%3Cstop offset=%221%22 stop-color=%22%234b6378%22/%3E%3C/linearGradient%3E%0A%3ClinearGradient id=%22ridge2%22 x1=%220%22 y1=%220%22 x2=%220%22 y2=%221%22%3E%3Cstop offset=%220%22 stop-color=%22%23b9cbdb%22/%3E%3Cstop offset=%221%22 stop-color=%22%233f5567%22/%3E%3C/linearGradient%3E%0A%3CradialGradient id=%22sun%22 cx=%22.78%22 cy=%22.12%22 r=%22.35%22%3E%3Cstop offset=%220%22 stop-color=%22%23fff6d8%22 stop-opacity=%22.9%22/%3E%3Cstop offset=%221%22 stop-color=%22%23fff6d8%22 stop-opacity=%220%22/%3E%3C/radialGradient%3E%0A%3ClinearGradient id=%22rock%22 x1=%220%22 y1=%220%22 x2=%220%22 y2=%221%22%3E%3Cstop offset=%220%22 stop-color=%22%23e6e4df%22/%3E%3Cstop offset=%22.5%22 stop-color=%22%239a9790%22/%3E%3Cstop offset=%221%22 stop-color=%22%234f4d49%22/%3E%3C/linearGradient%3E%0A%3C/defs%3E%0A%3Crect width=%221600%22 height=%221000%22 fill=%22url(%23sky)%22/%3E%0A%3Crect width=%221600%22 height=%221000%22 fill=%22url(%23sun)%22/%3E%0A%3Cpath d=%22M0 560 L140 470 L260 520 L380 420 L520 500 L640 440 L760 510 L900 400 L1040 480 L1180 430 L1300 500 L1440 440 L1600 520 L1600 620 L0 620 Z%22 fill=%22url(%23ridge2)%22/%3E%0A%3Cpath d=%22M0 600 L120 540 L230 580 L330 520 L470 585 L600 530 L720 590 L840 500 L960 575 L1100 520 L1240 590 L1380 540 L1600 600 L1600 640 L0 640 Z%22 fill=%22url(%23ridge)%22/%3E%0A%3Crect y=%22620%22 width=%221600%22 height=%22380%22 fill=%22url(%23lake)%22/%3E%0A%3Cg fill=%22%23ffffff%22 opacity=%22.22%22%3E%3Cellipse cx=%22300%22 cy=%22700%22 rx=%22180%22 ry=%224%22/%3E%3Cellipse cx=%22900%22 cy=%22740%22 rx=%22260%22 ry=%225%22/%3E%3Cellipse cx=%221350%22 cy=%22690%22 rx=%22150%22 ry=%223%22/%3E%3Cellipse cx=%22600%22 cy=%22820%22 rx=%22300%22 ry=%226%22/%3E%3Cellipse cx=%221200%22 cy=%22880%22 rx=%22220%22 ry=%225%22/%3E%3C/g%3E%0A%3Cg fill=%22url(%23rock)%22%3E%3Cellipse cx=%22180%22 cy=%22760%22 rx=%22150%22 ry=%2270%22/%3E%3Cellipse cx=%22330%22 cy=%22820%22 rx=%22110%22 ry=%2255%22/%3E%3Cellipse cx=%221320%22 cy=%22790%22 rx=%22190%22 ry=%2285%22/%3E%3Cellipse cx=%221500%22 cy=%22880%22 rx=%22140%22 ry=%2265%22/%3E%3Cellipse cx=%22760%22 cy=%22930%22 rx=%22230%22 ry=%2280%22/%3E%3Cellipse cx=%221040%22 cy=%22870%22 rx=%2290%22 ry=%2242%22/%3E%3C/g%3E%0A%3Crect y=%22640%22 width=%221600%22 height=%22360%22 fill=%22url(%23lake)%22 opacity=%22.25%22/%3E%0A%3C/svg%3E") center / cover no-repeat; box-shadow: var(--shadow); user-select: none; -webkit-user-select: none;
   }
   .stage.pointing { cursor: crosshair; }
   /* the mock app: a small Mac window, off center so the ball has the right edge */
@@ -229,11 +223,13 @@
     .stage { aspect-ratio: 4 / 5; max-height: none; }
     .app { left: 45%; width: 80%; }
   }
-  /* the overlay: a dim over everything, the accent outline on the element, the label under it */
-  .stage .dim { position: absolute; inset: 0; background: rgba(0,0,0,.28); opacity: 0; transition: opacity .2s ease; pointer-events: none; }
-  .stage.pointing .dim { opacity: 1; }
-  .stage .outline { position: absolute; border: 2px solid var(--accent); border-radius: 6px; opacity: 0; pointer-events: none; transition: top .12s ease, left .12s ease, width .12s ease, height .12s ease, opacity .12s ease; }
-  .stage .outline.on { opacity: 1; }
+  /* the overlay: the accent outline on the element with the dim around it, the label under it */
+  /* the dim is the outline's outer shadow: everything darkens except what is inside the frame, so the
+     element keeps its own color and a blue button inside the frame is the frame's blue */
+  .stage .outline { position: absolute; left: 50%; top: 50%; width: 0; height: 0; border: 2px solid transparent; border-radius: 6px; opacity: 0; pointer-events: none;
+    box-shadow: 0 0 0 9999px rgba(0,0,0,.28); transition: top .14s ease, left .14s ease, width .14s ease, height .14s ease, opacity .2s ease, border-color .12s ease; }
+  .stage.pointing .outline { opacity: 1; }
+  .stage .outline.on { border-color: var(--accent); }
   .stage .hud { position: absolute; opacity: 0; pointer-events: none; transition: opacity .12s ease; }
   .stage .hud.on { opacity: 1; }
   .stage .tag { font-family: ui-monospace, "SF Mono", Menlo, monospace; height: 26px; }
@@ -242,23 +238,72 @@
   .stage .field.shake { animation: shake .3s ease; }
   @keyframes shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
   .stage .toast { font-weight: 600; }
-  /* the ball: FloatingBall.Tokens, 48 pt, a glass disc with the rim lit from above */
+  /* the ball: FloatingBall.Tokens, 48 pt of clear glass (NSGlassEffectView .clear). The scene shows through the
+     middle and bends at the rim (the lens filter where the browser has it, a soft blur where not), the rim is lit
+     from the top left like the app's fallback rim, a light drifts inside (glowAlpha .14, 6 s), ready tints it accent */
   .stage .ball, .stage .ghost {
     position: absolute; left: 0; top: 0; width: 48px; height: 48px; border-radius: 50%; margin: 0; padding: 0; border: 0;
-    background: radial-gradient(circle at 50% 26%, rgba(255,255,255,.62), rgba(255,255,255,.10) 56%, rgba(255,255,255,0) 70%), rgba(44,44,48,.40);
-    -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3);
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,.55), inset 0 -8px 14px rgba(0,0,0,.14), 0 6px 18px rgba(0,0,0,.28);
-    will-change: transform;
+    background: transparent; will-change: transform; transition: scale .4s var(--hover);
   }
-  .stage .ball { cursor: url("assets/cursor-pointing-hand.png") 16 14, pointer; touch-action: none; transition: transform .7s var(--settle), opacity .2s ease; }
-  .stage .ball.wake { transition-duration: .8s; transition-timing-function: var(--wake); }
-  .stage .ball.tuck { transition-duration: .55s; transition-timing-function: var(--tuck); }
+  .stage .ball::before, .stage .ghost::before {
+    content: ""; position: absolute; inset: 0; border-radius: 50%;
+    background: rgba(20, 22, 28, .16);
+    -webkit-backdrop-filter: blur(1.2px) saturate(1.05) brightness(.96); backdrop-filter: blur(1.2px) saturate(1.05) brightness(.96);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.28), inset 2px 3px 6px rgba(255,255,255,.28), inset -3px -5px 10px rgba(0,0,0,.28), 0 6px 16px rgba(0,0,0,.30), 0 1px 2px rgba(0,0,0,.25);
+  }
+  @supports (backdrop-filter: url("#lens")) or (-webkit-backdrop-filter: url("#lens")) {
+    .stage .ball::before, .stage .ghost::before { -webkit-backdrop-filter: url("#lens") saturate(1.05) brightness(.96); backdrop-filter: url("#lens") saturate(1.05) brightness(.96); }
+  }
+  .stage .ball::after, .stage .ghost::after {
+    content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+    /* the rim: white .6 at the top left fading to nothing past the middle, masked to the outer 1.5 px */
+    background: linear-gradient(135deg, rgba(255,255,255,.6) 0%, rgba(255,255,255,.15) 50%, rgba(255,255,255,0) 80%);
+    -webkit-mask: radial-gradient(circle, transparent calc(50% - 2px), #000 calc(50% - 1px)); mask: radial-gradient(circle, transparent calc(50% - 2px), #000 calc(50% - 1px));
+  }
+  .stage .ball .glow { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; background: radial-gradient(circle at 38% 32%, rgba(255,255,255,.14), rgba(255,255,255,0) 62%); animation: drift 6s ease-in-out infinite alternate; }
+  @keyframes drift { from { opacity: .35; } to { opacity: 1; } }
+  .stage .ball .tint { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; background: var(--accent); opacity: 0; box-shadow: 0 0 0 1px var(--accent); transition: opacity .4s var(--hover); }
+  .stage .ball:hover .tint { opacity: .28; }
+  .stage .ball:hover { scale: 1.04; }
+  .stage .ball { cursor: url("assets/cursor-pointing-hand.png") 16 14, pointer; touch-action: none; transition: transform .7s var(--settle), opacity .2s ease, scale .4s var(--hover); }
+  .stage .ball.wake { transition-duration: .8s, .2s, .4s; transition-timing-function: var(--wake), ease, var(--hover); }
+  .stage .ball.tuck { transition-duration: .55s, .2s, .4s; transition-timing-function: var(--tuck), ease, var(--hover); }
   .stage .ball.drag { transition: none; }
   .stage .ball.gone { opacity: 0; pointer-events: none; }
-  .stage .ball::after { content: ""; position: absolute; inset: 0; border-radius: 50%; box-shadow: 0 0 0 0 rgba(255,255,255,0); transition: transform .4s var(--hover); }
-  .stage .ball:hover::after { transform: scale(1.04); }
   .stage .ghost { opacity: 0; transition: opacity .2s ease; pointer-events: none; }
   .stage .ghost.on { opacity: .35; }
+  @media (prefers-reduced-motion: reduce) { .stage .ball .glow { animation: none; opacity: .7; } }
+  /* the ring: Ring.Tokens, 92 pt around the disc on the hover glass, four wedges split on the diagonals,
+     the symbols 54 pt out, the labels after 0.2 s, the hand at center; it unfolds from disc size on the wake spring */
+  .stage .ring {
+    position: absolute; left: 0; top: 0; width: 184px; height: 184px; margin: -92px 0 0 -92px; border-radius: 50%;
+    background: rgba(70, 76, 88, .34); box-shadow: inset 0 0 0 1px rgba(255,255,255,.18), inset 0 -10px 24px rgba(0,0,0,.18), 0 12px 32px rgba(0,0,0,.32);
+    -webkit-backdrop-filter: blur(22px) saturate(1.5); backdrop-filter: blur(22px) saturate(1.5);
+    opacity: 0; transform: scale(.26); pointer-events: none; transition: transform .18s ease-in, opacity .18s ease-in;
+  }
+  .stage .ring::before {
+    content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+    background: linear-gradient(135deg, rgba(255,255,255,.55) 0%, rgba(255,255,255,.12) 50%, rgba(255,255,255,0) 80%);
+    -webkit-mask: radial-gradient(circle, transparent calc(50% - 2px), #000 calc(50% - 1px)); mask: radial-gradient(circle, transparent calc(50% - 2px), #000 calc(50% - 1px));
+  }
+  .stage .ring.open { opacity: 1; transform: none; transition: transform .8s var(--wake), opacity .1s ease; }
+  .stage .ring svg { position: absolute; inset: -1px; width: 184px; height: 184px; }
+  .stage .ring .wedge { fill: transparent; transition: fill .12s ease; }
+  .stage .ring .wedge.on { fill: rgba(255,255,255,.10); }
+  .stage .ring .sep { stroke: rgba(255,255,255,.22); stroke-width: 1; fill: none; }
+  .stage .ring .seg { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: grid; justify-items: center; gap: 3px; font-size: 12px; color: rgba(255,255,255,.82); text-shadow: 0 1px 2px rgba(0,0,0,.25); white-space: nowrap; }
+  .stage .ring .seg.snap { top: calc(50% - 54px); }
+  .stage .ring .seg.text { left: calc(50% + 54px); }
+  .stage .ring .seg.color { top: calc(50% + 54px); }
+  .stage .ring .seg.cut { left: calc(50% - 54px); }
+  .stage .ring .glyph { width: 22px; height: 22px; background: #fff; -webkit-mask: var(--glyph) center / contain no-repeat; mask: var(--glyph) center / contain no-repeat; }
+  .stage .ring .seg span { opacity: 0; transition: opacity .2s ease; }
+  .stage .ring.labels .seg span { opacity: 1; }
+  .stage .ring .hand { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; background: url("assets/cursor-pointing-hand.png") center / contain no-repeat; }
+  /* what the rungs do here: Snap's shutter, Color's swatch in the label */
+  .stage .app.flash::after { content: ""; position: absolute; inset: 0; background: #fff; animation: shutter .4s ease-out forwards; pointer-events: none; }
+  @keyframes shutter { from { opacity: .9; } to { opacity: 0; } }
+  .stage .tag .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 7px; vertical-align: -1px; box-shadow: 0 0 0 1px rgba(0,0,0,.25); }
   :root { --wake: linear(0.0000 0.0%, 0.0275 2.5%, 0.0957 5.0%, 0.1872 7.5%, 0.2895 10.0%, 0.3936 12.5%, 0.4936 15.0%, 0.5856 17.5%, 0.6678 20.0%, 0.7391 22.5%, 0.7996 25.0%, 0.8499 27.5%, 0.8909 30.0%, 0.9235 32.5%, 0.9490 35.0%, 0.9685 37.5%, 0.9830 40.0%, 0.9934 42.5%, 1.0007 45.0%, 1.0054 47.5%, 1.0083 50.0%, 1.0097 52.5%, 1.0102 55.0%, 1.0100 57.5%, 1.0093 60.0%, 1.0084 62.5%, 1.0074 65.0%, 1.0063 67.5%, 1.0053 70.0%, 1.0043 72.5%, 1.0035 75.0%, 1.0027 77.5%, 1.0021 80.0%, 1.0016 82.5%, 1.0012 85.0%, 1.0008 87.5%, 1.0005 90.0%, 1.0003 92.5%, 1.0002 95.0%, 1.0001 97.5%, 1.0000 100.0%); --settle: linear(0.0000 0.0%, 0.0258 2.5%, 0.0892 5.0%, 0.1739 7.5%, 0.2681 10.0%, 0.3640 12.5%, 0.4563 15.0%, 0.5419 17.5%, 0.6191 20.0%, 0.6871 22.5%, 0.7460 25.0%, 0.7961 27.5%, 0.8382 30.0%, 0.8731 32.5%, 0.9016 35.0%, 0.9248 37.5%, 0.9433 40.0%, 0.9579 42.5%, 0.9694 45.0%, 0.9783 47.5%, 0.9850 50.0%, 0.9901 52.5%, 0.9938 55.0%, 0.9965 57.5%, 0.9984 60.0%, 0.9997 62.5%, 1.0006 65.0%, 1.0011 67.5%, 1.0014 70.0%, 1.0015 72.5%, 1.0015 75.0%, 1.0014 77.5%, 1.0013 80.0%, 1.0012 82.5%, 1.0010 85.0%, 1.0009 87.5%, 1.0008 90.0%, 1.0006 92.5%, 1.0005 95.0%, 1.0004 97.5%, 1.0000 100.0%); --tuck: linear(0.0000 0.0%, 0.0204 2.5%, 0.0712 5.0%, 0.1403 7.5%, 0.2190 10.0%, 0.3009 12.5%, 0.3819 15.0%, 0.4592 17.5%, 0.5311 20.0%, 0.5966 22.5%, 0.6555 25.0%, 0.7077 27.5%, 0.7535 30.0%, 0.7932 32.5%, 0.8275 35.0%, 0.8568 37.5%, 0.8817 40.0%, 0.9027 42.5%, 0.9204 45.0%, 0.9351 47.5%, 0.9474 50.0%, 0.9575 52.5%, 0.9658 55.0%, 0.9727 57.5%, 0.9783 60.0%, 0.9828 62.5%, 0.9865 65.0%, 0.9894 67.5%, 0.9918 70.0%, 0.9936 72.5%, 0.9951 75.0%, 0.9963 77.5%, 0.9972 80.0%, 0.9979 82.5%, 0.9985 85.0%, 0.9989 87.5%, 0.9992 90.0%, 0.9995 92.5%, 0.9997 95.0%, 0.9998 97.5%, 1.0000 100.0%); --hover: linear(0.0000 0.0%, 0.0169 2.5%, 0.0596 5.0%, 0.1183 7.5%, 0.1860 10.0%, 0.2575 12.5%, 0.3294 15.0%, 0.3993 17.5%, 0.4656 20.0%, 0.5273 22.5%, 0.5840 25.0%, 0.6355 27.5%, 0.6819 30.0%, 0.7233 32.5%, 0.7601 35.0%, 0.7925 37.5%, 0.8210 40.0%, 0.8460 42.5%, 0.8677 45.0%, 0.8866 47.5%, 0.9029 50.0%, 0.9171 52.5%, 0.9292 55.0%, 0.9397 57.5%, 0.9487 60.0%, 0.9564 62.5%, 0.9630 65.0%, 0.9686 67.5%, 0.9734 70.0%, 0.9775 72.5%, 0.9809 75.0%, 0.9839 77.5%, 0.9864 80.0%, 0.9885 82.5%, 0.9903 85.0%, 0.9918 87.5%, 0.9931 90.0%, 0.9942 92.5%, 0.9951 95.0%, 0.9959 97.5%, 1.0000 100.0%); }
 
   /* the result: the payload, one line each, with what the line is for beside it */
@@ -294,10 +339,10 @@
   .action { display: grid; grid-template-rows: auto auto 1fr; gap: 8px; padding: 18px 16px; background: var(--surface); border-radius: 16px; box-shadow: 0 0 0 1px var(--hair); }
   /* the ring's four symbols, drawn in the label color like the app draws them */
   .action .glyph { width: 30px; height: 30px; background: var(--ink); -webkit-mask: var(--glyph) center / contain no-repeat; mask: var(--glyph) center / contain no-repeat; }
-  .action .glyph.snap { --glyph: url("assets/glyph-snap.png"); }
-  .action .glyph.text { --glyph: url("assets/glyph-text.png"); }
-  .action .glyph.color { --glyph: url("assets/glyph-color.png"); }
-  .action .glyph.cut { --glyph: url("assets/glyph-cut.png"); }
+  .glyph.snap { --glyph: url("assets/glyph-snap.png"); }
+  .glyph.text { --glyph: url("assets/glyph-text.png"); }
+  .glyph.color { --glyph: url("assets/glyph-color.png"); }
+  .glyph.cut { --glyph: url("assets/glyph-cut.png"); }
   .action h3 { font-size: 19px; }
   .action p { font-size: 17px; color: var(--muted); }
 
@@ -429,8 +474,9 @@
     </div>
     <div class="steps" id="steps" aria-live="polite">
       <span class="s on"><b>1</b>Point</span><span class="s"><b>2</b>Note</span><span class="s"><b>3</b>Paste</span>
-      <span class="say" id="say">The ball rests at the edge. Move toward it, then click it.</span>
+      <span class="say" id="say">The ball rests at the edge. Move toward it, then click it. Press and hold for the ring.</span>
     </div>
+    <svg width="0" height="0" aria-hidden="true" style="position:absolute"><filter id="lens" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceGraphic" stdDeviation="0.6" result="soft"/><feImage href="data:image/png;base64,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" x="0" y="0" width="100%" height="100%" preserveAspectRatio="none" result="map"/><feDisplacementMap in="soft" in2="map" scale="26" xChannelSelector="R" yChannelSelector="G"/></filter></svg>
     <div class="stage" id="stage">
       <div class="app" data-role="window" data-label="Orders">
         <div class="tb"><span class="dots"><i></i><i></i><i></i></span><span class="title">Orders</span></div>
@@ -448,13 +494,13 @@
           <span class="toggle" data-role="checkBox" data-id="notifyToggle" data-label="Notify when ready"><i></i></span>
         </div>
       </div>
-      <div class="dim"></div>
       <div class="outline"></div>
       <div class="hud tag"></div>
       <div class="hud field"><input type="text" placeholder="What should change?" aria-label="Note" autocomplete="off"><span class="hint">↩ copy · esc cancel</span></div>
       <div class="hud toast">Copied</div>
       <div class="ghost"></div>
-      <button class="ball" type="button" aria-label="The Locant ball: click to point"></button>
+      <button class="ball" type="button" aria-label="The Locant ball: click to point, press and hold for the ring"><span class="glow"></span><span class="tint"></span></button>
+      <div class="ring" aria-hidden="true"><svg viewBox="0 0 184 184" aria-hidden="true"><path class="wedge snap" d="M157.1 26.9 A92 92 0 0 0 26.9 26.9 L74.3 74.3 A25 25 0 0 1 109.7 74.3 Z"/><path class="wedge text" d="M157.1 157.1 A92 92 0 0 0 157.1 26.9 L109.7 74.3 A25 25 0 0 1 109.7 109.7 Z"/><path class="wedge color" d="M26.9 157.1 A92 92 0 0 0 157.1 157.1 L109.7 109.7 A25 25 0 0 1 74.3 109.7 Z"/><path class="wedge cut" d="M26.9 26.9 A92 92 0 0 0 26.9 157.1 L74.3 109.7 A25 25 0 0 1 74.3 74.3 Z"/><g class="sep"><line x1="109.7" y1="74.3" x2="157.1" y2="26.9"/><line x1="74.3" y1="74.3" x2="26.9" y2="26.9"/><line x1="74.3" y1="109.7" x2="26.9" y2="157.1"/><line x1="109.7" y1="109.7" x2="157.1" y2="157.1"/><circle cx="92" cy="92" r="25"/></g></svg><div class="seg snap"><i class="glyph snap"></i><span>Snap</span></div><div class="seg text"><i class="glyph text"></i><span>Text</span></div><div class="seg color"><i class="glyph color"></i><span>Color</span></div><div class="seg cut"><i class="glyph cut"></i><span>Cut</span></div><div class="hand"></div></div>
     </div>
 
     <div class="result" id="result">
@@ -480,7 +526,7 @@
   <section class="col" id="actions">
     <div class="sect-head">
       <h2>Four more, on the same gesture</h2>
-      <p class="lede">Press and hold the ball.</p>
+      <p class="lede">Press and hold the ball. Try it in the demo above.</p>
     </div>
     <div class="actions">
       <div class="action">
@@ -580,11 +626,12 @@
 // 2 s idle before it tucks, the springs from Motion.swift) and the overlay (dim, outline, label, note).
 (function () {
   var stage = document.getElementById('stage'); if (!stage) return;
+  var ring = stage.querySelector('.ring'), hold = null, seg = null, tool = null;
   var app = stage.querySelector('.app'), ball = stage.querySelector('.ball'), ghost = stage.querySelector('.ghost'),
       box = stage.querySelector('.outline'), tag = stage.querySelector('.tag'), field = stage.querySelector('.field'),
       input = field.querySelector('input'), toast = stage.querySelector('.toast'), say = document.getElementById('say'),
       steps = document.querySelectorAll('#steps .s'), lines = document.getElementById('lines'), linesBox = document.getElementById('result');
-  var D = 48, R = 24, SHOW = 0.6, WAKE = 80, SNAP = 48, OUT = 100, IDLE = 2000;
+  var D = 48, R = 24, SHOW = 0.6, WAKE = 80, SNAP = 48, OUT = 100, IDLE = 2000, HOLD = 500, RING_IN = 25;
   var state = 'docked', side = 'right', c = { x: 0, y: 0 }, idle = null, level = 0, base = null, target = null, press = null, pointedAt = 0;
   var W = function () { return stage.clientWidth; }, H = function () { return stage.clientHeight; };
   var tuckPt = function (sd) { return { x: sd === 'right' ? W() - (SHOW * D - R) : (SHOW * D - R), y: c.y }; };
@@ -604,7 +651,7 @@
 
   // init: tucked into the right edge, a little above the middle
   c.y = Math.round(H() * 0.42); ball.style.transition = 'none'; place(tuckPt(side)); void ball.offsetWidth; ball.style.transition = '';
-  window.addEventListener('resize', function () { if (state === 'docked') place(tuckPt(side)); else if (state === 'awake') place(homePt(side)); });
+  window.addEventListener('resize', function () { if (state === 'docked') place(tuckPt(side)); else if (state !== 'ring') { c.y = Math.min(c.y, H() - R); place(homePt(side)); } });
 
   // waking and settling follow the pointer; a scroll tucks an awake ball at once
   stage.addEventListener('pointermove', function (e) {
@@ -613,20 +660,23 @@
     if (state === 'docked' && near(p)) wake();
     else if (state === 'awake') { if (near(p)) { clearTimeout(idle); if (ball.classList.contains('tuck')) place(outPt(side), 'wake'); } else if (!idle) later(tuck); }
     else if (state === 'point') hover(e);
+    else if (state === 'tool') hoverTool(e);
   });
   stage.addEventListener('pointerleave', function () { if (state === 'awake') home(); });
   window.addEventListener('scroll', function () { if (state === 'awake') tuck(); }, { passive: true });
 
-  // the ball: a click points, a drag moves it, a drop near an edge tucks it there (the ghost says where)
+  // the ball: a click points, a hold opens the ring, a drag moves it, a drop near an edge tucks it there (the ghost says where)
   ball.addEventListener('pointerdown', function (e) {
-    if (state === 'point' || state === 'note') return;
-    e.preventDefault(); ball.setPointerCapture(e.pointerId); clearTimeout(idle);
+    if (state === 'point' || state === 'note' || state === 'tool') return;
+    e.preventDefault(); try { ball.setPointerCapture(e.pointerId); } catch (err) {} clearTimeout(idle);
     press = { x: e.clientX, y: e.clientY, moved: false };
+    hold = setTimeout(openRing, HOLD);
   });
   ball.addEventListener('pointermove', function (e) {
+    if (state === 'ring') { ringMove(e); return; }
     if (!press) return;
     if (!press.moved && Math.hypot(e.clientX - press.x, e.clientY - press.y) < 4) return;
-    press.moved = true; state = 'awake';
+    clearTimeout(hold); press.moved = true; state = 'awake';
     var p = rel(e); p.x = Math.max(R, Math.min(W() - R, p.x)); p.y = Math.max(R, Math.min(H() - R, p.y));
     place(p, 'drag');
     var sd = p.x < SNAP ? 'left' : (p.x > W() - SNAP ? 'right' : null);
@@ -634,13 +684,79 @@
     else ghost.classList.remove('on');
   });
   ball.addEventListener('pointerup', function (e) {
+    clearTimeout(hold);
+    if (state === 'ring') { ringUp(); return; }
     if (!press) return; var moved = press.moved; press = null; ghost.classList.remove('on');
     if (!moved) { point(); return; }
     var p = rel(e); side = p.x < W() / 2 ? 'left' : 'right';
     if (p.x < SNAP || p.x > W() - SNAP) tuck(); else { ball.classList.remove('drag'); state = 'awake'; later(home); }
   });
-  ball.addEventListener('pointercancel', function () { press = null; ghost.classList.remove('on'); home(); });
+  ball.addEventListener('pointercancel', function () { clearTimeout(hold); press = null; ghost.classList.remove('on'); if (state === 'ring') closeRing(); home(); });
   ball.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); point(); } });
+
+  // the ring: unfolds from the disc after the hold; the quadrant under the pointer lights, the center cancels
+  function openRing() {
+    if (!press || press.moved) return;
+    state = 'ring'; seg = null; press = null;
+    c.x = Math.max(OUT, Math.min(W() - OUT, c.x)); c.y = Math.max(OUT, Math.min(H() - OUT, c.y));
+    ring.style.left = c.x + 'px'; ring.style.top = c.y + 'px'; ball.classList.add('gone');
+    ring.classList.add('open'); setTimeout(function () { if (state === 'ring') ring.classList.add('labels'); }, 200);
+    say.textContent = 'Slide to a rung and let go. Let go in the middle to cancel.';
+  }
+  function segmentFor(dx, dy) {
+    if (Math.hypot(dx, dy) <= RING_IN) return null;
+    if (Math.abs(dy) >= Math.abs(dx)) return dy < 0 ? 'snap' : 'color';
+    return dx > 0 ? 'text' : 'cut';
+  }
+  function ringMove(e) {
+    var p = rel(e), sg = segmentFor(p.x - c.x, p.y - c.y);
+    if (sg === seg) return; seg = sg;
+    ring.querySelectorAll('.wedge').forEach(function (w) { w.classList.toggle('on', w.classList.contains(sg || '-')); });
+  }
+  function closeRing() { ring.classList.remove('open', 'labels'); ring.querySelectorAll('.wedge').forEach(function (w) { w.classList.remove('on'); }); }
+  function ringUp() {
+    var chosen = seg; closeRing();
+    if (!chosen) { state = 'awake'; ball.classList.remove('gone'); later(home); say.textContent = 'Cancelled. Nothing written.'; return; }
+    startTool(chosen);
+  }
+
+  // the rungs, here: Snap and Cut take the window, Text copies its words, Color reads the pixel under the cursor
+  var TOOL_SAY = { snap: 'Snap: click the window. On your Mac you can drag a region too.', text: 'Text: click the window and its words go to the clipboard.',
+                   color: 'Color: click to copy the color under the cursor.', cut: 'Cut: click the window to keep its subject on a transparent background.' };
+  function startTool(name) {
+    state = 'tool'; tool = name; pointedAt = Date.now(); clearTimeout(idle);
+    stage.classList.add('pointing'); say.textContent = TOOL_SAY[name];
+    document.addEventListener('keydown', keys);
+  }
+  function hex(el) {
+    while (el && el !== stage) {
+      var bg = getComputedStyle(el).backgroundColor, m = bg && bg.match(/rgba?\((\d+), (\d+), (\d+)(?:, ([\d.]+))?\)/);
+      if (m && (m[4] === undefined || +m[4] > 0)) return '#' + [m[1], m[2], m[3]].map(function (n) { return (+n).toString(16).toUpperCase().padStart(2, '0'); }).join('');
+      el = el.parentNode;
+    }
+    return null;
+  }
+  function hoverTool(e) {
+    var el = document.elementFromPoint(e.clientX, e.clientY), inApp = el && app.contains(el);
+    if (!inApp) { hide(); return; }
+    if (tool === 'color') {
+      var hx = hex(el), p = rel(e); target = el; box.classList.remove('on');
+      tag.innerHTML = '<i class="sw" style="background:' + hx + '"></i>' + hx; tag.classList.add('on');
+      tag.style.left = Math.min(p.x + 14, W() - tag.offsetWidth - 10) + 'px'; tag.style.top = Math.min(p.y + 18, H() - 36) + 'px';
+    } else show(app);
+  }
+  function runTool() {
+    var r = (tool === 'color' ? target : app).getBoundingClientRect(), st = stage.getBoundingClientRect(), text, line;
+    if (tool === 'color') { text = hex(target); line = text + ' copied.'; }
+    else if (tool === 'text') { text = app.innerText.split('\n').map(function (l) { return l.trim(); }).filter(Boolean).join('\n'); line = text.split('\n').length + ' lines, on the clipboard.'; }
+    else if (tool === 'snap') { app.classList.remove('flash'); void app.offsetWidth; app.classList.add('flash'); line = 'Snapped. A PNG of the window, saved and on the clipboard.'; }
+    else { line = 'Cut. The window on a transparent background, as a PNG.'; }
+    if (text) { try { navigator.clipboard && navigator.clipboard.writeText(text); } catch (err) {} }
+    toast.textContent = tool === 'color' ? text + ' copied' : (tool === 'text' ? 'Text copied' : (tool === 'snap' ? 'Snapped' : 'Cut'));
+    toast.style.left = Math.max(12, Math.min(r.left - st.left, W() - 120)) + 'px'; toast.style.top = Math.max(12, r.top - st.top - 36) + 'px'; toast.classList.add('on');
+    setTimeout(function () { toast.classList.remove('on'); toast.textContent = 'Copied'; }, 1400);
+    end(); say.textContent = line;
+  }
 
   // point mode: the stage dims, the element under the cursor gets the outline and the label
   function point() {
@@ -650,19 +766,22 @@
     document.addEventListener('keydown', keys);
   }
   function chain(el) { var out = []; while (el && el !== app.parentNode) { if (el.dataset && el.dataset.role) out.push(el); el = el.parentNode; } return out; }
-  function nameOf(el) { var d = el.dataset; return d.role + ' · ' + (d.id ? 'id=' + d.id : '"' + (d.label || el.textContent.trim()) + '"'); }
+  function nameOf(el) { var d = el.dataset; return d.role + ' · ' + (d.id ? 'id=' + d.id : (d.label || el.textContent.trim())); }
   function pathOf(el) { return ['application'].concat(chain(el).reverse().map(function (n) { return n.dataset.role + (n.dataset.id ? '#' + n.dataset.id : ''); })).join(' > '); }
   function frame(el) { var r = el.getBoundingClientRect(), a = app.getBoundingClientRect(); return { x: Math.round(r.left - a.left), y: Math.round(r.top - a.top), w: Math.round(r.width), h: Math.round(r.height) }; }
   function show(el) {
     target = el; var r = el.getBoundingClientRect(), st = stage.getBoundingClientRect();
     box.style.left = (r.left - st.left - 3) + 'px'; box.style.top = (r.top - st.top - 3) + 'px';
     box.style.width = (r.width + 6) + 'px'; box.style.height = (r.height + 6) + 'px'; box.classList.add('on');
-    tag.textContent = nameOf(el); tag.classList.add('on');
+    tag.innerHTML = ''; tag.textContent = nameOf(el); tag.classList.add('on');
     var left = Math.min(r.left - st.left, W() - tag.offsetWidth - 10), top = r.bottom - st.top + 10;
     if (top + 30 > H()) top = r.top - st.top - 36;
     tag.style.left = Math.max(10, left) + 'px'; tag.style.top = top + 'px';
   }
-  function hide() { box.classList.remove('on'); tag.classList.remove('on'); target = null; }
+  function hide() {
+    if (box.classList.contains('on')) { var l = parseFloat(box.style.left) + parseFloat(box.style.width) / 2, t = parseFloat(box.style.top) + parseFloat(box.style.height) / 2; box.style.left = l + 'px'; box.style.top = t + 'px'; box.style.width = '0px'; box.style.height = '0px'; }
+    box.classList.remove('on'); tag.classList.remove('on'); target = null;
+  }
   function hover(e) {
     var el = document.elementFromPoint(e.clientX, e.clientY), b = el && el.closest && el.closest('[data-role]');
     if (!b || !app.contains(b)) { hide(); base = null; return; }
@@ -670,7 +789,9 @@
     var up = chain(base); show(up[Math.min(level, up.length - 1)]);
   }
   stage.addEventListener('pointerup', function (e) {
-    if (state !== 'point' || Date.now() - pointedAt < 150) return;
+    if (Date.now() - pointedAt < 150) return;
+    if (state === 'tool') { if (!target) hoverTool(e); if (target) runTool(); return; }
+    if (state !== 'point') return;
     if (!target) hover(e); if (!target) return;
     note();
   });
@@ -694,9 +815,9 @@
   });
   function end() {
     document.removeEventListener('keydown', keys); field.classList.remove('on'); hide(); stage.classList.remove('pointing'); input.blur();
-    ball.classList.remove('gone'); home();
+    tool = null; ball.classList.remove('gone'); home();
   }
-  function cancel() { end(); setStep(1, 'Nothing written. Click the ball to try again.'); }
+  function cancel() { var was = tool; end(); if (was) say.textContent = 'Nothing written.'; else setStep(1, 'Nothing written. Click the ball to try again.'); }
 
   // the capture: the payload the app puts on the clipboard, here too
   function pad(n) { return (n < 10 ? '0' : '') + n; }
