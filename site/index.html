@@ -154,15 +154,9 @@
     border-radius: 29px;                 /* 22.37% of the edge, so the shadow follows the squircle */
     box-shadow: var(--icon-shadow);
   }
-  .hero .name { font-size: 21px; font-weight: 600; letter-spacing: -0.01em; margin-top: 6px; }
-  .hero .name span { color: var(--muted); font-weight: 400; }
   .hero h1 { max-width: 22ch; }
   .hero h1 em { font-style: italic; font-weight: 600; }
   .hero .lede { max-width: 38ch; }
-  .hero .proof { font-size: 15px; color: var(--muted); max-width: 52ch; margin-top: -6px; text-wrap: balance; }
-  .hero .proof b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .hero .proof a { color: var(--accent); text-decoration: none; white-space: nowrap; }
-  .hero .proof a:hover { text-decoration: underline; }
   .cta { display: flex; gap: 10px 22px; align-items: center; flex-wrap: wrap; justify-content: center; margin-top: 4px; }
   .btn {
     display: inline-block; text-decoration: none;
@@ -173,8 +167,6 @@
   .link { text-decoration: none; color: var(--accent); font-weight: 500; }
   .link:hover { text-decoration: underline; }
   .fine { font-size: 14px; color: var(--muted); }
-  .fine { display: flex; flex-wrap: wrap; justify-content: center; }   /* two groups; on phones each takes a line */
-  .fine .g { display: inline-flex; }
   .fine span + span::before { content: "·"; margin-inline: 8px; }
 
   /* the hero loop: the real flow, recorded, seventeen seconds */
@@ -338,8 +330,6 @@
     .hero { padding-block: 56px 36px; }
     /* phones get the loop cut at 4:5 (hero-mobile.mp4): the same take, framed on each shot's subject */
     .demo { aspect-ratio: 4 / 5; object-fit: cover; border-radius: 14px; }
-    .fine .g { flex-basis: 100%; justify-content: center; }
-    .fine .g + .g::before { content: none; }
     pre.payload { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; padding: 14px 16px; }
     footer .links { margin-left: 0; flex-basis: 100%; }
     .app-icon { width: 96px; height: 96px; border-radius: 21.5px; }
@@ -380,15 +370,13 @@
 <main id="top">
   <header class="hero col">
     <div class="app-icon" role="img" aria-label="Locant app icon"></div>
-    <p class="name">Locant <span>for Mac</span></p>
     <h1>Point, don't&nbsp;describe.</h1>
-    <p class="lede">Point at one element in any app. Your coding agent gets the element, not a screenshot.</p>
-    <p class="proof">With a screenshot, the agent changed the wrong copy of the code in <b>14 of 20</b> runs. With Locant, <b>0 of 20</b>. <a href="#why">See the numbers</a></p>
+    <p class="lede">Your coding agent gets the element you point at, not a screenshot.</p>
     <div class="cta">
       <a class="btn" href="https://github.com/Malik1942/locant/releases/latest/download/Locant.dmg">Download for Mac</a>
       <a class="link" href="https://github.com/Malik1942/locant">View on GitHub</a>
     </div>
-    <p class="fine"><span class="g"><span>macOS 15 or later</span><span>Apple silicon and Intel</span></span><span class="g"><span>Free and open source</span><span>No account</span></span></p>
+    <p class="fine"><span>Free</span><span>macOS 15 or later</span></p>
   </header>
 
   <figure class="wide" style="margin-block: 0;">
