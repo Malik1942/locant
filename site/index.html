@@ -246,25 +246,23 @@
   }
   pre.payload .h { color: var(--muted); }
   pre.payload .k { color: var(--accent); }
-  /* the same cards as Privacy and Known limitations */
-  .notes { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  /* the same cards as Privacy */
+  .notes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
   .note { display: grid; gap: 6px; align-content: start; padding: 18px 20px; background: var(--surface); border-radius: 16px; box-shadow: 0 0 0 1px var(--hair); }
   .note h3 { font-size: 17px; }
   .note p { font-size: 17px; color: var(--muted); }
 
-  /* the fallback ladder: the target line the payload carries at each rung */
-  .ladder { display: grid; background: var(--surface); border-radius: 14px; box-shadow: 0 0 0 1px var(--hair); overflow: hidden; }
-  .rung { display: grid; grid-template-columns: 26px 220px 1fr; gap: 18px; align-items: center; padding: 15px 18px; }
-  .rung + .rung { border-top: 1px solid var(--hair); }
-  .rung .n { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 14px; }
-  .rung .chip { justify-self: start; background: var(--hud); border: 1px solid var(--hud-edge); border-radius: 6px; padding: 3px 8px; font-size: 12px; white-space: nowrap; }
-  .rung .chip code { font-size: 0.95em; }
-  .rung .chip.dash { border-style: dashed; color: var(--muted); }
-  .rung p { color: var(--muted); font-size: 17px; }
-  .rung b { color: var(--ink); font-weight: 600; }
+  /* why: three numbers from the measurement, then where the method is */
+  .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .tile { display: grid; gap: 8px; align-content: start; padding: 20px 20px 18px; background: var(--surface); border-radius: 16px; box-shadow: 0 0 0 1px var(--hair); }
+  .tile .big { font-size: 40px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .tile p { font-size: 17px; color: var(--muted); }
+  .method { margin-top: 18px; font-size: 15px; color: var(--muted); }
+  .method a { color: var(--accent); text-decoration: none; }
+  .method a:hover { text-decoration: underline; }
 
   .actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
-  .action { display: grid; grid-template-rows: auto auto 1fr auto; gap: 8px; padding: 18px 16px; background: var(--surface); border-radius: 16px; box-shadow: 0 0 0 1px var(--hair); }
+  .action { display: grid; grid-template-rows: auto auto 1fr; gap: 8px; padding: 18px 16px; background: var(--surface); border-radius: 16px; box-shadow: 0 0 0 1px var(--hair); }
   /* the ring's four symbols, drawn in the label color like the app draws them */
   .action .glyph { width: 30px; height: 30px; background: var(--ink); -webkit-mask: var(--glyph) center / contain no-repeat; mask: var(--glyph) center / contain no-repeat; }
   .action .glyph.snap { --glyph: url("assets/glyph-snap.png"); }
@@ -273,8 +271,6 @@
   .action .glyph.cut { --glyph: url("assets/glyph-cut.png"); }
   .action h3 { font-size: 19px; }
   .action p { font-size: 17px; color: var(--muted); }
-  .action .keeps { font-size: 12px; color: var(--muted); margin-top: 2px; align-self: end; }
-  .rulebox { margin-top: 18px; font-size: 17px; color: var(--muted); }
 
   .split { display: grid; grid-template-columns: 1.15fr 1fr; gap: 40px; align-items: center; }
   .ba {
@@ -308,30 +304,16 @@
   .ba .facts .stat { color: var(--ink); }
   .ba .facts .file { color: var(--muted); }
 
-  .shot { display: grid; justify-items: center; }
-  .shot img { width: 100%; max-width: 980px; height: auto; display: block; }   /* the full column, like the hero loop */
-  .shot .light { display: var(--show-light); }
-  .shot .dark { display: var(--show-dark); }
-
   .grid2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
   .grid2 .item { display: grid; gap: 6px; align-content: start; padding: 18px 20px; background: var(--surface); border-radius: 16px; box-shadow: 0 0 0 1px var(--hair); }
   .grid2 .item h3 { font-size: 17px; }
   .grid2 .item p { color: var(--muted); font-size: 17px; }
 
-  /* agents, one row each, the same rows as the ladder */
-  .agents { display: grid; background: var(--surface); border-radius: 14px; box-shadow: 0 0 0 1px var(--hair); overflow: hidden; }
-  .agent { display: grid; grid-template-columns: 240px 1fr auto; gap: 18px; align-items: center; padding: 15px 18px; font-size: 17px; }
-  .agent + .agent { border-top: 1px solid var(--hair); }
-  .agent b { font-weight: 600; }
-  .agent span { color: var(--muted); font-size: 17px; }
-  .agent .chip { justify-self: end; color: var(--ink); background: var(--hud); border: 1px solid var(--hud-edge); border-radius: 6px; padding: 3px 8px; font-size: 12px; white-space: nowrap; }
-  .agent .chip.dash { border-style: dashed; color: var(--muted); }
-
-  /* limitations, one card each */
-  .limits { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-  .limit { display: grid; gap: 6px; align-content: start; padding: 18px 20px; background: var(--surface); border-radius: 16px; box-shadow: 0 0 0 1px var(--hair); }
-  .limit h3 { font-size: 17px; }
-  .limit p { font-size: 17px; color: var(--muted); }
+  /* works with: two lines of names */
+  .with { display: grid; gap: 12px; }
+  .with .line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .with .lab { color: var(--muted); font-size: 15px; min-width: 60px; }
+  .with .pill { background: var(--surface); box-shadow: 0 0 0 1px var(--hair); border-radius: 980px; padding: 7px 14px; font-size: 15px; white-space: nowrap; }
 
   /* footer: one hairline, then the small print and a single line of links, the way apple.com closes a page */
   footer { margin-top: 96px; padding-top: 28px; border-top: 1px solid var(--hair); display: grid; gap: 22px; font-size: 12px; line-height: 1.5; color: var(--muted); }
@@ -358,15 +340,11 @@
     .demo { aspect-ratio: 4 / 5; object-fit: cover; border-radius: 14px; }
     .fine .g { flex-basis: 100%; justify-content: center; }
     .fine .g + .g::before { content: none; }
-    /* phones get the same window captured at its narrowest (480 pt), so macOS wraps the text itself */
-    .shot img { max-width: 480px; border-radius: 12px; box-shadow: var(--shadow); }               /* room for the mock window, its label, and the ball */
     pre.payload { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; padding: 14px 16px; }
     footer .links { margin-left: 0; flex-basis: 100%; }
     .app-icon { width: 96px; height: 96px; border-radius: 21.5px; }
-    .grid2, .notes, .limits { grid-template-columns: 1fr; }
-    .agent { grid-template-columns: 1fr auto; gap: 6px 12px; }
-    .agent .chip { grid-row: 1; grid-column: 2; }
-    .agent > span:not(.chip) { grid-column: 1 / -1; }
+    .grid2, .notes, .tiles { grid-template-columns: 1fr; }
+    .with .lab { flex-basis: 100%; }
     .steps { grid-template-columns: 1fr; gap: 16px; }
     .step { grid-template-columns: 224px 1fr; align-items: center; gap: 20px; }
     .step .vis { height: 108px; padding: 28px 12px 12px; }
@@ -375,8 +353,6 @@
     .actions, .states { grid-template-columns: 1fr 1fr; }
     .frames { grid-template-columns: 1fr; }
     .split { grid-template-columns: 1fr; }
-    .rung { grid-template-columns: 26px 1fr; }
-    .rung p { grid-column: 2; }
   }
   @media (max-width: 440px) {
     .step { grid-template-columns: 1fr; }
@@ -395,7 +371,7 @@
     <a class="brand" href="#top"><span class="mark" aria-hidden="true"></span>Locant</a>
     <div class="links">
       <a href="#how">How it works</a>
-      <a href="#measured">Measured</a>
+      <a href="#why">Why Locant</a>
       <a href="#privacy">Privacy</a>
     </div>
     <a class="dl" href="https://github.com/Malik1942/locant/releases/latest/download/Locant.dmg">Download</a>
@@ -407,12 +383,12 @@
     <p class="name">Locant <span>for Mac</span></p>
     <h1>Point, don't&nbsp;describe.</h1>
     <p class="lede">Point at one element in any app. Your coding agent gets the element, not a screenshot.</p>
-    <p class="proof">Given a screenshot, the agent changed the wrong worktree's code in <b>14 of 20</b> runs. Given a Locant capture, <b>0 of 20</b>. <a href="#measured">How it was measured</a></p>
+    <p class="proof">With a screenshot, the agent changed the wrong copy of the code in <b>14 of 20</b> runs. With Locant, <b>0 of 20</b>. <a href="#why">See the numbers</a></p>
     <div class="cta">
       <a class="btn" href="https://github.com/Malik1942/locant/releases/latest/download/Locant.dmg">Download for Mac</a>
       <a class="link" href="https://github.com/Malik1942/locant">View on GitHub</a>
     </div>
-    <p class="fine"><span class="g"><span>macOS 15 or later</span><span>Apple silicon and Intel</span></span><span class="g"><span>Free</span><span>No account</span></span></p>
+    <p class="fine"><span class="g"><span>macOS 15 or later</span><span>Apple silicon and Intel</span></span><span class="g"><span>Free and open source</span><span>No account</span></span></p>
   </header>
 
   <figure class="wide" style="margin-block: 0;">
@@ -426,7 +402,7 @@
         v.addEventListener('click', replay);
       })();
     </script>
-    <figcaption>Click the ball, hover, click, say what should change, paste. Every frame is a real capture.</figcaption>
+    <figcaption>Click the ball, hover, click, say what should change, paste.</figcaption>
   </figure>
 
   <section class="wide" id="how">
@@ -436,15 +412,15 @@
     <div class="steps">
       <div class="step">
         <div class="vis"><span class="n">1</span><div class="keys"><kbd>⌃</kbd><span class="plus">twice</span></div></div>
-        <div class="text"><h3>Point</h3><p>Double-tap Control, or click the ball. Hover, then click the element. Hold ⇧ to add more, from any app.</p></div>
+        <div class="text"><h3>Point</h3><p>Double-tap Control, or click the ball. Hover, then click the element, in any app.</p></div>
       </div>
       <div class="step">
         <div class="vis"><span class="n">2</span><div class="hud"><span>make this rounded<span class="caret"></span></span><span class="hint">↩ copy · esc cancel</span></div></div>
-        <div class="text"><h3>Note</h3><p>Type what should change. Enter captures. Esc cancels, nothing written.</p></div>
+        <div class="text"><h3>Note</h3><p>Type what should change. Enter captures it.</p></div>
       </div>
       <div class="step">
         <div class="vis"><span class="n">3</span><div class="term"><span class="h">## Locant capture (fix)</span><br><span class="k">Image:</span> ~/Pictures/Locant/…<br>button · id=captureButton</div></div>
-        <div class="text"><h3>Paste</h3><p>⌘V in the conversation you want. The text and the image both arrive; a terminal gets the text, image path first.</p></div>
+        <div class="text"><h3>Paste</h3><p>⌘V in the conversation you want. The text and the image both arrive.</p></div>
       </div>
     </div>
   </section>
@@ -453,25 +429,25 @@
     <div class="col">
       <div class="sect-head">
         <h2>Point, up close</h2>
-        <p class="lede">The overlay over Calculator. Every frame is a real capture.</p>
+        <p class="lede">The overlay over Calculator.</p>
       </div>
     </div>
     <div class="frames">
       <div class="frame">
         <div class="pic"><img src="assets/overlay-hover.jpg" width="1260" height="840" alt="The overlay over Calculator: the 8 key outlined in blue, with the label button · Eight beneath it"></div>
-        <h3>Hover</h3><p>The element under the cursor and its identifier: <code>button · Eight</code>.</p>
+        <h3>Hover</h3><p>The element under the cursor, with its identifier: <code>button · Eight</code>.</p>
       </div>
       <div class="frame">
         <div class="pic"><img src="assets/overlay-option.jpg" width="1260" height="840" alt="With Option held, the whole keypad is outlined and the label reads group · CalculatorKeypadView"></div>
-        <h3>Option</h3><p>Steps to the parent: <code>group · CalculatorKeypadView</code>. Again for the next level.</p>
+        <h3>Option</h3><p>Steps up to the parent: <code>group · CalculatorKeypadView</code>.</p>
       </div>
       <div class="frame">
         <div class="pic"><img src="assets/overlay-drag.jpg" width="1260" height="840" alt="A dragged frame around the number keys with a 161 by 167 point readout"></div>
-        <h3>Drag</h3><p>A frame, with every element inside it listed for the agent.</p>
+        <h3>Drag</h3><p>A frame, with every element inside it listed.</p>
       </div>
       <div class="frame">
         <div class="pic"><img src="assets/overlay-note.jpg" width="1260" height="840" alt="After the click, a note field under the highlighted key reads make this key bigger, with Return to copy and Escape to cancel"></div>
-        <h3>Note</h3><p>Click, say what should change, Return. Esc cancels, nothing written.</p>
+        <h3>Note</h3><p>Click, say what should change, Return.</p>
       </div>
     </div>
   </section>
@@ -479,16 +455,16 @@
   <section class="col" id="ball">
     <div class="sect-head">
       <h2>The ball</h2>
-      <p class="lede">A glass disc that lives at the edge of the screen and stays out of the way until you reach for it.</p>
+      <p class="lede">A glass disc at the edge of the screen. Out of the way until you reach for it.</p>
     </div>
     <div class="states">
       <div class="state">
         <div class="pic"><img src="assets/ball-docked.png" width="200" height="200" alt="The ball docked: a half disc tucked into the screen edge"></div>
-        <h3>Docked</h3><p>After two seconds without use it tucks into the nearest edge, part of it showing.</p>
+        <h3>Docked</h3><p>Tucks into the nearest edge when you are not using it.</p>
       </div>
       <div class="state">
         <div class="pic"><img src="assets/ball-awake.png" width="220" height="220" alt="The ball awake: a full glass disc on the desktop"></div>
-        <h3>Awake</h3><p>Move toward it and it comes back out. Drag it anywhere, or flick it at an edge.</p>
+        <h3>Awake</h3><p>Move toward it and it comes out. Drag it anywhere.</p>
       </div>
       <div class="state">
         <div class="pic"><img src="assets/ball-ready.png" width="220" height="220" alt="The ball ready: the pointing hand appears on the disc"></div>
@@ -496,7 +472,7 @@
       </div>
       <div class="state">
         <div class="pic"><img src="assets/ball-ring.png" width="520" height="520" alt="The ring: Snap, Text, Color and Cut around the ball, revealed by pressing and holding"></div>
-        <h3>The ring</h3><p>Press and hold for Snap, Text, Color, and Cut. Release on one.</p>
+        <h3>The ring</h3><p>Press and hold for Snap, Text, Color, and Cut.</p>
       </div>
     </div>
   </section>
@@ -504,7 +480,7 @@
   <section class="col" id="payload">
     <div class="sect-head">
       <h2>What your agent receives</h2>
-      <p class="lede">Enough to find the right file on the first try.</p>
+      <p class="lede">Enough to open the right file on the first try.</p>
     </div>
     <div class="payload-wrap">
 <pre class="payload"><span class="h">## Locant capture (fix)</span>
@@ -520,66 +496,47 @@ button · id=captureButton
 <span class="h">### Note</span>
 make this rounded, match the other pills</pre>
       <div class="notes">
-        <div class="note"><h3>Image first</h3><p>Terminal agents get only the text on paste. The path leads, so the agent can open the PNG.</p></div>
-        <div class="note"><h3>Fix or reference</h3><p>Your own apps are inferred: the Simulator, anything built on this Mac, anything signed with your Team ID.</p></div>
-        <div class="note"><h3>Identifier and path</h3><p>The accessibility identifier is what the agent greps for. The path says where in the tree it sits.</p></div>
-        <div class="note"><h3>On disk too</h3><p>A PNG and a JSON sidecar in Pictures, tagged in Finder, validating against a published schema.</p></div>
+        <div class="note"><h3>Image first</h3><p>The path leads, so the agent opens the PNG itself.</p></div>
+        <div class="note"><h3>Identifier and path</h3><p>The identifier is what the agent greps for. The path says where in the view tree it sits.</p></div>
+        <div class="note"><h3>On disk too</h3><p>A PNG and a JSON sidecar in Pictures, for later.</p></div>
       </div>
     </div>
   </section>
 
-  <section class="col" id="measured">
+  <section class="col" id="why">
     <div class="sect-head">
-      <h2>Measured against a screenshot</h2>
-      <p class="lede">Same crop, same note, same model. The app on screen was built in one worktree and the agent works in another, as when each Claude Code session gets its own. The only difference is what gets pasted: Locant's crop of the component, or the Locant capture with its text.</p>
+      <h2>Why Locant</h2>
+      <p class="lede">Measured against a screenshot: same crop, same note, same model. The app on screen was built in one worktree and the agent worked in another, as happens when every session gets its own.</p>
     </div>
-    <figure class="shot" style="margin: 0 0 18px;">
-      <img src="assets/measured-worktrees.png" width="2560" height="1440" alt="Two panels. Changed the wrong copy at some point: screenshot 14 of 20 runs, Locant 0 of 20. Right with no reply needed: screenshot 4 of 20, Locant 19 of 20. Dot strips of time to the first change in the right file: screenshot median 80 seconds, with 4 runs that never got there; Locant median 39 seconds.">
-    </figure>
-    <div class="ladder">
-      <div class="rung"><span class="n">1</span><span class="chip">14 of 20 · 0 of 20</span><p><b>Changed the copy that wasn't on screen.</b> Screenshot runs edited the agent's own worktree first; Locant runs went to the folder that built the app. In 14 pairs only the screenshot run did, never the reverse: exact McNemar p &lt; 0.001.</p></div>
-      <div class="rung"><span class="n">2</span><span class="chip">4 of 20 · 19 of 20</span><p><b>Right with no reply.</b> A run could get one reply when it asked or said the screen didn't match its code. The screenshot side needed 12 replies; Locant needed 1. p &lt; 0.001.</p></div>
-      <div class="rung"><span class="n">3</span><span class="chip">80 s → 39 s</span><p><b>Time to the first change in the right file,</b> medians of the runs that got there; Locant first in 17 of 20 pairs. Wilcoxon p &lt; 0.001. About half the cost.</p></div>
-      <div class="rung"><span class="n">4</span><span class="chip">16 of 20 · 20 of 20</span><p><b>Right in the end, after at most one reply.</b> All four screenshot misses are the same change: a look-alike in the agent's own copy, changed without a word, so you would find out only after rebuilding. p = 0.125, the lowest four pairs can reach.</p></div>
-      <div class="rung"><span class="n">5</span><span class="chip dash">Five changes, one app, one model</span><p><b>Read the caveats.</b> Claude Code on Opus 5 at medium effort, fresh session per run, no MCP on either side, no memory, every checkout reset between runs, four pairs per change with the order alternated, graded blind. A first round on Sep 30, 2026 found Locant 0.9.0 short (the wrong copy in 9 of 20); one sentence in its payload fixed that, was measured on Oct 1, and has shipped since 0.9.1. Method, both rounds and statistics: <a href="https://github.com/Malik1942/locant/blob/main/docs/video/11-measurement-worktrees.md">the report</a>.</p></div>
+    <div class="tiles">
+      <div class="tile"><span class="big">0 of 20</span><p>Locant runs that changed the wrong copy of the code. With a screenshot: 14 of 20.</p></div>
+      <div class="tile"><span class="big">39 s</span><p>To the first change in the right file. With a screenshot: 80 s.</p></div>
+      <div class="tile"><span class="big">About half</span><p>What a run cost, in tokens and in dollars.</p></div>
     </div>
-  </section>
-
-  <section class="col">
-    <div class="sect-head">
-      <h2>When there is no element</h2>
-      <p class="lede">Locant steps down a ladder and says which rung it reached.</p>
-    </div>
-    <div class="ladder">
-      <div class="rung"><span class="n">1</span><span class="chip">button · <code>id=captureButton</code></span><p><b>Element</b> with a declared identifier. The best case.</p></div>
-      <div class="rung"><span class="n">2</span><span class="chip">button "Save changes" · no identifier</span><p><b>Label only.</b> The nearest labeled neighbors are named too.</p></div>
-      <div class="rung"><span class="n">3</span><span class="chip">Elements in frame (6)</span><p><b>Drawn frame.</b> Drag on the overlay; everything inside is listed.</p></div>
-      <div class="rung"><span class="n">4</span><span class="chip">Text in image · Nearby</span><p><b>Text and neighbors.</b> Words in the image are recognized.</p></div>
-      <div class="rung"><span class="n">5</span><span class="chip dash">No element information available</span><p><b>Image.</b> The payload says so, and still carries your note.</p></div>
-    </div>
+    <p class="method">80 runs on Claude Code, graded blind. Method and statistics: <a href="https://github.com/Malik1942/locant/blob/main/docs/video/11-measurement-worktrees.md">the report</a>.</p>
   </section>
 
   <section class="col" id="actions">
     <div class="sect-head">
       <h2>Four more, on the same gesture</h2>
-      <p class="lede">Press and hold the ball for the ring.</p>
+      <p class="lede">Press and hold the ball.</p>
     </div>
     <div class="actions">
       <div class="action">
         <span class="glyph snap" aria-hidden="true"></span>
-        <h3>Snap</h3><p>A region or a window, as a PNG.</p><p class="keeps">Keeps a file</p>
+        <h3>Snap</h3><p>A region or a window, as a PNG.</p>
       </div>
       <div class="action">
         <span class="glyph text" aria-hidden="true"></span>
-        <h3>Text</h3><p>Recognized lines, to the clipboard.</p><p class="keeps">Keeps nothing</p>
+        <h3>Text</h3><p>The words on screen, to the clipboard.</p>
       </div>
       <div class="action">
         <span class="glyph color" aria-hidden="true"></span>
-        <h3>Color</h3><p>Hex, rgb(), hsl(), or SwiftUI Color. sRGB or Display P3.</p><p class="keeps">Keeps nothing</p>
+        <h3>Color</h3><p>Any pixel, as hex, rgb(), hsl(), or SwiftUI Color.</p>
       </div>
       <div class="action">
         <span class="glyph cut" aria-hidden="true"></span>
-        <h3>Cut</h3><p>The subject on a transparent background.</p><p class="keeps">Keeps a file</p>
+        <h3>Cut</h3><p>The subject on a transparent background.</p>
       </div>
     </div>
   </section>
@@ -604,19 +561,9 @@ make this rounded, match the other pills</pre>
       </div>
       <div class="sect-head" style="margin: 0;">
         <h2>See what changed</h2>
-        <p class="lede">After the agent's edit, run the app again. Locant finds the same element, captures it when it looks different, and keeps every iteration with the diff beneath. Show before &amp; after is in the menu bar.</p>
+        <p class="lede">After the agent's edit, run the app again. Locant finds the same element, captures it when it looks different, and keeps every iteration with the diff beneath.</p>
       </div>
     </div>
-  </section>
-
-  <section class="col">
-    <div class="sect-head">
-      <h2>Settings that look like Settings</h2>
-      <p class="lede">The one place Locant is a window. Every default works on first launch.</p>
-    </div>
-    <figure class="shot" style="margin: 0;">
-      <picture class="light"><source media="(max-width: 720px)" srcset="assets/settings-light-phone.png" width="960" height="1500"><img src="assets/settings-light.png" width="2024" height="1616" alt="Locant Settings window, General tab: Accessibility and Screen Recording granted, the floating ball and auto-hide on, trackpad taps and sounds on, a daily update check with the version number, and the Help row"></picture><picture class="dark"><source media="(max-width: 720px)" srcset="assets/settings-dark-phone.png" width="960" height="1500"><img src="assets/settings-dark.png" width="2024" height="1616" alt="Locant Settings window, General tab: Accessibility and Screen Recording granted, the floating ball and auto-hide on, trackpad taps and sounds on, a daily update check with the version number, and the Help row"></picture>
-    </figure>
   </section>
 
   <section class="col" id="privacy">
@@ -628,42 +575,25 @@ make this rounded, match the other pills</pre>
         <h3>Two permissions, both explained</h3><p>Accessibility reads what is under your cursor. Screen Recording captures the pixels. There is no third prompt.</p>
       </div>
       <div class="item">
-        <h3>Nothing leaves the machine</h3><p>No telemetry, no accounts. The one request is a daily check for a newer version on GitHub, and you can turn it&nbsp;off.</p>
+        <h3>Nothing leaves your Mac</h3><p>No telemetry, no accounts. The one request is a daily check for a newer version, and you can turn it&nbsp;off.</p>
       </div>
       <div class="item">
         <h3>Signed and notarized</h3><p>Every build is signed with a Developer ID and notarized by Apple. A dmg from GitHub, not the App Store.</p>
       </div>
       <div class="item">
-        <h3>Quiet</h3><p>No Dock icon. Idle memory under 30 MB. Nothing pulses, bounces, or waits for you to notice it.</p>
+        <h3>Quiet</h3><p>No Dock icon. Nothing pulses, bounces, or waits for you to notice it.</p>
       </div>
     </div>
   </section>
 
   <section class="col" id="agents">
     <div class="sect-head">
-      <h2>Paste it, or let the agent fetch it</h2>
-      <p class="lede">You choose where a capture goes by pasting it there. Cursor, the Codex app, and Grok Bot keep only half of a capture pasted whole, so after your ⌘V Locant adds the image: the text and the image both arrive. Locant is also an MCP server: connect Claude Code, Cursor, or Codex in Settings › Agents, then say what should change and the agent pulls the capture itself, image included. Run end to end; each row says when:</p>
+      <h2>Works with your agent</h2>
+      <p class="lede">Paste the capture where you want it. Or connect over MCP in Settings › Agents, say what should change, and the agent fetches the capture itself, image included.</p>
     </div>
-    <div class="agents">
-      <div class="agent"><b>Claude Code</b><span>Fetches the capture over MCP and opens the image; 80 measured runs above</span><span class="chip">Verified Oct 1, 2026</span></div>
-      <div class="agent"><b>Cursor</b><span>A paste carries the text and the image; fetches over MCP too, after Cursor asks once to enable the server</span><span class="chip">Verified Oct 1, 2026</span></div>
-      <div class="agent"><b>Codex app</b><span>A paste carries the text and the image</span><span class="chip">Verified Oct 1, 2026</span></div>
-      <div class="agent"><b>Codex CLI</b><span>Fetches over MCP and views the image at the path</span><span class="chip">Verified Sep 15, 2026</span></div>
-      <div class="agent"><b>Grok Bot</b><span>Reads the capture on your Mac with the <a href="https://github.com/Malik1942/locant#in-grok-bot">Locant skill</a>; a paste carries the text and the image</span><span class="chip">Verified Oct 1, 2026</span></div>
-      <div class="agent"><b>Antigravity</b><span>A paste carries the text and the image</span><span class="chip">Verified Oct 1, 2026</span></div>
-      <div class="agent"><b>Gemini CLI</b><span>Paste, or the snippet from Settings › Agents</span><span class="chip dash">Untested</span></div>
-    </div>
-  </section>
-
-  <section class="col">
-    <div class="sect-head">
-      <h2>Known limitations</h2>
-      <p class="lede">Hit one of these, or something not on the list? <a href="https://github.com/Malik1942/locant/issues/new/choose">Open an issue</a> and say which app you pointed at.</p>
-    </div>
-    <div class="limits">
-      <div class="limit"><h3>Quality follows the app</h3><p>SwiftUI, AppKit, and the Simulator work well. Web pages and Electron apps carry their DOM id and classes, and the page URL; Electron builds its tree on first contact, so the first hover can lag.</p></div>
-      <div class="limit"><h3>Custom-drawn UIs expose little</h3><p>Figma, games, and canvases reach the bottom of the ladder. The payload says so, and still carries the image.</p></div>
-      <div class="limit"><h3>Hover picks the smallest control</h3><p>It sticks to that control across its padding. Press Option to step to the parent, and again for the next level.</p></div>
+    <div class="with">
+      <div class="line"><span class="lab">Agents</span><span class="pill">Claude Code</span><span class="pill">Cursor</span><span class="pill">Codex</span><span class="pill">Grok Bot</span><span class="pill">Antigravity</span></div>
+      <div class="line"><span class="lab">Best in</span><span class="pill">SwiftUI</span><span class="pill">AppKit</span><span class="pill">iPhone Simulator</span><span class="pill">Web pages</span><span class="pill">Electron apps</span></div>
     </div>
   </section>
 
