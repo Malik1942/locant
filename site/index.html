@@ -245,39 +245,56 @@
   @keyframes shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
   .stage .toast { font-weight: 600; }
 
-  /* the ball: FloatingBall.Tokens, 48 pt of clear glass at 90 percent (restAlpha). Measured on the real disc: inside,
-     the scene keeps its brightness but only about 14 percent of its contrast and half its color, so the glass is the
-     average of what is under it (a wide blur) laid at 86 percent over a light blur that keeps the shapes. The rim is
-     a dark hairline at the edge and a light half-point line 1.5 pt inside. Under the cursor the veil lifts, the disc
-     grows to 1.04 (hoverScale), and the hand appears. */
+  /* the ball: FloatingBall.Tokens, 48 pt of clear glass. Measured on the real disc: inside, the scene keeps its
+     brightness but only about 14 percent of its contrast and half its color, so the glass is the average of what is
+     under it (a wide blur) laid over a light blur that keeps the shapes. The rim is a dark hairline at the edge and a
+     light half-point line 1.5 pt inside. The script sets the state, as FloatingBall.State: rest and docked at 90 percent
+     (restAlpha) with the glow drifting; awake and ready at full strength with the hand; ready swells to 1.04 (hoverScale).
+     No opacity on the ball itself: that would make it a backdrop root and its glass would see nothing behind it. */
   .stage .ball, .stage .ghost {
     position: absolute; left: 0; top: 0; z-index: 12; width: calc(48px * var(--b)); height: calc(48px * var(--b)); margin: 0; padding: 0; border: 0;
-    border-radius: 50%; background: transparent; will-change: transform; -webkit-tap-highlight-color: transparent;
+    border-radius: 50%; background: transparent; -webkit-tap-highlight-color: transparent;
   }
   .stage .ball > i, .stage .ghost > i { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; display: block; }
-  /* no opacity on the ball itself: that would make it a backdrop root and its glass would see nothing behind it,
-     so the 90 percent (restAlpha) is in the layers */
-  .stage .ball .lens, .stage .ghost .lens { opacity: .9; -webkit-backdrop-filter: blur(calc(1.4px * var(--b))) saturate(.5) brightness(1.03); backdrop-filter: blur(calc(1.4px * var(--b))) saturate(.5) brightness(1.03); }
-  .stage .ball .tint, .stage .ghost .tint { opacity: .82; -webkit-backdrop-filter: blur(calc(26px * var(--b))) saturate(.5) brightness(1.03); backdrop-filter: blur(calc(26px * var(--b))) saturate(.5) brightness(1.03); }
-  .stage .ball .glow { background: radial-gradient(closest-side, rgba(255,255,255,.14), rgba(255,255,255,0)); animation: drift 6s ease-in-out infinite alternate; }
-  @keyframes drift { from { opacity: .35; } to { opacity: 1; } }
-  .stage .ball .lift { background: rgba(255,255,255,.12); opacity: 0; transition: opacity .32s ease; }
+  .stage .ball .lens, .stage .ghost .lens { -webkit-backdrop-filter: blur(calc(1.4px * var(--b))) saturate(.5) brightness(1.03); backdrop-filter: blur(calc(1.4px * var(--b))) saturate(.5) brightness(1.03); }
+  .stage .ball .tint, .stage .ghost .tint { -webkit-backdrop-filter: blur(calc(26px * var(--b))) saturate(.5) brightness(1.03); backdrop-filter: blur(calc(26px * var(--b))) saturate(.5) brightness(1.03); }
+  .stage .ball .lens { opacity: .9; }
+  .stage .ball .tint { opacity: .738; }
+  .stage .ball.is-awake .lens, .stage .ball.is-ready .lens { opacity: 1; }
+  .stage .ball.is-awake .tint, .stage .ball.is-ready .tint { opacity: .82; }
+  .stage .ball > i { transition: opacity .2s ease-out; }
+  .stage .ball .glow { background: radial-gradient(closest-side, rgba(255,255,255,.14), rgba(255,255,255,0)); opacity: .5; }
+  .stage .ball.is-rest .glow, .stage .ball.is-docked .glow { animation: drift 6s ease-in-out infinite; }
+  @keyframes drift { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+  .stage .ball .lift { background: rgba(255,255,255,.12); opacity: 0; }
+  .stage .ball.is-ready .lift { opacity: 1; }
   .stage .ball .rim, .stage .ghost .rim { box-shadow: 0 0 0 calc(1px * var(--b)) rgba(0,0,0,.24), inset 0 0 0 calc(.6px * var(--b)) rgba(0,0,0,.16); }
   .stage .ball .rim::after, .stage .ghost .rim::after { content: ""; position: absolute; inset: calc(1.5px * var(--b)); border-radius: 50%; box-shadow: 0 0 0 calc(.6px * var(--b)) rgba(255,255,255,.26); }
-  .stage .ball .hand { background: #fff; opacity: 0; transition: opacity .32s ease; -webkit-mask: url("assets/ball-hand.png") center / 50% no-repeat; mask: url("assets/ball-hand.png") center / 50% no-repeat; filter: drop-shadow(0 .5px .5px rgba(0,0,0,.2)); }
-  .stage .ball:hover .lift, .stage .ball:focus-visible .lift, .stage .ball.ready .lift { opacity: 1; }
-  .stage .ball:hover .hand, .stage .ball:focus-visible .hand, .stage .ball.ready .hand { opacity: 1; }
-  .stage .ball { cursor: pointer; touch-action: none; outline: none; transition: transform .7s var(--settle), opacity .2s ease, scale .32s var(--hover); }
-  .stage .ball:hover, .stage .ball:focus-visible, .stage .ball.ready { scale: 1.04; }
-  .stage .ball.wake { transition-duration: .8s, .2s, .32s; transition-timing-function: var(--wake), ease, var(--hover); }
-  .stage .ball.tuck { transition-duration: .55s, .2s, .32s; transition-timing-function: var(--tuck), ease, var(--hover); }
-  .stage .ball.drag { transition: scale .32s var(--hover); }
-  .stage .ball.gone { opacity: 0; pointer-events: none; }
+  /* the hand fades in awake and ready, settling from 0.92 */
+  .stage .ball .hand { background: #fff; opacity: 0; transform: scale(.92); transition: opacity .2s ease-out, transform .45s var(--hover); -webkit-mask: url("assets/ball-hand.png") center / 50% no-repeat; mask: url("assets/ball-hand.png") center / 50% no-repeat; filter: drop-shadow(0 .5px .5px rgba(0,0,0,.2)); }
+  .stage .ball.is-awake .hand, .stage .ball.is-ready .hand { opacity: 1; transform: none; }
+  .stage .ball:focus-visible .hand, .stage .ball:focus-visible .lift { opacity: 1; transform: none; }
+  /* before its first appearance, and while the ring or the overlay is up, the glass fades, not the ball */
+  .stage .ball.is-hidden > i, .stage .ball.gone > i { opacity: 0 !important; }
+  .stage .ball.is-hidden, .stage .ball.gone { pointer-events: none; }
+  .stage .ball.revealing > i { transition-duration: .8s; }
+  /* the position is the translate property, not transform: transform composes after scale, so a 1.04 swell would
+     multiply the whole offset and push the disc out from under the cursor */
+  .stage .ball { cursor: inherit; touch-action: none; outline: none; scale: 1; will-change: translate, scale; transition: translate .7s var(--settle), scale .45s var(--hover); }
+  .stage .ball.is-ready { scale: 1.04; }
+  .stage .ball.is-hidden { scale: .94; }
+  /* out of an edge it swells from 0.94: only the scale skips its transition for that frame, the glide keeps its spring */
+  .stage .ball.from-edge { scale: .94; transition-property: translate; }
+  .stage .ball.m-wake { transition-duration: .8s, .45s; transition-timing-function: var(--wake), var(--hover); }
+  .stage .ball.m-settle { transition-duration: .7s, .45s; transition-timing-function: var(--settle), var(--hover); }
+  .stage .ball.m-tuck { transition-duration: .55s, .45s; transition-timing-function: var(--tuck), var(--hover); }
+  .stage .ball.m-drag { transition: scale .45s var(--hover); }
+  .stage.over-ball { cursor: pointer; }
   .stage .ghost { pointer-events: none; }
   .stage .ghost > i { opacity: 0 !important; transition: opacity .2s ease; }
   .stage .ghost.on .lens, .stage .ghost.on .rim { opacity: .35 !important; }
   .stage .ghost.on .tint { opacity: .3 !important; }
-  @media (prefers-reduced-motion: reduce) { .stage .ball .glow { animation: none; opacity: .7; } }
+  @media (prefers-reduced-motion: reduce) { .stage .ball .glow { animation: none !important; opacity: .7; } }
 
   /* the ring: Ring.Tokens, 92 pt of the regular glass. Measured on the real ring: a little darker than what is under
      it, half its contrast, most of its color, lighter toward the top; a crisp dark 1 pt edge with a light line inside.
@@ -319,19 +336,36 @@
     .stage .field { width: 240px; }
   }
 
-  /* the result: the payload, one line each, with what the line is for beside it */
-  .result { margin-top: 28px; display: grid; gap: 10px; }
-  .result h3 { font-size: 21px; }
-  .result .lede { font-size: 17px; color: var(--muted); margin-bottom: 8px; }
-  .lines { display: grid; background: var(--surface); border-radius: 14px; box-shadow: 0 0 0 1px var(--hair); overflow: hidden; transition: box-shadow .4s ease; }
-  .lines.flash { box-shadow: 0 0 0 2px var(--accent); }
-  .ln { display: grid; grid-template-columns: 1.25fr 1fr; gap: 6px 24px; align-items: baseline; padding: 11px 18px; }
-  .ln + .ln { border-top: 1px solid var(--hair); }
-  .ln code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
-  .ln code .h { color: var(--muted); }
-  .ln code .k { color: var(--accent); }
-  .ln span { font-size: 15px; color: var(--muted); }
-  @media (max-width: 720px) { .ln { grid-template-columns: 1fr; } }
+  /* what your agent receives: the picture Locant saves beside the three things that matter; the raw text folds away */
+  .result { margin-top: 40px; }
+  .result h3 { font-size: 24px; letter-spacing: -.01em; }
+  .result > .lede { font-size: 17px; color: var(--muted); margin: 6px 0 18px; }
+  .card { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 32px; align-items: center; padding: 24px; background: var(--surface); border-radius: 20px; box-shadow: 0 0 0 1px var(--hair); }
+  .card .pic { position: relative; margin: 0; aspect-ratio: 4 / 3; border-radius: 14px; background: #161618; overflow: hidden; }
+  /* the whole picture, contained and centered: absolute, so its max sizes resolve against the frame */
+  .card .pic canvas { position: absolute; inset: 0; margin: auto; display: block; width: auto; height: auto; max-width: calc(100% - 40px); max-height: calc(100% - 40px); border-radius: 8px; box-shadow: 0 0 0 1px rgba(255,255,255,.1), 0 10px 28px rgba(0,0,0,.45); }
+  .facts { margin: 0; display: grid; gap: 22px; }
+  .fact dt { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .fact dd { margin: 0; font-size: 17px; }
+  .fact.quote dd { font-size: 22px; font-weight: 600; line-height: 1.3; letter-spacing: -.01em; }
+  .fact.quote dd::before { content: "“"; } .fact.quote dd::after { content: "”"; }
+  .fact code { display: inline-block; max-width: 100%; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 14px; background: var(--frame); border-radius: 8px; padding: 4px 10px; overflow-wrap: anywhere; }
+  .fact .why { display: block; margin-top: 6px; font-size: 14px; color: var(--muted); }
+  .fact .why[hidden] { display: none; }
+  .card.new .pic canvas { animation: pop .55s var(--wake) both; }
+  .card.new .fact { animation: rise .5s ease both; }
+  .card.new .fact:nth-child(2) { animation-delay: .06s; }
+  .card.new .fact:nth-child(3) { animation-delay: .12s; }
+  @keyframes pop { from { opacity: 0; transform: scale(.94); } }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+  .raw { margin-top: 14px; }
+  .raw summary { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--accent); font-size: 15px; list-style: none; }
+  .raw summary::-webkit-details-marker { display: none; }
+  .raw summary::after { content: "›"; display: inline-block; transition: transform .2s ease; }
+  .raw[open] summary::after { transform: rotate(90deg); }
+  .raw summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+  .raw pre { margin: 12px 0 0; padding: 16px 18px; background: var(--code-bg); border: 1px solid var(--hair); border-radius: 14px; font: 12.5px/1.6 ui-monospace, "SF Mono", Menlo, monospace; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+  @media (max-width: 720px) { .card { grid-template-columns: 1fr; gap: 20px; padding: 18px; } .fact.quote dd { font-size: 19px; } }
 
   /* scroll: blocks rise in once, the way a page on apple.com does; off when motion is reduced */
   @media (prefers-reduced-motion: no-preference) {
@@ -597,14 +631,22 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
       <div class="hud field"><input type="text" placeholder="What should change?" aria-label="Note" autocomplete="off"><span class="hint">↩ copy · esc cancel</span></div>
       <div class="hud toast">Copied</div>
       <div class="ghost"><i class="lens"></i><i class="tint"></i><i class="rim"></i></div>
-      <button class="ball" type="button" aria-label="The Locant ball: click to point, press and hold for the ring"><i class="lens"></i><i class="tint"></i><i class="glow"></i><i class="lift"></i><i class="rim"></i><i class="hand"></i></button>
+      <button class="ball is-hidden" type="button" aria-label="The Locant ball: click to point, press and hold for the ring"><i class="lens"></i><i class="tint"></i><i class="glow"></i><i class="lift"></i><i class="rim"></i><i class="hand"></i></button>
       <div class="ring" aria-hidden="true"><svg viewBox="0 0 184 184" aria-hidden="true"><path class="wedge snap" d="M157.1 26.9 A92 92 0 0 0 26.9 26.9 L74.3 74.3 A25 25 0 0 1 109.7 74.3 Z"/><path class="wedge text" d="M157.1 157.1 A92 92 0 0 0 157.1 26.9 L109.7 74.3 A25 25 0 0 1 109.7 109.7 Z"/><path class="wedge color" d="M26.9 157.1 A92 92 0 0 0 157.1 157.1 L109.7 109.7 A25 25 0 0 1 74.3 109.7 Z"/><path class="wedge cut" d="M26.9 26.9 A92 92 0 0 0 26.9 157.1 L74.3 109.7 A25 25 0 0 1 74.3 74.3 Z"/><g class="sep"><line x1="109.7" y1="74.3" x2="157.1" y2="26.9"/><line x1="74.3" y1="74.3" x2="26.9" y2="26.9"/><line x1="74.3" y1="109.7" x2="26.9" y2="157.1"/><line x1="109.7" y1="109.7" x2="157.1" y2="157.1"/><circle cx="92" cy="92" r="25"/></g></svg><div class="seg snap"><i class="glyph snap"></i><span>Snap</span></div><div class="seg text"><i class="glyph text"></i><span>Text</span></div><div class="seg color"><i class="glyph color"></i><span>Color</span></div><div class="seg cut"><i class="glyph cut"></i><span>Cut</span></div><div class="hand"></div></div>
     </div>
 
     <div class="result" id="result">
       <h3>What your agent receives</h3>
-      <p class="lede">After Return, this is on the clipboard. Paste it anywhere.</p>
-      <div class="lines" id="lines"></div>
+      <p class="lede">One paste carries the picture, your note, and the element’s name in the code.</p>
+      <div class="card" id="card">
+        <figure class="pic"><canvas id="crop" width="256" height="256" role="img" aria-label="The picture Locant saves: the element and 40 points around it"></canvas></figure>
+        <dl class="facts">
+          <div class="fact quote"><dt>Your note</dt><dd id="f-note"></dd></div>
+          <div class="fact"><dt>The element</dt><dd><code id="f-el"></code><span class="why" id="f-why"></span></dd></div>
+          <div class="fact"><dt>Where</dt><dd><span id="f-where"></span><span class="why" id="f-built" hidden></span></dd></div>
+        </dl>
+      </div>
+      <details class="raw"><summary>See the full text it pastes</summary><pre id="raw"></pre></details>
     </div>
   </section>
 
@@ -720,95 +762,186 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
 </main>
 
 <script>
-// The demo: a real desktop. The ball (FloatingBall.Tokens: 48 pt, 60 percent showing when tucked, an 80 pt wake
-// radius, 2 s idle before it tucks, the springs from Motion.swift), the ring (Ring.Tokens: a 0.5 s hold, 92 pt, a
-// 25 pt center that cancels), and the overlay (DesignTokens: a 20 percent dim, a 2 pt accent frame, role · identifier).
-// The windows' elements are real: roles, identifiers, DOM handles, and labels read from the apps themselves.
+// The demo: a real desktop. The ball is FloatingBall's state machine (48 pt; rest, docked, awake, ready by the cursor's
+// distance; 60 percent showing when tucked; 2 s at rest before it tucks; throws; the springs from Motion.swift), the
+// ring is Ring.Tokens (a 0.5 s hold, 92 pt, a 25 pt center that cancels), and the overlay is DesignTokens (a 20 percent
+// dim, a 2 pt accent frame, role · identifier). The windows' elements are real, read from the apps themselves.
 (function () {
   var stage = document.getElementById('stage'); if (!stage) return;
   var ball = stage.querySelector('.ball'), ghost = stage.querySelector('.ghost'), ring = stage.querySelector('.ring'),
       box = stage.querySelector('.outline'), tag = stage.querySelector('.tag'), field = stage.querySelector('.field'),
       input = field.querySelector('input'), toast = stage.querySelector('.toast'), wall = stage.querySelector('.wall'),
-      say = document.getElementById('say'), steps = document.querySelectorAll('#steps .s'), lines = document.getElementById('lines'),
-      result = document.getElementById('result'), tabs = document.querySelectorAll('.scenes button'),
-      wins = Array.prototype.slice.call(stage.querySelectorAll('.win'));
+      say = document.getElementById('say'), steps = document.querySelectorAll('#steps .s'),
+      result = document.getElementById('result'), card = document.getElementById('card'), crop = document.getElementById('crop'),
+      fNote = document.getElementById('f-note'), fEl = document.getElementById('f-el'), fWhy = document.getElementById('f-why'),
+      fWhere = document.getElementById('f-where'), fBuilt = document.getElementById('f-built'), raw = document.getElementById('raw'),
+      tabs = document.querySelectorAll('.scenes button'), wins = Array.prototype.slice.call(stage.querySelectorAll('.win'));
   var PT = { web: 760, calc: 230, phone: 250 };          // each window's width in points, for its own scale
-  var S = 0.7656, D = 48 * S, R = D / 2;                // the ball's scale and size in px, set by fit()
-  var SHOW = 0.6, IDLE = 2000, HOLD = 500;
-  var state = 'docked', side = 'right', c = { x: 0, y: 0 }, idle = null, homed = false, level = 0, base = null, target = null,
-      press = null, pointedAt = 0, hold = null, seg = null, tool = null, z = 5;
+  var WHERE = { web: 'Safari · oryne.malikzhang.com', calc: 'Calculator', phone: 'Oryne on iPhone 17 Pro' };
+  var S = 0.7656, D = 48 * S, R = D / 2;                // points to px, and the disc's size, set by fit()
+  var SHOW = 0.6, DOCK_DELAY = 2000, HOLD = 500;
   var touch = matchMedia('(hover: none)').matches;
   var W = function () { return stage.clientWidth; }, H = function () { return stage.clientHeight; };
-  var WAKE = function () { return 80 * S; }, SNAP = function () { return 48 * S; }, OUT = function () { return 100 * S; };
   var ADVICE = 'The app on screen was built from this folder. If you are working in a different checkout of this repo (another worktree or clone), your copy is not the code on screen: change it in this folder, or ask which copy to change.';
   var HELLO = touch ? 'The ball rests at the right edge. Tap it, then tap anything on the screen. Press and hold for the ring.'
                     : 'The ball rests at the right edge. Move toward it, then click it. Press and hold for the ring.';
+
+  // mode: what the demo is doing. bs: the ball's own state, as FloatingBall.State.
+  var mode = 'ball', bs = 'hidden';
+  var home = { x: 0, y: 0 }, shown = { x: 0, y: 0 }, dockTimer = null, holdTimer = null, holdDock = false, press = null, seg = null,
+      last = null, level = 0, base = null, target = null, pointedAt = 0, tool = null, z = 5;
+
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function esc(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+  function num(d) { var t = Math.round(d * 10) / 10; return t === Math.round(t) ? String(Math.round(t)) : t.toFixed(1); }
+  function rel(x, y) { var r = stage.getBoundingClientRect(); return { x: x - r.left, y: y - r.top }; }
+  function setStep(n, text) { steps.forEach(function (el, i) { el.classList.toggle('on', i === n - 1); }); if (text) say.textContent = text; }
 
   function fit() {
     S = Math.max(0.62, Math.min(1, W() / 1280)); D = 48 * S; R = D / 2;
     stage.style.setProperty('--b', S.toFixed(4));
     wins.forEach(function (w) { var r = w.getBoundingClientRect(); if (r.width) w.style.setProperty('--s', (r.width / PT[w.dataset.scene]).toFixed(4)); });
   }
-  var tuckPt = function (sd) { return { x: sd === 'right' ? W() - (SHOW * D - R) : (SHOW * D - R), y: c.y }; };
-  var homePt = function (sd) { return { x: sd === 'right' ? W() - R : R, y: c.y }; };
-  var outPt = function (sd) { return { x: sd === 'right' ? W() - OUT() : OUT(), y: c.y }; };
-  function place(pt, cls) {
-    ball.classList.remove('wake', 'tuck', 'drag'); if (cls) ball.classList.add(cls);
-    c.x = pt.x; c.y = pt.y; ball.style.transform = 'translate(' + (pt.x - R) + 'px,' + (pt.y - R) + 'px)';
-  }
-  function setStep(n, text) { steps.forEach(function (el, i) { el.classList.toggle('on', i === n - 1); }); if (text) say.textContent = text; }
-  function later(fn) { clearTimeout(idle); idle = setTimeout(fn, IDLE); }
-  function tuck() { state = 'docked'; homed = false; idle = null; place(tuckPt(side), 'tuck'); }
-  function home() { state = 'awake'; homed = true; place(homePt(side)); later(tuck); }
-  function wake() { state = 'awake'; homed = false; clearTimeout(idle); idle = null; place(outPt(side), 'wake'); }
-  function rel(e) { var r = stage.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
-  function near(p) { return Math.hypot(p.x - c.x, p.y - c.y) < WAKE(); }
-  function esc(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
-  function num(d) { var t = Math.round(d * 10) / 10; return t === Math.round(t) ? String(Math.round(t)) : t.toFixed(1); }
 
-  // init: tucked into the right edge, beside the iPhone; again once the stage has a size
-  function settle() {
-    fit();
-    if (H() < D * 2) return;
-    if (c.y < R || c.y > H() - R) c.y = Math.round(H() * 0.5);     // the right edge, over the rocks
-    ball.style.transition = 'none'; place(state === 'docked' ? tuckPt(side) : homePt(side)); void ball.offsetWidth; ball.style.transition = '';
+  // ---- edges (BallEdges): tucks on the left, right, and bottom; the center keeps one diameter from each edge's ends ----
+  function tuckOn(edge, p) {
+    var off = SHOW * D - R;
+    if (edge === 'right') return { edge: edge, x: W() - off, y: clamp(p.y, D, H() - D) };
+    if (edge === 'left') return { edge: edge, x: off, y: clamp(p.y, D, H() - D) };
+    return { edge: 'bottom', x: clamp(p.x, D, W() - D), y: H() - off };
   }
-  settle(); window.addEventListener('load', settle);
-  window.addEventListener('resize', function () { if (state !== 'ring' && !press) settle(); });
+  function nearestTuck(p) {
+    var best = null;
+    ['right', 'bottom', 'left'].forEach(function (e) { var t = tuckOn(e, p), d = Math.hypot(t.x - p.x, t.y - p.y); if (!best || d < best.d) { best = t; best.d = d; } });
+    return best;
+  }
+  function homeFor(t) {      // the same spot with the whole disc on screen, touching the edge
+    if (t.edge === 'right') return { x: W() - R, y: t.y };
+    if (t.edge === 'left') return { x: R, y: t.y };
+    return { x: t.x, y: H() - R };
+  }
+  function ringSafe(p) { var m = 100 * S; return { x: clamp(p.x, m, W() - m), y: clamp(p.y, m, H() - m) }; }   // ringMargin
+  function nearEdge(p) { var s = 48 * S; return p.x <= s || W() - p.x <= s || H() - p.y <= s; }                // edgeSnap
+  function inside(p) { return { x: clamp(p.x, R, W() - R), y: clamp(p.y, R, H() - R) }; }
+
+  // ---- motion: the disc glides to `p` on one of Motion.swift's springs ----
+  function move(p, spring) {
+    ball.classList.remove('m-wake', 'm-settle', 'm-tuck', 'm-drag'); ball.classList.add('m-' + spring);
+    shown = { x: p.x, y: p.y };
+    ball.style.translate = (p.x - R) + 'px ' + (p.y - R) + 'px';   // not transform: scale would multiply it
+  }
+  function jump(p) { ball.style.transition = 'none'; move(p, 'drag'); void ball.offsetWidth; ball.style.transition = ''; }
+  function current() {       // the disc's center as drawn this frame, mid-glide included
+    var r = ball.getBoundingClientRect(), s = stage.getBoundingClientRect();
+    return { x: r.left + r.width / 2 - s.left, y: r.top + r.height / 2 - s.top };
+  }
+  function same(a, b) { return Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) < 0.5; }
+
+  // ---- the look per state (DiscView.apply): the hand awake and ready, 1.04 ready, a swell from 0.94 out of an edge ----
+  function look(s, waking) {
+    ball.classList.remove('is-hidden', 'is-rest', 'is-docked', 'is-awake', 'is-ready');
+    ball.classList.add('is-' + s);
+    stage.classList.toggle('over-ball', s === 'ready' && mode === 'ball');
+    if (waking) { ball.classList.add('from-edge'); void ball.offsetWidth; ball.classList.remove('from-edge'); }
+  }
+
+  // ---- FloatingBall.set ----
+  function set(ns) {
+    if (ns === bs) return;
+    var wasDocked = bs === 'docked'; bs = ns;
+    if (ns === 'awake' || ns === 'ready') {
+      clearTimeout(dockTimer);
+      var safe = ringSafe(home);
+      if (wasDocked || !same(safe, shown)) move(safe, 'wake');
+      look(ns, wasDocked);
+    } else if (ns === 'rest') {
+      if (!same(shown, home)) move(home, wasDocked ? 'wake' : 'settle');
+      look('rest');
+      scheduleDock();
+    } else if (ns === 'docked') {
+      look('docked');
+    }
+  }
+  function scheduleDock() {
+    clearTimeout(dockTimer);
+    dockTimer = setTimeout(function () { if (bs === 'rest' && mode === 'ball' && !press) tuck(nearestTuck(current())); }, DOCK_DELAY);
+  }
+  function tuck(spot) { home = homeFor(spot); set('docked'); move(spot, 'tuck'); }
+
+  // ---- FloatingBall.cursorMoved: the nearer of the disc as drawn and its home counts, so a disc that moved in stays ----
+  function cursorMoved(p) {
+    if (mode !== 'ball' || press || bs === 'hidden') return;
+    var d = p ? Math.min(Math.hypot(p.x - current().x, p.y - current().y), Math.hypot(p.x - home.x, p.y - home.y)) : Infinity;
+    if (holdDock) { if (d <= 80 * S) return; holdDock = false; }
+    if (d <= R + 4 * S) set('ready');
+    else if (d <= 80 * S) set('awake');
+    else if (bs === 'awake' || bs === 'ready') set('rest');
+  }
+  function pointerHere() {
+    if (!last || last.touch) return null;
+    var r = stage.getBoundingClientRect();
+    return last.x >= r.left && last.x <= r.right && last.y >= r.top && last.y <= r.bottom ? rel(last.x, last.y) : null;
+  }
+  document.addEventListener('pointermove', function (e) {
+    last = { x: e.clientX, y: e.clientY, touch: e.pointerType === 'touch' };
+    if (mode === 'ball') cursorMoved(pointerHere());
+  }, { passive: true });
+  stage.addEventListener('pointerleave', function () { if (mode === 'ball') cursorMoved(null); });
+  // the page scrolling moves the desktop under a still cursor
+  window.addEventListener('scroll', function () { if (mode === 'ball') cursorMoved(pointerHere()); }, { passive: true });
+
+  // ---- first launch: when the desktop comes into view the disc appears at rest, bottom right, 24 pt in, then tucks ----
+  function placeFirst() {
+    fit();
+    var p = { x: W() - 24 * S - R, y: H() - 24 * S - R };
+    home = p; jump(p);
+  }
+  placeFirst();
+  window.addEventListener('resize', function () {
+    if (press || mode === 'ring') return;
+    var fx = home.x / Math.max(1, W()), fy = home.y / Math.max(1, H());
+    fit();
+    if (bs === 'hidden') { placeFirst(); return; }
+    var p = { x: fx * W(), y: fy * H() };
+    if (bs === 'docked') { var t = nearestTuck(p); home = homeFor(t); jump(t); }
+    else { home = inside(p); jump(bs === 'rest' ? home : ringSafe(home)); }
+  });
+  function reveal() {
+    if (bs !== 'hidden') return;
+    placeFirst();
+    ball.classList.add('revealing'); bs = 'rest'; look('rest');
+    setTimeout(function () { ball.classList.remove('revealing'); }, 900);
+    scheduleDock();
+    cursorMoved(pointerHere());
+  }
+  if ('IntersectionObserver' in window) {
+    var seen = new IntersectionObserver(function (en) { if (en[0].isIntersecting) { seen.disconnect(); setTimeout(reveal, 250); } }, { threshold: 0.55 });
+    seen.observe(stage);
+  } else reveal();
   setStep(1, HELLO);
 
   // phones: one window at a time
   tabs.forEach(function (b) {
     b.addEventListener('click', function () {
-      if (state === 'point' || state === 'note' || state === 'tool') cancel();
+      if (mode === 'point' || mode === 'note' || mode === 'tool') cancel();
       stage.dataset.scene = b.dataset.scene;
       tabs.forEach(function (t) { t.setAttribute('aria-selected', String(t === b)); });
       fit();
     });
   });
-  // a click on a window outside point mode brings it to the front, as on the desktop
-  wins.forEach(function (w) { w.addEventListener('pointerdown', function () { if (state === 'awake' || state === 'docked') w.style.zIndex = ++z; }); });
+  // a click on a window brings it to the front, as on the desktop
+  wins.forEach(function (w) { w.addEventListener('pointerdown', function () { if (mode === 'ball') w.style.zIndex = ++z; }); });
 
-  // waking and settling follow the pointer; a scroll tucks an awake ball at once
-  stage.addEventListener('pointermove', function (e) {
-    if (press) return;
-    var p = rel(e);
-    if (state === 'docked' && near(p)) wake();
-    else if (state === 'awake') { if (near(p)) { if (homed) wake(); } else if (!homed) home(); }
-    else if (state === 'point') hover(e);
-    else if (state === 'tool') hoverTool(e);
-  });
-  stage.addEventListener('pointerleave', function () { if (state === 'awake' && !homed) home(); });
-  window.addEventListener('scroll', function () { if (state === 'awake') tuck(); }, { passive: true });
-
-  // the ball: a click points, a hold opens the ring, a drag moves it, a drop near an edge tucks it there (the ghost says where).
-  // The press is followed on the document, not by pointer capture: the ball hides while the ring is open.
+  // ---- the press (BallView): only the disc takes it; a hold opens the ring, 6 pt of travel drags, a release clicks ----
   ball.addEventListener('pointerdown', function (e) {
-    if (state === 'point' || state === 'note' || state === 'tool' || press) return;
-    e.preventDefault(); clearTimeout(idle);
-    if (state === 'docked') wake();
-    press = { x: e.clientX, y: e.clientY, moved: false };
-    hold = setTimeout(openRing, HOLD);
+    if (mode !== 'ball' || press || bs === 'hidden') return;
+    var p = rel(e.clientX, e.clientY), c = current();
+    if (Math.hypot(p.x - c.x, p.y - c.y) > R + 2 * S) return;
+    e.preventDefault();
+    if (e.pointerType === 'touch') { last = { x: e.clientX, y: e.clientY, touch: true }; }
+    press = { x: e.clientX, y: e.clientY, grab: { x: p.x - c.x, y: p.y - c.y }, moved: false, samples: [{ t: e.timeStamp, x: p.x, y: p.y }] };
+    clearTimeout(dockTimer);
+    holdTimer = setTimeout(openRing, HOLD);
     document.addEventListener('pointermove', pressMove, true);
     document.addEventListener('pointerup', pressUp, true);
     document.addEventListener('pointercancel', pressCancel, true);
@@ -819,63 +952,85 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
     document.removeEventListener('pointercancel', pressCancel, true);
   }
   function pressMove(e) {
-    if (state === 'ring') { ringMove(e); return; }
     if (!press) return;
-    if (!press.moved && Math.hypot(e.clientX - press.x, e.clientY - press.y) < 4) return;
-    clearTimeout(hold); press.moved = true; state = 'awake'; homed = false;
-    var p = rel(e); p.x = Math.max(R, Math.min(W() - R, p.x)); p.y = Math.max(R, Math.min(H() - R, p.y));
-    place(p, 'drag');
-    var sd = p.x < SNAP() ? 'left' : (p.x > W() - SNAP() ? 'right' : null);
-    if (sd) { var t = tuckPt(sd); ghost.style.transform = 'translate(' + (t.x - R) + 'px,' + (t.y - R) + 'px)'; ghost.classList.add('on'); }
+    var p = rel(e.clientX, e.clientY);
+    if (mode === 'ring') { ringMove(p); return; }
+    press.samples.push({ t: e.timeStamp, x: p.x, y: p.y });
+    press.samples = press.samples.filter(function (s) { return e.timeStamp - s.t <= 160; });
+    if (!press.moved && Math.hypot(e.clientX - press.x, e.clientY - press.y) <= 6 * S) return;
+    if (!press.moved) { press.moved = true; clearTimeout(holdTimer); ball.classList.add('dragging'); }
+    // absolute: the disc sits exactly where the cursor carried it
+    var c = { x: clamp(p.x - press.grab.x, R * 0.2, W() - R * 0.2), y: clamp(p.y - press.grab.y, R * 0.2, H() - R * 0.2) };
+    home = c; move(c, 'drag');
+    if (bs === 'docked') { bs = 'rest'; }
+    if (nearEdge(c)) { var t = nearestTuck(c); ghost.style.transform = 'translate(' + (t.x - R) + 'px,' + (t.y - R) + 'px)'; ghost.classList.add('on'); }
     else ghost.classList.remove('on');
   }
+  function velocity(samples) {   // Throw.velocity: over the last 80 ms, in points per second, capped at 4000
+    var lastS = samples[samples.length - 1], first = null;
+    for (var i = 0; i < samples.length; i++) if (lastS.t - samples[i].t <= 80) { first = samples[i]; break; }
+    if (!first || lastS.t <= first.t) return { x: 0, y: 0 };
+    var dt = (lastS.t - first.t) / 1000, v = { x: (lastS.x - first.x) / dt / S, y: (lastS.y - first.y) / dt / S }, sp = Math.hypot(v.x, v.y);
+    return sp > 4000 ? { x: v.x * 4000 / sp, y: v.y * 4000 / sp } : v;
+  }
   function pressUp(e) {
-    unbind(); clearTimeout(hold);
-    if (state === 'ring') { press = null; ringUp(); return; }
-    if (!press) return; var moved = press.moved; press = null; ghost.classList.remove('on');
-    if (!moved) { point(); return; }
-    var p = rel(e); side = p.x < W() / 2 ? 'left' : 'right';
-    if (p.x < SNAP() || p.x > W() - SNAP()) tuck(); else { ball.classList.remove('drag'); state = 'awake'; homed = false; later(home); }
+    unbind(); clearTimeout(holdTimer);
+    var pr = press; press = null; ball.classList.remove('dragging');
+    if (!pr) return;
+    if (mode === 'ring') { ringEnd(); return; }
+    ghost.classList.remove('on');
+    if (!pr.moved) { point(); return; }
+    // FloatingBall.dragEnded and Throw.release
+    pr.samples.push({ t: e.timeStamp, x: rel(e.clientX, e.clientY).x, y: rel(e.clientX, e.clientY).y });
+    var v = velocity(pr.samples), c = { x: shown.x, y: shown.y };
+    if (Math.hypot(v.x, v.y) >= 700) {
+      var land = { x: clamp(c.x + v.x * 0.499 * S, 0, W()), y: clamp(c.y + v.y * 0.499 * S, 0, H()) };
+      if (nearEdge(land)) { tuck(nearestTuck(land)); holdDock = true; }
+      else { home = inside(land); move(home, 'settle'); if (bs === 'rest') scheduleDock(); else set('rest'); }
+    } else if (nearEdge(c)) { tuck(nearestTuck(c)); holdDock = true; }
+    else { home = inside(c); bs = 'rest'; set('ready'); }
   }
   function pressCancel() {
-    unbind(); clearTimeout(hold); press = null; ghost.classList.remove('on');
-    if (state === 'ring') { closeRing(); ball.classList.remove('gone', 'ready'); }
-    home();
+    unbind(); clearTimeout(holdTimer); press = null; ball.classList.remove('dragging'); ghost.classList.remove('on');
+    if (mode === 'ring') { closeRing(); mode = 'ball'; ball.classList.remove('gone'); }
+    cursorMoved(pointerHere());
   }
-  ball.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); point(); } });
+  ball.addEventListener('keydown', function (e) { if ((e.key === 'Enter' || e.key === ' ') && mode === 'ball') { e.preventDefault(); point(); } });
 
-  // the ring: unfolds from the disc after the hold; the quadrant under the pointer lights, the center cancels
+  // ---- the ring: unfolds from the disc after the hold; the quadrant under the pointer lights, the center cancels ----
+  var ringAt = { x: 0, y: 0 };
   function openRing() {
-    if (!press || press.moved) return;
-    state = 'ring'; seg = null; ball.classList.add('ready');
-    // ringSafe: the ball first comes far enough in for the ring to open on screen
-    c.x = Math.max(OUT(), Math.min(W() - OUT(), c.x)); c.y = Math.max(OUT(), Math.min(H() - OUT(), c.y));
-    ring.style.left = c.x + 'px'; ring.style.top = c.y + 'px'; ball.classList.add('gone');
-    ring.classList.add('open'); setTimeout(function () { if (state === 'ring') ring.classList.add('labels'); }, 200);
-    say.textContent = touch ? 'Slide to a rung and let go. Let go in the middle to cancel.' : 'Slide to a rung and let go. Let go in the middle to cancel.';
+    if (!press || press.moved || mode !== 'ball') return;
+    mode = 'ring'; seg = null; clearTimeout(dockTimer);
+    ringAt = ringSafe(current());
+    ring.style.left = ringAt.x + 'px'; ring.style.top = ringAt.y + 'px';
+    ball.classList.add('gone'); stage.classList.remove('over-ball');
+    ring.classList.add('open'); setTimeout(function () { if (mode === 'ring') ring.classList.add('labels'); }, 200);
+    say.textContent = 'Slide to a rung and let go. Let go in the middle to cancel.';
   }
   function segmentFor(dx, dy) {
     if (Math.hypot(dx, dy) <= 25 * S) return null;
     if (Math.abs(dy) >= Math.abs(dx)) return dy < 0 ? 'snap' : 'color';
     return dx > 0 ? 'text' : 'cut';
   }
-  function ringMove(e) {
-    var p = rel(e), sg = segmentFor(p.x - c.x, p.y - c.y);
+  function ringMove(p) {
+    var sg = segmentFor(p.x - ringAt.x, p.y - ringAt.y);
     if (sg === seg) return; seg = sg;
     ring.querySelectorAll('.wedge').forEach(function (w) { w.classList.toggle('on', w.classList.contains(sg || '-')); });
   }
   function closeRing() { ring.classList.remove('open', 'labels'); ring.querySelectorAll('.wedge').forEach(function (w) { w.classList.remove('on'); }); }
-  function ringUp() {
-    var chosen = seg; closeRing(); ball.classList.remove('ready');
-    if (!chosen) { state = 'awake'; ball.classList.remove('gone'); place(c); later(home); say.textContent = 'Cancelled. Nothing written.'; return; }
-    startTool(chosen);
+  function ringEnd() {       // pressEnded: the ring closes and the ball keeps its state
+    var chosen = seg; closeRing();
+    if (chosen) { startTool(chosen); return; }
+    mode = 'ball'; ball.classList.remove('gone'); setStep(1, HELLO);
+    scheduleDock(); look(bs); cursorMoved(pointerHere());
   }
 
-  // point mode: the stage dims, the element under the cursor gets the frame and the label
+  // ---- point mode: the stage dims, the element under the cursor gets the frame and the label ----
   function point() {
-    state = 'point'; level = 0; base = null; pointedAt = Date.now(); clearTimeout(idle);
-    ball.classList.add('gone'); stage.classList.add('pointing');
-    setStep(1, touch ? 'Tap anything: the website, Calculator, or the iPhone app. Esc cancels.'
+    mode = 'point'; level = 0; base = null; pointedAt = Date.now(); clearTimeout(dockTimer);
+    ball.classList.add('gone'); stage.classList.remove('over-ball'); stage.classList.add('pointing');
+    setStep(1, touch ? 'Tap anything: the website, Calculator, or the iPhone app.'
                      : 'Point at anything: the website, Calculator, or the iPhone app. Option steps up to the parent. Esc cancels.');
     document.addEventListener('keydown', keys);
   }
@@ -893,7 +1048,11 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
     return { role: d.role, label: d.label || null, ident: ident, domId: d.domId || null, classes: classes, web: web,
              value: d.value != null ? d.value : null, handle: ident || dom, win: win, isWin: isWin };
   }
-  // Readout.describing + HudText.readout: role, the label only when there is no handle, the handle in mono
+  // Readout.describing: the role, the label only when there is no handle, then the handle or "no identifier"
+  function readoutText(el) {
+    var i = info(el);
+    return i.role + (!i.handle && i.label ? ' "' + i.label + '"' : '') + ' · ' + (i.handle || 'no identifier');
+  }
   function readout(el) {
     var i = info(el), role = i.role + (!i.handle && i.label ? ' "' + i.label + '"' : '');
     return '<span>' + esc(role) + '</span>' + (i.handle ? '<span>·</span><span class="mono">' + esc(i.handle) + '</span>' : '<span>·</span><span class="sec">no identifier</span>');
@@ -908,7 +1067,7 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
     box.style.left = l + 'px'; box.style.top = t + 'px'; box.style.width = (r - l) + 'px'; box.style.height = (b - t) + 'px'; box.classList.add('on');
     tag.innerHTML = html || readout(el); tag.classList.add('on');
     var left = Math.min(Math.max(10, f.x), W() - tag.offsetWidth - 10), top = f.y + f.h + 8;
-    if (top + 30 > H() - 6) top = f.y - 34;                      // flipMargin: flip above near the bottom
+    if (top + 30 > H() - 6) top = f.y - 34;                      // flipMargin: above the element near the bottom
     if (top < 6) top = Math.min(H() - 32, f.y + 8);
     tag.style.left = left + 'px'; tag.style.top = top + 'px';
   }
@@ -930,22 +1089,23 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
     if (b !== base) { base = b; level = 0; }
     var up = chain(base); show(up[Math.min(level, up.length - 1)]);
   }
+  stage.addEventListener('pointermove', function (e) { if (mode === 'point') hover(e); else if (mode === 'tool') hoverTool(e); });
   stage.addEventListener('pointerup', function (e) {
-    if (e.target === ball || ball.contains(e.target)) return;
+    if (ball.contains(e.target)) return;
     if (Date.now() - pointedAt < 150) return;
-    if (state === 'tool') { hoverTool(e); if (target) runTool(); return; }
-    if (state !== 'point') return;
-    if (!target || touch) hover(e); if (!target) return;
+    if (mode === 'tool') { hoverTool(e); if (target) runTool(); return; }
+    if (mode !== 'point') return;
+    if (!target || e.pointerType === 'touch') hover(e); if (!target) return;
     note();
   });
   function keys(e) {
     if (e.key === 'Escape') { e.preventDefault(); cancel(); return; }
-    if (state === 'point' && e.key === 'Alt' && !e.repeat && base) { e.preventDefault(); var up = chain(base); level = Math.min(level + 1, up.length - 1); show(up[level]); }
+    if (mode === 'point' && e.key === 'Alt' && !e.repeat && base) { e.preventDefault(); var up = chain(base); level = Math.min(level + 1, up.length - 1); show(up[level]); }
   }
 
-  // the note: the field under the element, Return copies, Esc cancels and nothing is written
+  // ---- the note: the field under the element; Return copies, Esc cancels ----
   function note() {
-    state = 'note'; var f = frameOf(target);
+    mode = 'note'; var f = frameOf(target);
     tag.classList.remove('on');
     var left = Math.min(Math.max(12, f.x), W() - field.offsetWidth - 12), top = f.y + f.h + 8;
     if (top + 34 > H() - 6) top = f.y - 38;
@@ -961,21 +1121,21 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
       capture(input.value.trim());
     }
   });
-  function end() {
+  function end() {           // back to the ball, which picks its state from where the cursor is
     document.removeEventListener('keydown', keys); field.classList.remove('on'); hide(); stage.classList.remove('pointing', 'cross'); input.blur();
-    tool = null; state = 'awake'; ball.classList.remove('gone'); home();
+    tool = null; mode = 'ball'; ball.classList.remove('gone');
+    look(bs); scheduleDock(); cursorMoved(pointerHere());
   }
-  function cancel() { var was = tool; end(); if (was) say.textContent = 'Nothing written.'; else setStep(1, 'Nothing written. Click the ball to try again.'); }
+  function cancel() { end(); setStep(1, HELLO); }
 
-  // the payload, the way MarkdownBuilder writes it: the note first for a reference, last for a fix
+  // ---- the payload, as MarkdownBuilder writes it: the note first for a reference, last for a fix ----
   function pad(n) { return (n < 10 ? '0' : '') + n; }
   function build(el, text, when) {
-    var i = info(el), wd = i.win.dataset, mode = wd.mode;
+    var i = info(el), wd = i.win.dataset, kind = wd.mode;
     var f = (i.isWin ? wd.f : el.dataset.f).split(',').map(Number);
     var d = when || new Date(), id = when ? 'k7q2' : Math.random().toString(36).slice(2, 6);
     var stamp = d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '-' + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
     var at = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
-    var img = '~/Pictures/Locant/locant-' + wd.file + '-' + stamp + '-' + id + '.png';
     var head = i.role + (i.label ? ' "' + i.label + '"' : '') + (i.ident ? ' · id=' + i.ident : '');
     if (i.web) { if (i.domId) head += ' · #' + i.domId; if (i.classes.length) head += ' · .' + i.classes.slice(0, 6).join('.') + (i.classes.length > 6 ? ' (+' + (i.classes.length - 6) + ' more)' : ''); }
     var hasHandle = !!(i.ident || (i.web && (i.domId || i.classes.length)));
@@ -984,59 +1144,65 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
     if (!i.ident && !i.web) advice = 'No identifier. Grep the label text; add .accessibilityIdentifier("…") to this view so the next capture is exact.';
     else if (!i.ident && !i.domId) advice = hasHandle ? 'No id attribute. Grep the class names or the label text; give the element an id so the next capture is exact.'
                                                       : 'No id or class. Grep the label text; give the element an id so the next capture is exact.';
-    var path = i.isWin ? wd.path : el.dataset.path;
-    var src = ['Image: ' + img, 'App: ' + wd.app + ' (' + wd.bundle + ') · Window: ' + wd.label,
+    var src = ['Image: ~/Pictures/Locant/locant-' + wd.file + '-' + stamp + '-' + id + '.png', 'App: ' + wd.app + ' (' + wd.bundle + ') · Window: ' + wd.label,
                'Captured: ' + at + ' · Image region: ' + num(f[2] + 80) + '×' + num(f[3] + 80) + ' pt @2x (element + 40 pt)'];
     if (wd.url) src.push('URL: ' + wd.url);
     if (wd.project) src.push('Project: ' + wd.project, ADVICE);
     var elem = ['### Target element', head];
     if (advice) elem.push(advice);
     if (i.value != null) elem.push('Value: "' + i.value + '"');
-    elem.push('Frame: x=' + num(f[0]) + ' y=' + num(f[1]) + ' w=' + num(f[2]) + ' h=' + num(f[3]), 'Path: ' + path);
+    elem.push('Frame: x=' + num(f[0]) + ' y=' + num(f[1]) + ' w=' + num(f[2]) + ' h=' + num(f[3]), 'Path: ' + (i.isWin ? wd.path : el.dataset.path));
     var noteBlock = '### Note\n' + text;
-    var blocks = mode === 'reference' ? [noteBlock, src.join('\n'), elem.join('\n')] : [src.join('\n'), elem.join('\n'), noteBlock];
-    var md = '## Locant capture (' + mode + ')\n' + blocks.join('\n\n') + '\n';
-
-    // the same lines, each with what it is for
-    var rows = [['<span class="h">## Locant capture (' + mode + ')</span>', mode === 'fix' ? 'Fix: your own app, so the agent changes its code.' : 'Reference: an app or a page you are pointing at, not your code to change.']];
-    var noteRow = ['<span class="h">### Note</span><br>' + esc(text), 'Your words, as you typed them.'];
-    if (mode === 'reference') rows.push(noteRow);
-    rows.push(['<span class="k">Image:</span> ' + esc(img), 'The picture of the element, saved on your Mac. The agent opens it.']);
-    rows.push(['<span class="k">App:</span> ' + esc(wd.app + ' (' + wd.bundle + ') · Window: ' + wd.label), 'Which app and window it is in.']);
-    rows.push(['<span class="k">Captured:</span> ' + esc(src[2].slice(10)), 'When, and how much around the element the picture shows.']);
-    if (wd.url) rows.push(['<span class="k">URL:</span> ' + esc(wd.url), 'The page it is on.']);
-    if (wd.project) rows.push(['<span class="k">Project:</span> ' + esc(wd.project) + '<br>' + esc(ADVICE), 'The folder the app on screen was built from, so the agent changes that copy, never a look-alike in another.']);
-    rows.push(['<span class="h">### Target element</span><br>' + esc(head),
-      i.ident ? 'Its name in the code. The agent searches for it and lands in the right file.'
-              : hasHandle ? 'The page’s own handles for it, to search the code for.' : 'It has no name in the code, so the next line says how to find it anyway.']);
-    if (advice) rows.push([esc(advice), i.web ? 'How to find it without an id, and how to give it one.' : 'How to find it without a name, and how to give it one.']);
-    if (i.value != null) rows.push(['<span class="k">Value:</span> "' + esc(i.value) + '"', 'What it shows right now.']);
-    rows.push(['<span class="k">Frame:</span> x=' + num(f[0]) + ' y=' + num(f[1]) + ' w=' + num(f[2]) + ' h=' + num(f[3]), 'Where it is on screen and how big, in points.']);
-    rows.push(['<span class="k">Path:</span> ' + esc(path), 'Where it sits in the app’s tree of views.']);
-    if (mode === 'fix') rows.push(noteRow);
-    return { md: md, rows: rows };
+    var blocks = kind === 'reference' ? [noteBlock, src.join('\n'), elem.join('\n')] : [src.join('\n'), elem.join('\n'), noteBlock];
+    return '## Locant capture (' + kind + ')\n' + blocks.join('\n\n') + '\n';
   }
-  function render(rows) { lines.innerHTML = rows.map(function (r) { return '<div class="ln"><code>' + r[0] + '</code><span>' + r[1] + '</span></div>'; }).join(''); }
+
+  // ---- what your agent receives: the picture Locant saves, the note, the element's name, and where it is ----
+  // from the element's place in its screenshot, not the layout: on a phone the window may be behind another tab
+  var IMG_PT = { web: 760, calc: 230, phone: 236 };       // each screenshot's width in points
+  function drawCrop(el) {
+    var win = el.closest('.win'), img = win.querySelector('img');
+    if (!img.complete || !img.naturalWidth) { img.addEventListener('load', function () { drawCrop(el); }, { once: true }); return; }
+    var nw = img.naturalWidth, nh = img.naturalHeight, padPx = 40 * nw / IMG_PT[win.dataset.scene];   // element + 40 pt
+    var x = 0, y = 0, w = nw, h = nh;
+    if (el !== win) { var st = el.style; x = parseFloat(st.left) / 100 * nw; y = parseFloat(st.top) / 100 * nh; w = parseFloat(st.width) / 100 * nw; h = parseFloat(st.height) / 100 * nh; }
+    var x0 = clamp(x - padPx, 0, nw), y0 = clamp(y - padPx, 0, nh), x1 = clamp(x + w + padPx, 0, nw), y1 = clamp(y + h + padPx, 0, nh);
+    var cw = Math.max(1, Math.round(x1 - x0)), ch = Math.max(1, Math.round(y1 - y0)), sc = Math.min(1, 900 / Math.max(cw, ch));
+    crop.width = Math.round(cw * sc); crop.height = Math.round(ch * sc);
+    try { crop.getContext('2d').drawImage(img, x0, y0, cw, ch, 0, 0, crop.width, crop.height); } catch (err) {}
+  }
+  function present(el, text, when) {
+    var i = info(el), wd = i.win.dataset;
+    fNote.textContent = text;
+    fEl.textContent = readoutText(el);
+    fWhy.textContent = i.ident ? 'Its name in the code. Your agent searches for it and opens the right file.'
+                     : i.handle ? 'The page’s own handle for it. Your agent searches the code for it.'
+                     : 'It has no name in the code, so the paste says how to find it by its label.';
+    fWhere.textContent = WHERE[wd.scene] || wd.app;
+    if (wd.project) { fBuilt.hidden = false; fBuilt.textContent = 'Built from ' + wd.project + ', so your agent edits that copy.'; } else fBuilt.hidden = true;
+    raw.textContent = build(el, text, when);
+    drawCrop(el);
+  }
   function flashToast(text, el) {
     var f = frameOf(el); toast.textContent = text;
     toast.style.left = Math.max(10, Math.min(f.x, W() - toast.offsetWidth - 10)) + 'px'; toast.style.top = Math.max(10, f.y - 34) + 'px';
     toast.classList.add('on'); setTimeout(function () { toast.classList.remove('on'); }, 1200);
   }
   function capture(text) {
-    var el = target, out = build(el, text);
-    render(out.rows);
-    try { navigator.clipboard && navigator.clipboard.writeText(out.md); } catch (err) {}
+    var el = target;
+    present(el, text);
+    try { navigator.clipboard && navigator.clipboard.writeText(raw.textContent); } catch (err) {}
     var i = info(el); flashToast(i.handle ? 'Copied · ' + i.handle : 'Copied', el);
-    end(); setStep(3, 'Copied, for real. Paste it in your agent; this is what arrives:');
-    lines.classList.add('flash'); setTimeout(function () { lines.classList.remove('flash'); }, 900);
+    end(); setStep(3, 'Copied. Paste it in your agent; this is what it gets.');
+    card.classList.remove('new'); void card.offsetWidth; card.classList.add('new');
     if (window.innerWidth <= 720) result.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
-  // the rungs, here: Snap and Cut take the window under the cursor, Text copies its words, Color reads the pixel
+  // ---- the rungs, here: Snap and Cut take the window under the cursor, Text copies its words, Color reads the pixel ----
   var TOOL_SAY = { snap: 'Snap: click a window. On your Mac you can drag a region too.', text: 'Text: click a window and its words go to the clipboard.',
                    color: 'Color: click to copy the color under the cursor.', cut: 'Cut: click a window to keep its subject on a transparent background.' };
   function startTool(name) {
-    state = 'tool'; tool = name; pointedAt = Date.now(); clearTimeout(idle);
+    mode = 'tool'; tool = name; pointedAt = Date.now(); clearTimeout(dockTimer);
     stage.classList.add(name === 'snap' || name === 'cut' ? 'cross' : 'pointing'); say.textContent = TOOL_SAY[name];
     document.addEventListener('keydown', keys);
   }
@@ -1055,7 +1221,7 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
       px = (x - r.left - (r.width - img.naturalWidth * s) / 2) / s; py = (y - r.top - (r.height - img.naturalHeight * s) / 2) / s;
     } else { px = (x - r.left) / r.width * img.naturalWidth; py = (y - r.top) / r.height * img.naturalHeight; }
     var d;
-    try { d = cv.getContext('2d').getImageData(Math.max(0, Math.min(cv.width - 1, px | 0)), Math.max(0, Math.min(cv.height - 1, py | 0)), 1, 1).data; } catch (err) { return null; }
+    try { d = cv.getContext('2d').getImageData(clamp(px | 0, 0, cv.width - 1), clamp(py | 0, 0, cv.height - 1), 1, 1).data; } catch (err) { return null; }
     if (d[3] < 128) return null;
     return '#' + [d[0], d[1], d[2]].map(function (v) { return (v < 16 ? '0' : '') + v.toString(16).toUpperCase(); }).join('');
   }
@@ -1071,7 +1237,7 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
   }
   function hoverTool(e) {
     if (tool === 'color') {
-      var hx = colorAt(e), p = rel(e); if (!hx) return;
+      var hx = colorAt(e), p = rel(e.clientX, e.clientY); if (!hx) return;
       target = { hex: hx }; box.classList.remove('on');
       tag.innerHTML = '<i class="sw" style="background:' + hx + '"></i><span class="mono">' + hx + '</span>'; tag.classList.add('on');
       tag.style.left = Math.min(p.x + 16, W() - tag.offsetWidth - 10) + 'px'; tag.style.top = Math.min(p.y + 18, H() - 34) + 'px';
@@ -1096,7 +1262,9 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
   }
 
   // before the first capture, the sample: the Product Ideas orb in Oryne, with the note Malik typed
-  render(build(stage.querySelector('[data-k="p-product-ideas"]'), 'make this orb bigger, with satellite nodes like Light And Color', new Date(2026, 9, 13, 15, 30, 12)).rows);
+  var sampleEl = stage.querySelector('[data-k="p-product-ideas"]');
+  present(sampleEl, 'make this orb bigger, with satellite nodes like Light And Color', new Date(2026, 9, 13, 15, 30, 12));
+  window.addEventListener('load', function () { drawCrop(sampleEl); fit(); });
 })();
 
 // Scroll: each block rises in once as it enters the viewport. Without JS nothing is hidden.
