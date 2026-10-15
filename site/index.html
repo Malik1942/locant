@@ -655,7 +655,7 @@
       input = field.querySelector('input'), toast = stage.querySelector('.toast'), say = document.getElementById('say'),
       steps = document.querySelectorAll('#steps .s'), lines = document.getElementById('lines'), linesBox = document.getElementById('result');
   var D = 48, R = 24, SHOW = 0.6, WAKE = 80, SNAP = 48, OUT = 100, IDLE = 2000, HOLD = 500, RING_IN = 25;
-  var state = 'docked', side = 'right', c = { x: 0, y: 0 }, idle = null, level = 0, base = null, target = null, press = null, pointedAt = 0;
+  var state = 'docked', side = 'right', c = { x: 0, y: 0 }, idle = null, homed = false, level = 0, base = null, target = null, press = null, pointedAt = 0;
   var W = function () { return stage.clientWidth; }, H = function () { return stage.clientHeight; };
   var tuckPt = function (sd) { return { x: sd === 'right' ? W() - (SHOW * D - R) : (SHOW * D - R), y: c.y }; };
   var homePt = function (sd) { return { x: sd === 'right' ? W() - R : R, y: c.y }; };
@@ -666,9 +666,9 @@
   }
   function setStep(n, text) { steps.forEach(function (el, i) { el.classList.toggle('on', i === n - 1); }); if (text) say.textContent = text; }
   function later(fn) { clearTimeout(idle); idle = setTimeout(fn, IDLE); }
-  function tuck() { state = 'docked'; place(tuckPt(side), 'tuck'); }
-  function home() { state = 'awake'; place(homePt(side)); later(tuck); }
-  function wake() { state = 'awake'; place(outPt(side), 'wake'); clearTimeout(idle); }
+  function tuck() { state = 'docked'; homed = false; idle = null; place(tuckPt(side), 'tuck'); }
+  function home() { state = 'awake'; homed = true; place(homePt(side)); later(tuck); }
+  function wake() { state = 'awake'; homed = false; clearTimeout(idle); idle = null; place(outPt(side), 'wake'); }
   function rel(e) { var r = stage.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
   function near(p) { return Math.hypot(p.x - c.x, p.y - c.y) < WAKE; }
 
@@ -686,7 +686,7 @@
     if (press) return;
     var p = rel(e);
     if (state === 'docked' && near(p)) wake();
-    else if (state === 'awake') { if (near(p)) { clearTimeout(idle); if (ball.classList.contains('tuck')) place(outPt(side), 'wake'); } else if (!idle) later(tuck); }
+    else if (state === 'awake') { if (near(p)) { if (homed) wake(); } else if (!homed) home(); }
     else if (state === 'point') hover(e);
     else if (state === 'tool') hoverTool(e);
   });
