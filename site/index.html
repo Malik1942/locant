@@ -175,17 +175,8 @@
   .sect-head { display: grid; gap: 10px; margin-bottom: 32px; max-width: 640px; }
   .sect-head .lede { font-size: 21px; }
 
-  /* the note field: label.bg at 6 pt, 28 pt tall, label.sans 12 pt, the hint right-aligned in the secondary color */
-  .hud {
-    background: var(--hud); border: 1px solid var(--hud-edge); border-radius: 6px; height: 28px; padding: 0 8px;
-    font-size: 12px; color: var(--ink); white-space: nowrap; display: flex; align-items: center; gap: 8px;
-    max-width: 100%; box-shadow: 0 4px 14px rgba(0,0,0,.10);
-  }
-  .hud > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-  .hud .hint { flex: none; }
-  .hud .caret { display: inline-block; width: 1px; height: 14px; background: var(--ink); vertical-align: -3px; margin-left: 1px; }
-  .hud .hint { color: var(--muted); }
-  /* the demo: step line, then the stage with the mock app, the overlay, and the ball */
+  /* the demo: a real desktop. The wallpaper is macOS's own (Lake Tahoe); the windows are a website in Safari,
+     Calculator, and an iPhone app in the Simulator, captured on a Mac with their accessibility data */
   .steps { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin: -12px 0 18px; font-size: 15px; color: var(--muted); }
   .steps .s { display: inline-flex; align-items: center; gap: 7px; transition: color .25s ease; }
   .steps .s b { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; font-size: 12px; font-weight: 600; color: var(--muted); box-shadow: 0 0 0 1px var(--hair); transition: background .25s ease, color .25s ease, box-shadow .25s ease; }
@@ -193,141 +184,140 @@
   .steps .s.on b { background: var(--accent); color: #fff; box-shadow: none; }
   .steps .say { flex-basis: 100%; color: var(--ink); min-height: 1.5em; }
   @media (min-width: 721px) { .steps .say { flex-basis: auto; margin-left: auto; } }
+  .scenes { display: none; }
 
   .stage {
-    position: relative; aspect-ratio: 16 / 9; max-height: 520px; border-radius: 18px; overflow: hidden;
-    background: var(--ground) url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 1600 1000%22 preserveAspectRatio=%22xMidYMid slice%22%3E%0A%3Cdefs%3E%0A%3ClinearGradient id=%22sky%22 x1=%220%22 y1=%220%22 x2=%220%22 y2=%221%22%3E%3Cstop offset=%220%22 stop-color=%22%231f4f8f%22/%3E%3Cstop offset=%22.55%22 stop-color=%22%236fa6dc%22/%3E%3Cstop offset=%221%22 stop-color=%22%23cfe3f3%22/%3E%3C/linearGradient%3E%0A%3ClinearGradient id=%22lake%22 x1=%220%22 y1=%220%22 x2=%220%22 y2=%221%22%3E%3Cstop offset=%220%22 stop-color=%22%232d8fb6%22/%3E%3Cstop offset=%22.5%22 stop-color=%22%231e6f98%22/%3E%3Cstop offset=%221%22 stop-color=%22%230f3f66%22/%3E%3C/linearGradient%3E%0A%3ClinearGradient id=%22ridge%22 x1=%220%22 y1=%220%22 x2=%220%22 y2=%221%22%3E%3Cstop offset=%220%22 stop-color=%22%23e9f1f8%22/%3E%3Cstop offset=%22.18%22 stop-color=%22%239fb6c9%22/%3E%3Cstop offset=%221%22 stop-color=%22%234b6378%22/%3E%3C/linearGradient%3E%0A%3ClinearGradient id=%22ridge2%22 x1=%220%22 y1=%220%22 x2=%220%22 y2=%221%22%3E%3Cstop offset=%220%22 stop-color=%22%23b9cbdb%22/%3E%3Cstop offset=%221%22 stop-color=%22%233f5567%22/%3E%3C/linearGradient%3E%0A%3CradialGradient id=%22sun%22 cx=%22.78%22 cy=%22.12%22 r=%22.35%22%3E%3Cstop offset=%220%22 stop-color=%22%23fff6d8%22 stop-opacity=%22.9%22/%3E%3Cstop offset=%221%22 stop-color=%22%23fff6d8%22 stop-opacity=%220%22/%3E%3C/radialGradient%3E%0A%3ClinearGradient id=%22rock%22 x1=%220%22 y1=%220%22 x2=%220%22 y2=%221%22%3E%3Cstop offset=%220%22 stop-color=%22%23e6e4df%22/%3E%3Cstop offset=%22.5%22 stop-color=%22%239a9790%22/%3E%3Cstop offset=%221%22 stop-color=%22%234f4d49%22/%3E%3C/linearGradient%3E%0A%3C/defs%3E%0A%3Crect width=%221600%22 height=%221000%22 fill=%22url(%23sky)%22/%3E%0A%3Crect width=%221600%22 height=%221000%22 fill=%22url(%23sun)%22/%3E%0A%3Cpath d=%22M0 560 L140 470 L260 520 L380 420 L520 500 L640 440 L760 510 L900 400 L1040 480 L1180 430 L1300 500 L1440 440 L1600 520 L1600 620 L0 620 Z%22 fill=%22url(%23ridge2)%22/%3E%0A%3Cpath d=%22M0 600 L120 540 L230 580 L330 520 L470 585 L600 530 L720 590 L840 500 L960 575 L1100 520 L1240 590 L1380 540 L1600 600 L1600 640 L0 640 Z%22 fill=%22url(%23ridge)%22/%3E%0A%3Crect y=%22620%22 width=%221600%22 height=%22380%22 fill=%22url(%23lake)%22/%3E%0A%3Cg fill=%22%23ffffff%22 opacity=%22.22%22%3E%3Cellipse cx=%22300%22 cy=%22700%22 rx=%22180%22 ry=%224%22/%3E%3Cellipse cx=%22900%22 cy=%22740%22 rx=%22260%22 ry=%225%22/%3E%3Cellipse cx=%221350%22 cy=%22690%22 rx=%22150%22 ry=%223%22/%3E%3Cellipse cx=%22600%22 cy=%22820%22 rx=%22300%22 ry=%226%22/%3E%3Cellipse cx=%221200%22 cy=%22880%22 rx=%22220%22 ry=%225%22/%3E%3C/g%3E%0A%3Cg fill=%22url(%23rock)%22%3E%3Cellipse cx=%22180%22 cy=%22760%22 rx=%22150%22 ry=%2270%22/%3E%3Cellipse cx=%22330%22 cy=%22820%22 rx=%22110%22 ry=%2255%22/%3E%3Cellipse cx=%221320%22 cy=%22790%22 rx=%22190%22 ry=%2285%22/%3E%3Cellipse cx=%221500%22 cy=%22880%22 rx=%22140%22 ry=%2265%22/%3E%3Cellipse cx=%22760%22 cy=%22930%22 rx=%22230%22 ry=%2280%22/%3E%3Cellipse cx=%221040%22 cy=%22870%22 rx=%2290%22 ry=%2242%22/%3E%3C/g%3E%0A%3Crect y=%22640%22 width=%221600%22 height=%22360%22 fill=%22url(%23lake)%22 opacity=%22.25%22/%3E%0A%3C/svg%3E") center / cover no-repeat; box-shadow: var(--shadow); user-select: none; -webkit-user-select: none;
+    position: relative; aspect-ratio: 16 / 10; border-radius: 18px; overflow: hidden; isolation: isolate;
+    background: #3d6c97; box-shadow: var(--shadow); user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+    --b: .7656;
   }
-  .stage.pointing { cursor: crosshair; }
-  /* the mock app: a small Mac window, off center so the ball has the right edge */
-  .app {
-    position: absolute; left: 44%; top: 50%; transform: translate(-50%, -50%); width: min(460px, 68%);
-    background: var(--surface); border-radius: 12px; box-shadow: 0 0 0 1px var(--hair), 0 12px 32px rgba(0,0,0,.18);
-    font-size: 14px; color: var(--ink); overflow: hidden;
-  }
-  .app .tb { height: 34px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding-inline: 10px; background: var(--frame-chrome); border-bottom: 1px solid var(--hair); }
-  .app .dots { display: flex; gap: 6px; }
-  .app .dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--hair); display: block; }
-  .app .title { font-weight: 600; color: var(--muted); font-size: 12px; }
-  .app .bar { display: flex; gap: 8px; align-items: center; padding: 10px 12px; }
-  .app .search { flex: 1; color: var(--muted); background: var(--frame); border-radius: 7px; padding: 5px 9px; }
-  .app .pill { background: var(--accent); color: #fff; font-weight: 600; padding: 5px 12px; border-radius: 980px; }
-  .app .list { display: grid; }
-  .app .row { display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; border-top: 1px solid var(--hair); }
-  .app .badge { font-size: 11px; color: var(--muted); background: var(--frame); border-radius: 6px; padding: 2px 7px; }
-  .app .badge.ready { color: #fff; background: #34c759; }
-  .app .foot { display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; border-top: 1px solid var(--hair); color: var(--muted); }
-  .app .toggle { position: relative; width: 30px; height: 18px; border-radius: 9px; background: #34c759; }
-  .app .toggle i { position: absolute; top: 2px; right: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; }
-  @media (max-width: 720px) {
-    .stage { aspect-ratio: 4 / 5; max-height: none; }
-    .app { left: 45%; width: 80%; }
-  }
-  /* the overlay: the accent outline on the element with the dim around it, the label under it */
-  /* the dim is the outline's outer shadow: everything darkens except what is inside the frame, so the
-     element keeps its own color and a blue button inside the frame is the frame's blue */
-  .stage .outline { position: absolute; left: 50%; top: 50%; width: 0; height: 0; border: 2px solid transparent; border-radius: 6px; opacity: 0; pointer-events: none;
-    box-shadow: 0 0 0 9999px rgba(0,0,0,.28); transition: top .14s ease, left .14s ease, width .14s ease, height .14s ease, opacity .2s ease, border-color .12s ease; }
-  .stage.pointing .outline { opacity: 1; }
+  .stage .wall { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+  .stage.pointing { cursor: pointer; }
+  .stage.cross { cursor: crosshair; }
+  /* windows: placed on a 1280 x 800 pt desktop; --s is each window's own px per pt */
+  .win { position: absolute; --s: .7656; }
+  .win .hot { position: absolute; display: block; }
+  .win img { display: block; width: 100%; height: 100%; -webkit-user-drag: none; pointer-events: none; }
+  .win.web { z-index: 1; border-radius: calc(12px * var(--s)); overflow: hidden; background: #1d1d1f; box-shadow: 0 0 0 1px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.08), 0 calc(22px * var(--s)) calc(60px * var(--s)) rgba(0,0,0,.42); }
+  .win.web .chrome { position: absolute; inset: 0 0 auto; height: calc(52 / 527 * 100%); display: flex; align-items: center; gap: calc(14px * var(--s)); padding-inline: calc(18px * var(--s)); background: #2a2a2d; border-bottom: 1px solid rgba(0,0,0,.6); }
+  .win .lights { display: flex; gap: calc(8px * var(--s)); }
+  .win .lights i { width: calc(12px * var(--s)); height: calc(12px * var(--s)); border-radius: 50%; display: block; background: #ff5f57; box-shadow: inset 0 0 0 .5px rgba(0,0,0,.25); }
+  .win .lights i + i { background: #febc2e; }
+  .win .lights i + i + i { background: #28c840; }
+  .win.web .arrows { display: flex; gap: calc(16px * var(--s)); margin-left: calc(10px * var(--s)); }
+  .win.web .arrows i { width: calc(8px * var(--s)); height: calc(8px * var(--s)); border-left: calc(1.6px * var(--s)) solid #a1a1a6; border-bottom: calc(1.6px * var(--s)) solid #a1a1a6; transform: rotate(45deg); display: block; }
+  .win.web .arrows .fwd { transform: rotate(-135deg); opacity: .45; }
+  .win.web .addr { position: absolute; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: calc(6px * var(--s)); height: calc(30px * var(--s)); padding: 0 calc(90px * var(--s)); border-radius: calc(9px * var(--s)); background: rgba(255,255,255,.07); color: #e5e5ea; font-size: calc(13px * var(--s)); white-space: nowrap; }
+  .win.web .lock { width: calc(7px * var(--s)); height: calc(6px * var(--s)); border-radius: calc(1.5px * var(--s)); background: #a1a1a6; position: relative; display: block; }
+  .win.web .lock::before { content: ""; position: absolute; left: 12%; right: 12%; bottom: 80%; height: calc(5px * var(--s)); border: calc(1.4px * var(--s)) solid #a1a1a6; border-bottom: 0; border-radius: calc(4px * var(--s)) calc(4px * var(--s)) 0 0; }
+  .win.web .view { position: absolute; inset: calc(52 / 527 * 100%) 0 0; }
+  .win.calc { z-index: 2; border-radius: calc(26px * var(--s)); filter: drop-shadow(0 calc(16px * var(--s)) calc(30px * var(--s)) rgba(0,0,0,.42)) drop-shadow(0 0 .5px rgba(0,0,0,.8)); }
+  /* the iPhone: the Simulator's screen in a titanium edge; screen corners 55 pt, here at the window's scale */
+  .win.phone { z-index: 3; border-radius: calc(39.3px * var(--s)); background: linear-gradient(150deg, #6b6c70, #2a2a2d 22%, #1c1c1e 60%, #3a3a3d); box-shadow: inset 0 0 0 calc(1px * var(--s)) rgba(255,255,255,.22), inset 0 0 0 calc(3px * var(--s)) #0c0c0d, 0 0 0 1px rgba(0,0,0,.5), 0 calc(20px * var(--s)) calc(50px * var(--s)) rgba(0,0,0,.45); }
+  .win.phone .screen { position: absolute; inset: calc(7px * var(--s)); border-radius: calc(32.3px * var(--s)); overflow: hidden; background: #000; }
+  .win.flash::after, .win.phone.flash .screen::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: #fff; animation: shutter .45s ease-out forwards; pointer-events: none; z-index: 5; }
+  .win.phone.flash::after { content: none; }
+  @keyframes shutter { from { opacity: .85; } to { opacity: 0; } }
+
+  /* the overlay (DesignTokens): the dim is the frame's outer shadow, 20 percent black, so the element inside keeps
+     its own color; the frame is 2 pt of the accent with 6 pt corners; the label reads role · identifier */
+  .stage .outline { position: absolute; left: 50%; top: 50%; width: 0; height: 0; z-index: 10; border: 2px solid transparent; border-radius: calc(6px * var(--b)); opacity: 0; pointer-events: none;
+    box-shadow: 0 0 0 9999px rgba(0,0,0,.2); transition: top .08s ease, left .08s ease, width .08s ease, height .08s ease, opacity .2s ease, border-color .08s ease; }
+  .stage.pointing .outline, .stage.cross .outline { opacity: 1; }
   .stage .outline.on { border-color: var(--accent); }
-  .stage .hud { position: absolute; opacity: 0; pointer-events: none; transition: opacity .12s ease; }
+  .stage .hud {
+    position: absolute; z-index: 11; opacity: 0; pointer-events: none; transition: opacity .08s ease;
+    display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 8px; max-width: calc(100% - 20px);
+    background: rgba(40,40,43,.84); -webkit-backdrop-filter: blur(20px) saturate(1.6); backdrop-filter: blur(20px) saturate(1.6);
+    border: 1px solid rgba(255,255,255,.12); border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,.28);
+    color: #f5f5f7; font-size: 12px; white-space: nowrap;
+  }
   .stage .hud.on { opacity: 1; }
-  .stage .tag { font-family: ui-monospace, "SF Mono", Menlo, monospace; height: 26px; }
-  .stage .field { pointer-events: auto; width: 260px; max-width: calc(100% - 24px); }
+  .stage .hud .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
+  .stage .hud .sec { color: rgba(235,235,245,.6); }
+  .stage .hud .sw { width: 12px; height: 12px; border-radius: 3px; box-shadow: 0 0 0 1px rgba(255,255,255,.3); flex: none; }
+  .stage .field { width: 290px; }
+  .stage .field.on { pointer-events: auto; }
   .stage .field input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: inherit; font: inherit; }
+  .stage .field input::placeholder { color: rgba(235,235,245,.45); }
+  .stage .field .hint { color: rgba(235,235,245,.6); flex: none; }
   .stage .field.shake { animation: shake .3s ease; }
   @keyframes shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
   .stage .toast { font-weight: 600; }
-  /* the ball: FloatingBall.Tokens, 48 pt of clear glass (NSGlassEffectView .clear), in layers that every browser
-     draws: the body darkens and softens the scene behind it, a frosted band around the edge is the thick glass
-     (brighter, more blurred), the top edge catches light and the bottom edge glows back, an inner shadow gives it
-     depth. Where the browser takes an SVG filter in backdrop-filter the scene also bends at the rim. A light drifts
-     inside (glowAlpha .14, 6 s), ready tints it the accent at 28 percent and scales it 1.04. */
+
+  /* the ball: FloatingBall.Tokens, 48 pt of clear glass at 90 percent (restAlpha). Measured on the real disc: inside,
+     the scene keeps its brightness but only about 14 percent of its contrast and half its color, so the glass is the
+     average of what is under it (a wide blur) laid at 86 percent over a light blur that keeps the shapes. The rim is
+     a dark hairline at the edge and a light half-point line 1.5 pt inside. Under the cursor the veil lifts, the disc
+     grows to 1.04 (hoverScale), and the hand appears. */
   .stage .ball, .stage .ghost {
-    position: absolute; left: 0; top: 0; width: 48px; height: 48px; border-radius: 50%; margin: 0; padding: 0; border: 0;
-    background: transparent; will-change: transform; transition: scale .4s var(--hover);
-    filter: drop-shadow(0 6px 10px rgba(0,0,0,.30));
+    position: absolute; left: 0; top: 0; z-index: 12; width: calc(48px * var(--b)); height: calc(48px * var(--b)); margin: 0; padding: 0; border: 0;
+    border-radius: 50%; background: transparent; will-change: transform; -webkit-tap-highlight-color: transparent;
   }
-  .stage .ball > i, .stage .ball::before, .stage .ball::after, .stage .ghost::before, .stage .ghost::after { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; }
-  /* the body */
-  .stage .ball::before, .stage .ghost::before {
-    content: ""; background: rgba(34, 38, 46, .34);
-    -webkit-backdrop-filter: blur(2.5px) saturate(1.25) brightness(1.02); backdrop-filter: blur(2.5px) saturate(1.25) brightness(1.02);
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,.22), inset 0 -8px 14px rgba(0,0,0,.30), inset 0 10px 14px rgba(255,255,255,.08);
-  }
-  @supports (backdrop-filter: url("#lens")) or (-webkit-backdrop-filter: url("#lens")) {
-    .stage .ball::before, .stage .ghost::before { -webkit-backdrop-filter: url("#lens") saturate(1.25) brightness(1.02); backdrop-filter: url("#lens") saturate(1.25) brightness(1.02); }
-  }
-  /* the edge: the same blur as the body, so the glass is one material, only a little lighter in the outer
-     3 px where the lens is thick; the bend itself comes from the filter above where the browser has it */
-  .stage .ball .edge, .stage .ghost .edge {
-    -webkit-backdrop-filter: brightness(1.16) saturate(1.15); backdrop-filter: brightness(1.16) saturate(1.15);
-    background: rgba(255,255,255,.05);
-    -webkit-mask: radial-gradient(circle, transparent 78%, #000 90%, #000 100%); mask: radial-gradient(circle, transparent 78%, #000 90%, #000 100%);
-  }
-  /* the light: a thin rim, bright at the top left, a glint at the top, a softer glow back at the bottom */
-  .stage .ball::after, .stage .ghost::after {
-    content: "";
-    background:
-      radial-gradient(60% 34% at 50% 14%, rgba(255,255,255,.55), rgba(255,255,255,0) 100%),
-      radial-gradient(70% 30% at 50% 92%, rgba(255,255,255,.28), rgba(255,255,255,0) 100%),
-      linear-gradient(135deg, rgba(255,255,255,.75) 0%, rgba(255,255,255,.25) 45%, rgba(255,255,255,.05) 65%, rgba(255,255,255,.35) 100%);
-    box-shadow: inset 0 0 0 1.25px rgba(255,255,255,.55);
-    opacity: .9;
-    -webkit-mask: radial-gradient(circle, transparent 0, transparent calc(50% - 7px), rgba(0,0,0,.35) calc(50% - 4px), #000 calc(50% - 1px));
-    mask: radial-gradient(circle, transparent 0, transparent calc(50% - 7px), rgba(0,0,0,.35) calc(50% - 4px), #000 calc(50% - 1px));
-  }
-  .stage .ball .glint { background: radial-gradient(55% 28% at 50% 16%, rgba(255,255,255,.42), rgba(255,255,255,0) 100%); }
-  .stage .ball .glow { background: radial-gradient(circle at 38% 32%, rgba(255,255,255,.14), rgba(255,255,255,0) 62%); animation: drift 6s ease-in-out infinite alternate; }
+  .stage .ball > i, .stage .ghost > i { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; display: block; }
+  /* no opacity on the ball itself: that would make it a backdrop root and its glass would see nothing behind it,
+     so the 90 percent (restAlpha) is in the layers */
+  .stage .ball .lens, .stage .ghost .lens { opacity: .9; -webkit-backdrop-filter: blur(calc(1.4px * var(--b))) saturate(.5) brightness(1.03); backdrop-filter: blur(calc(1.4px * var(--b))) saturate(.5) brightness(1.03); }
+  .stage .ball .tint, .stage .ghost .tint { opacity: .82; -webkit-backdrop-filter: blur(calc(26px * var(--b))) saturate(.5) brightness(1.03); backdrop-filter: blur(calc(26px * var(--b))) saturate(.5) brightness(1.03); }
+  .stage .ball .glow { background: radial-gradient(closest-side, rgba(255,255,255,.14), rgba(255,255,255,0)); animation: drift 6s ease-in-out infinite alternate; }
   @keyframes drift { from { opacity: .35; } to { opacity: 1; } }
-  .stage .ball .tint { background: var(--accent); opacity: 0; box-shadow: 0 0 0 1px var(--accent); transition: opacity .4s var(--hover); }
-  .stage .ball:hover .tint { opacity: .28; }
-  .stage .ball:hover { scale: 1.04; }
-  .stage .ball { cursor: url("assets/cursor-pointing-hand.png") 16 14, pointer; touch-action: none; transition: transform .7s var(--settle), opacity .2s ease, scale .4s var(--hover); }
-  .stage .ball.wake { transition-duration: .8s, .2s, .4s; transition-timing-function: var(--wake), ease, var(--hover); }
-  .stage .ball.tuck { transition-duration: .55s, .2s, .4s; transition-timing-function: var(--tuck), ease, var(--hover); }
-  .stage .ball.drag { transition: none; }
+  .stage .ball .lift { background: rgba(255,255,255,.12); opacity: 0; transition: opacity .32s ease; }
+  .stage .ball .rim, .stage .ghost .rim { box-shadow: 0 0 0 calc(1px * var(--b)) rgba(0,0,0,.24), inset 0 0 0 calc(.6px * var(--b)) rgba(0,0,0,.16); }
+  .stage .ball .rim::after, .stage .ghost .rim::after { content: ""; position: absolute; inset: calc(1.5px * var(--b)); border-radius: 50%; box-shadow: 0 0 0 calc(.6px * var(--b)) rgba(255,255,255,.26); }
+  .stage .ball .hand { background: #fff; opacity: 0; transition: opacity .32s ease; -webkit-mask: url("assets/ball-hand.png") center / 50% no-repeat; mask: url("assets/ball-hand.png") center / 50% no-repeat; filter: drop-shadow(0 .5px .5px rgba(0,0,0,.2)); }
+  .stage .ball:hover .lift, .stage .ball:focus-visible .lift, .stage .ball.ready .lift { opacity: 1; }
+  .stage .ball:hover .hand, .stage .ball:focus-visible .hand, .stage .ball.ready .hand { opacity: 1; }
+  .stage .ball { cursor: pointer; touch-action: none; outline: none; transition: transform .7s var(--settle), opacity .2s ease, scale .32s var(--hover); }
+  .stage .ball:hover, .stage .ball:focus-visible, .stage .ball.ready { scale: 1.04; }
+  .stage .ball.wake { transition-duration: .8s, .2s, .32s; transition-timing-function: var(--wake), ease, var(--hover); }
+  .stage .ball.tuck { transition-duration: .55s, .2s, .32s; transition-timing-function: var(--tuck), ease, var(--hover); }
+  .stage .ball.drag { transition: scale .32s var(--hover); }
   .stage .ball.gone { opacity: 0; pointer-events: none; }
-  .stage .ghost { opacity: 0; transition: opacity .2s ease; pointer-events: none; }
-  .stage .ghost .edge { position: absolute; inset: 0; border-radius: 50%; }
-  .stage .ghost.on { opacity: .35; }
+  .stage .ghost { pointer-events: none; }
+  .stage .ghost > i { opacity: 0 !important; transition: opacity .2s ease; }
+  .stage .ghost.on .lens, .stage .ghost.on .rim { opacity: .35 !important; }
+  .stage .ghost.on .tint { opacity: .3 !important; }
   @media (prefers-reduced-motion: reduce) { .stage .ball .glow { animation: none; opacity: .7; } }
-  /* the ring: Ring.Tokens, 92 pt around the disc on the hover glass, four wedges split on the diagonals,
-     the symbols 54 pt out, the labels after 0.2 s, the hand at center; it unfolds from disc size on the wake spring */
+
+  /* the ring: Ring.Tokens, 92 pt of the regular glass. Measured on the real ring: a little darker than what is under
+     it, half its contrast, most of its color, lighter toward the top; a crisp dark 1 pt edge with a light line inside.
+     It unfolds from disc size on the wake spring; the labels come in after 0.2 s. */
   .stage .ring {
-    position: absolute; left: 0; top: 0; width: 184px; height: 184px; margin: -92px 0 0 -92px; border-radius: 50%;
-    background: rgba(96, 102, 114, .46);
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,.26), inset 0 0 36px rgba(0,0,0,.16), inset 0 -18px 30px rgba(0,0,0,.14), inset 0 14px 24px rgba(255,255,255,.08), 0 14px 36px rgba(0,0,0,.34);
-    -webkit-backdrop-filter: blur(26px) saturate(1.6) brightness(1.04); backdrop-filter: blur(26px) saturate(1.6) brightness(1.04);
-    opacity: 0; transform: scale(.26); pointer-events: none; transition: transform .18s ease-in, opacity .18s ease-in;
+    position: absolute; left: 0; top: 0; z-index: 12; width: calc(184px * var(--b)); height: calc(184px * var(--b)); margin: calc(-92px * var(--b)) 0 0 calc(-92px * var(--b)); border-radius: 50%;
+    background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.02) 50%, rgba(0,0,0,.06));
+    -webkit-backdrop-filter: blur(calc(6.5px * var(--b))) saturate(.8) brightness(.9); backdrop-filter: blur(calc(6.5px * var(--b))) saturate(.8) brightness(.9);
+    box-shadow: 0 0 0 1px rgba(0,0,0,.42), 0 calc(10px * var(--b)) calc(30px * var(--b)) rgba(0,0,0,.25);
+    opacity: 0; transform: scale(.26); pointer-events: none; transition: transform .12s ease-in, opacity .12s ease-in;
   }
-  .stage .ring::before {
-    content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
-    background:
-      radial-gradient(55% 22% at 50% 6%, rgba(255,255,255,.35), rgba(255,255,255,0) 100%),
-      linear-gradient(135deg, rgba(255,255,255,.7) 0%, rgba(255,255,255,.22) 45%, rgba(255,255,255,.04) 65%, rgba(255,255,255,.3) 100%);
-    -webkit-mask: radial-gradient(circle, transparent 0, transparent calc(50% - 9px), rgba(0,0,0,.3) calc(50% - 5px), #000 calc(50% - 1px));
-    mask: radial-gradient(circle, transparent 0, transparent calc(50% - 9px), rgba(0,0,0,.3) calc(50% - 5px), #000 calc(50% - 1px));
-  }
+  .stage .ring::before { content: ""; position: absolute; inset: calc(1.5px * var(--b)); border-radius: 50%; box-shadow: 0 0 0 calc(.75px * var(--b)) rgba(255,255,255,.2); pointer-events: none; }
   .stage .ring.open { opacity: 1; transform: none; transition: transform .8s var(--wake), opacity .1s ease; }
-  .stage .ring svg { position: absolute; inset: -1px; width: 184px; height: 184px; }
+  .stage .ring svg { position: absolute; inset: 0; width: 100%; height: 100%; }
   .stage .ring .wedge { fill: transparent; transition: fill .12s ease; }
-  .stage .ring .wedge.on { fill: rgba(255,255,255,.10); }
-  .stage .ring .sep { stroke: rgba(255,255,255,.22); stroke-width: 1; fill: none; }
-  .stage .ring .seg { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: grid; justify-items: center; gap: 3px; font-size: 12px; color: rgba(255,255,255,.82); text-shadow: 0 1px 2px rgba(0,0,0,.25); white-space: nowrap; }
-  .stage .ring .seg.snap { top: calc(50% - 54px); }
-  .stage .ring .seg.text { left: calc(50% + 54px); }
-  .stage .ring .seg.color { top: calc(50% + 54px); }
-  .stage .ring .seg.cut { left: calc(50% - 54px); }
-  .stage .ring .glyph { width: 22px; height: 22px; background: #fff; -webkit-mask: var(--glyph) center / contain no-repeat; mask: var(--glyph) center / contain no-repeat; }
+  .stage .ring .wedge.on { fill: rgba(255,255,255,.1); }
+  .stage .ring .sep { stroke: rgba(255,255,255,.16); stroke-width: 1; fill: none; vector-effect: non-scaling-stroke; }
+  .stage .ring .seg { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: grid; justify-items: center; gap: calc(4px * var(--b)); font-size: max(11px, calc(13px * var(--b))); color: rgba(255,255,255,.86); text-shadow: 0 1px 2px rgba(0,0,0,.2); white-space: nowrap; }
+  .stage .ring .seg.snap { top: calc(50% - 54px * var(--b)); }
+  .stage .ring .seg.text { left: calc(50% + 54px * var(--b)); }
+  .stage .ring .seg.color { top: calc(50% + 54px * var(--b)); }
+  .stage .ring .seg.cut { left: calc(50% - 54px * var(--b)); }
+  .stage .ring .glyph { width: calc(24px * var(--b)); height: calc(24px * var(--b)); background: #fff; -webkit-mask: var(--glyph) center / contain no-repeat; mask: var(--glyph) center / contain no-repeat; }
   .stage .ring .seg span { opacity: 0; transition: opacity .2s ease; }
   .stage .ring.labels .seg span { opacity: 1; }
-  .stage .ring .hand { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; background: url("assets/cursor-pointing-hand.png") center / contain no-repeat; }
-  /* what the rungs do here: Snap's shutter, Color's swatch in the label */
-  .stage .app.flash::after { content: ""; position: absolute; inset: 0; background: #fff; animation: shutter .4s ease-out forwards; pointer-events: none; }
-  @keyframes shutter { from { opacity: .9; } to { opacity: 0; } }
-  .stage .tag .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 7px; vertical-align: -1px; box-shadow: 0 0 0 1px rgba(0,0,0,.25); }
-  :root { --wake: linear(0.0000 0.0%, 0.0275 2.5%, 0.0957 5.0%, 0.1872 7.5%, 0.2895 10.0%, 0.3936 12.5%, 0.4936 15.0%, 0.5856 17.5%, 0.6678 20.0%, 0.7391 22.5%, 0.7996 25.0%, 0.8499 27.5%, 0.8909 30.0%, 0.9235 32.5%, 0.9490 35.0%, 0.9685 37.5%, 0.9830 40.0%, 0.9934 42.5%, 1.0007 45.0%, 1.0054 47.5%, 1.0083 50.0%, 1.0097 52.5%, 1.0102 55.0%, 1.0100 57.5%, 1.0093 60.0%, 1.0084 62.5%, 1.0074 65.0%, 1.0063 67.5%, 1.0053 70.0%, 1.0043 72.5%, 1.0035 75.0%, 1.0027 77.5%, 1.0021 80.0%, 1.0016 82.5%, 1.0012 85.0%, 1.0008 87.5%, 1.0005 90.0%, 1.0003 92.5%, 1.0002 95.0%, 1.0001 97.5%, 1.0000 100.0%); --settle: linear(0.0000 0.0%, 0.0258 2.5%, 0.0892 5.0%, 0.1739 7.5%, 0.2681 10.0%, 0.3640 12.5%, 0.4563 15.0%, 0.5419 17.5%, 0.6191 20.0%, 0.6871 22.5%, 0.7460 25.0%, 0.7961 27.5%, 0.8382 30.0%, 0.8731 32.5%, 0.9016 35.0%, 0.9248 37.5%, 0.9433 40.0%, 0.9579 42.5%, 0.9694 45.0%, 0.9783 47.5%, 0.9850 50.0%, 0.9901 52.5%, 0.9938 55.0%, 0.9965 57.5%, 0.9984 60.0%, 0.9997 62.5%, 1.0006 65.0%, 1.0011 67.5%, 1.0014 70.0%, 1.0015 72.5%, 1.0015 75.0%, 1.0014 77.5%, 1.0013 80.0%, 1.0012 82.5%, 1.0010 85.0%, 1.0009 87.5%, 1.0008 90.0%, 1.0006 92.5%, 1.0005 95.0%, 1.0004 97.5%, 1.0000 100.0%); --tuck: linear(0.0000 0.0%, 0.0204 2.5%, 0.0712 5.0%, 0.1403 7.5%, 0.2190 10.0%, 0.3009 12.5%, 0.3819 15.0%, 0.4592 17.5%, 0.5311 20.0%, 0.5966 22.5%, 0.6555 25.0%, 0.7077 27.5%, 0.7535 30.0%, 0.7932 32.5%, 0.8275 35.0%, 0.8568 37.5%, 0.8817 40.0%, 0.9027 42.5%, 0.9204 45.0%, 0.9351 47.5%, 0.9474 50.0%, 0.9575 52.5%, 0.9658 55.0%, 0.9727 57.5%, 0.9783 60.0%, 0.9828 62.5%, 0.9865 65.0%, 0.9894 67.5%, 0.9918 70.0%, 0.9936 72.5%, 0.9951 75.0%, 0.9963 77.5%, 0.9972 80.0%, 0.9979 82.5%, 0.9985 85.0%, 0.9989 87.5%, 0.9992 90.0%, 0.9995 92.5%, 0.9997 95.0%, 0.9998 97.5%, 1.0000 100.0%); --hover: linear(0.0000 0.0%, 0.0169 2.5%, 0.0596 5.0%, 0.1183 7.5%, 0.1860 10.0%, 0.2575 12.5%, 0.3294 15.0%, 0.3993 17.5%, 0.4656 20.0%, 0.5273 22.5%, 0.5840 25.0%, 0.6355 27.5%, 0.6819 30.0%, 0.7233 32.5%, 0.7601 35.0%, 0.7925 37.5%, 0.8210 40.0%, 0.8460 42.5%, 0.8677 45.0%, 0.8866 47.5%, 0.9029 50.0%, 0.9171 52.5%, 0.9292 55.0%, 0.9397 57.5%, 0.9487 60.0%, 0.9564 62.5%, 0.9630 65.0%, 0.9686 67.5%, 0.9734 70.0%, 0.9775 72.5%, 0.9809 75.0%, 0.9839 77.5%, 0.9864 80.0%, 0.9885 82.5%, 0.9903 85.0%, 0.9918 87.5%, 0.9931 90.0%, 0.9942 92.5%, 0.9951 95.0%, 0.9959 97.5%, 1.0000 100.0%); }
+  .stage .ring .hand { position: absolute; left: 50%; top: 50%; width: calc(26px * var(--b)); height: calc(26px * var(--b)); margin: calc(-13px * var(--b)) 0 0 calc(-13px * var(--b)); background: #fff; -webkit-mask: url("assets/ball-hand.png") center / contain no-repeat; mask: url("assets/ball-hand.png") center / contain no-repeat; }
+
+  /* phones: one window at a time, chosen with the tabs */
+  @media (max-width: 720px) {
+    .scenes { display: flex; gap: 2px; padding: 2px; margin: 0 0 12px; width: fit-content; background: var(--frame); border-radius: 9px; }
+    .scenes button { font: inherit; font-size: 14px; border: 0; background: none; color: var(--muted); padding: 6px 12px; border-radius: 7px; cursor: pointer; }
+    .scenes button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+    .stage { aspect-ratio: 4 / 5; border-radius: 14px; }
+    .stage .win { display: none; }
+    .stage[data-scene="web"] .win.web, .stage[data-scene="calc"] .win.calc, .stage[data-scene="phone"] .win.phone { display: block; }
+    .stage .win.web { left: 4% !important; width: 84% !important; height: auto !important; aspect-ratio: 760 / 527; top: 50% !important; transform: translateY(-50%); }
+    .stage .win.calc { height: 80% !important; width: auto !important; aspect-ratio: 230 / 408; left: 44% !important; top: 10% !important; transform: translateX(-50%); }
+    .stage .win.phone { height: 84% !important; width: auto !important; aspect-ratio: 250 / 527.1; left: 44% !important; top: 8% !important; transform: translateX(-50%); }
+    .stage .field { width: 240px; }
+  }
 
   /* the result: the payload, one line each, with what the line is for beside it */
   .result { margin-top: 28px; display: grid; gap: 10px; }
@@ -348,6 +338,8 @@
     .reveal { opacity: 0; transform: translateY(16px); transition: opacity .7s ease, transform .7s cubic-bezier(.2,.7,.2,1); }
     .reveal.in { opacity: 1; transform: none; }
   }
+
+  :root { --wake: linear(0.0000 0.0%, 0.0275 2.5%, 0.0957 5.0%, 0.1872 7.5%, 0.2895 10.0%, 0.3936 12.5%, 0.4936 15.0%, 0.5856 17.5%, 0.6678 20.0%, 0.7391 22.5%, 0.7996 25.0%, 0.8499 27.5%, 0.8909 30.0%, 0.9235 32.5%, 0.9490 35.0%, 0.9685 37.5%, 0.9830 40.0%, 0.9934 42.5%, 1.0007 45.0%, 1.0054 47.5%, 1.0083 50.0%, 1.0097 52.5%, 1.0102 55.0%, 1.0100 57.5%, 1.0093 60.0%, 1.0084 62.5%, 1.0074 65.0%, 1.0063 67.5%, 1.0053 70.0%, 1.0043 72.5%, 1.0035 75.0%, 1.0027 77.5%, 1.0021 80.0%, 1.0016 82.5%, 1.0012 85.0%, 1.0008 87.5%, 1.0005 90.0%, 1.0003 92.5%, 1.0002 95.0%, 1.0001 97.5%, 1.0000 100.0%); --settle: linear(0.0000 0.0%, 0.0258 2.5%, 0.0892 5.0%, 0.1739 7.5%, 0.2681 10.0%, 0.3640 12.5%, 0.4563 15.0%, 0.5419 17.5%, 0.6191 20.0%, 0.6871 22.5%, 0.7460 25.0%, 0.7961 27.5%, 0.8382 30.0%, 0.8731 32.5%, 0.9016 35.0%, 0.9248 37.5%, 0.9433 40.0%, 0.9579 42.5%, 0.9694 45.0%, 0.9783 47.5%, 0.9850 50.0%, 0.9901 52.5%, 0.9938 55.0%, 0.9965 57.5%, 0.9984 60.0%, 0.9997 62.5%, 1.0006 65.0%, 1.0011 67.5%, 1.0014 70.0%, 1.0015 72.5%, 1.0015 75.0%, 1.0014 77.5%, 1.0013 80.0%, 1.0012 82.5%, 1.0010 85.0%, 1.0009 87.5%, 1.0008 90.0%, 1.0006 92.5%, 1.0005 95.0%, 1.0004 97.5%, 1.0000 100.0%); --tuck: linear(0.0000 0.0%, 0.0204 2.5%, 0.0712 5.0%, 0.1403 7.5%, 0.2190 10.0%, 0.3009 12.5%, 0.3819 15.0%, 0.4592 17.5%, 0.5311 20.0%, 0.5966 22.5%, 0.6555 25.0%, 0.7077 27.5%, 0.7535 30.0%, 0.7932 32.5%, 0.8275 35.0%, 0.8568 37.5%, 0.8817 40.0%, 0.9027 42.5%, 0.9204 45.0%, 0.9351 47.5%, 0.9474 50.0%, 0.9575 52.5%, 0.9658 55.0%, 0.9727 57.5%, 0.9783 60.0%, 0.9828 62.5%, 0.9865 65.0%, 0.9894 67.5%, 0.9918 70.0%, 0.9936 72.5%, 0.9951 75.0%, 0.9963 77.5%, 0.9972 80.0%, 0.9979 82.5%, 0.9985 85.0%, 0.9989 87.5%, 0.9992 90.0%, 0.9995 92.5%, 0.9997 95.0%, 0.9998 97.5%, 1.0000 100.0%); --hover: linear(0.0000 0.0%, 0.0169 2.5%, 0.0596 5.0%, 0.1183 7.5%, 0.1860 10.0%, 0.2575 12.5%, 0.3294 15.0%, 0.3993 17.5%, 0.4656 20.0%, 0.5273 22.5%, 0.5840 25.0%, 0.6355 27.5%, 0.6819 30.0%, 0.7233 32.5%, 0.7601 35.0%, 0.7925 37.5%, 0.8210 40.0%, 0.8460 42.5%, 0.8677 45.0%, 0.8866 47.5%, 0.9029 50.0%, 0.9171 52.5%, 0.9292 55.0%, 0.9397 57.5%, 0.9487 60.0%, 0.9564 62.5%, 0.9630 65.0%, 0.9686 67.5%, 0.9734 70.0%, 0.9775 72.5%, 0.9809 75.0%, 0.9839 77.5%, 0.9864 80.0%, 0.9885 82.5%, 0.9903 85.0%, 0.9918 87.5%, 0.9931 90.0%, 0.9942 92.5%, 0.9951 95.0%, 0.9959 97.5%, 1.0000 100.0%); }
 
   /* why: three numbers from the measurement, then where the method is */
   .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
@@ -493,42 +485,125 @@
   <section class="col" id="how">
     <div class="sect-head">
       <h2>Try it here</h2>
-      <p class="lede">The ball and the overlay, in the page. Same moves as on your Mac.</p>
+      <p class="lede">A real Mac desktop: a website, a Mac app, and an iPhone app. One ball points at all of them.</p>
     </div>
     <div class="steps" id="steps" aria-live="polite">
       <span class="s on"><b>1</b>Point</span><span class="s"><b>2</b>Note</span><span class="s"><b>3</b>Paste</span>
-      <span class="say" id="say">The ball rests at the edge. Move toward it, then click it. Press and hold for the ring.</span>
+      <span class="say" id="say">The ball rests at the right edge. Move toward it, then click it. Press and hold for the ring.</span>
     </div>
-    <svg width="0" height="0" aria-hidden="true" style="position:absolute"><filter id="lens" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceGraphic" stdDeviation="1.6" result="soft"/><feImage href="data:image/png;base64,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" x="0" y="0" width="100%" height="100%" preserveAspectRatio="none" result="map"/><feDisplacementMap in="soft" in2="map" scale="18" xChannelSelector="R" yChannelSelector="G"/></filter></svg>
-    <div class="stage" id="stage">
-      <div class="app" data-role="window" data-label="Orders">
-        <div class="tb"><span class="dots"><i></i><i></i><i></i></span><span class="title">Orders</span></div>
-        <div class="bar" data-role="group">
-          <div class="search" data-role="textField" data-id="searchField" data-label="Search">Search</div>
-          <div class="pill" data-role="button" data-id="newOrderButton" data-label="New order">New order</div>
+    <div class="scenes" role="tablist" aria-label="Screens">
+      <button type="button" role="tab" aria-selected="true" data-scene="web">Website</button><button type="button" role="tab" aria-selected="false" data-scene="calc">Mac app</button><button type="button" role="tab" aria-selected="false" data-scene="phone">iPhone app</button>
+    </div>
+    <div class="stage" id="stage" data-scene="web">
+      <img class="wall" src="assets/desktop.jpg" alt="" aria-hidden="true">
+      <div class="win web" data-scene="web" data-role="window" data-label="Oryne: catch ideas before they drift away" data-app="Safari" data-bundle="com.apple.Safari" data-file="safari" data-url="https://oryne.malikzhang.com/" data-mode="reference" data-path="application > window" data-f="36,56,760,527" data-text="Oryne
+Features
+Use cases
+Privacy
+FAQ
+Sound
+Download
+For iPhone and iPad
+Catch ideas before they drift away.
+Oryne is a calm home for your thoughts, voice notes, screenshots, and links. Related ideas gather on their own, and forgotten ones come back when they matter.
+Listen" style="left:2.812%;top:7.000%;width:59.375%;height:65.875%">
+        <div class="chrome"><span class="lights"><i></i><i></i><i></i></span><span class="arrows"><i class="back"></i><i class="fwd"></i></span><span class="addr"><i class="lock"></i>oryne.malikzhang.com</span></div>
+        <div class="view"><img src="assets/scene-web.jpg" alt="The Oryne website in Safari">
+          <i class="hot" data-k="w-page" data-p="" data-role="webArea" data-f="36,108,760,475" data-path="application &gt; window &gt; scrollArea &gt; webArea" style="left:0.000%;top:0.000%;width:100.000%;height:100.000%" data-label="Oryne: catch ideas before they drift away"></i>
+          <i class="hot" data-k="w-bar" data-p="w-page" data-role="group" data-f="36,108,760,30.9" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group.bar" style="left:0.000%;top:0.000%;width:100.000%;height:6.500%" data-dom-class="bar"></i>
+          <i class="hot" data-k="w-barwrap" data-p="w-bar" data-role="group" data-f="64.5,108,703,30.6" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group.bar &gt; group.wrap" style="left:3.750%;top:0.000%;width:92.500%;height:6.438%" data-dom-class="wrap bar__inner"></i>
+          <i class="hot" data-k="w-mark" data-p="w-barwrap" data-role="link" data-f="83.5,115.6,51.9,15.4" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group.bar &gt; group.wrap &gt; link.wordmark" style="left:6.250%;top:1.600%;width:6.828%;height:3.250%" data-label="Oryne" data-dom-class="wordmark"></i>
+          <i class="hot" data-k="w-nav" data-p="w-barwrap" data-role="group" data-f="421.7,117.1,154.1,12.4" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group.bar &gt; group.wrap &gt; group.bar__nav" style="left:50.750%;top:1.925%;width:20.281%;height:2.600%" data-dom-class="bar__nav"></i>
+          <i class="hot" data-k="w-features" data-p="w-nav" data-role="link" data-f="421.7,117.1,31.6,12.4" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group.bar &gt; group.wrap &gt; group.bar__nav &gt; link" style="left:50.750%;top:1.925%;width:4.156%;height:2.600%" data-label="Features"></i>
+          <i class="hot" data-k="w-uses" data-p="w-nav" data-role="link" data-f="467.5,117.1,37.9,12.4" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group.bar &gt; group.wrap &gt; group.bar__nav &gt; link" style="left:56.781%;top:1.925%;width:4.992%;height:2.600%" data-label="Use cases"></i>
+          <i class="hot" data-k="w-privacy" data-p="w-nav" data-role="link" data-f="519.8,117.1,27,12.4" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group.bar &gt; group.wrap &gt; group.bar__nav &gt; link" style="left:63.656%;top:1.925%;width:3.555%;height:2.600%" data-label="Privacy"></i>
+          <i class="hot" data-k="w-faq" data-p="w-nav" data-role="link" data-f="561.1,117.1,14.8,12.4" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group.bar &gt; group.wrap &gt; group.bar__nav &gt; link" style="left:69.086%;top:1.925%;width:1.953%;height:2.600%" data-label="FAQ"></i>
+          <i class="hot" data-k="w-controls" data-p="w-barwrap" data-role="group" data-f="590.1,114.4,158.4,17.8" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group.bar &gt; group.wrap &gt; group.bar__controls" style="left:72.906%;top:1.350%;width:20.844%;height:3.750%" data-dom-class="bar__controls"></i>
+          <i class="hot" data-k="w-lang" data-p="w-controls" data-role="link" data-f="590.1,114.4,42.8,17.8" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group.bar &gt; group.wrap &gt; group.bar__controls &gt; link.lang" style="left:72.906%;top:1.350%;width:5.625%;height:3.750%" data-label="Switch to Chinese" data-dom-class="lang"></i>
+          <i class="hot" data-k="w-sound" data-p="w-controls" data-role="button" data-f="638.8,114.4,50.2,17.8" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group.bar &gt; group.wrap &gt; group.bar__controls &gt; button.icon-btn" style="left:79.313%;top:1.350%;width:6.602%;height:3.750%" data-label="Sound" data-dom-class="icon-btn js-only"></i>
+          <i class="hot" data-k="w-download" data-p="w-controls" data-role="link" data-f="694.9,114.4,53.6,17.8" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group.bar &gt; group.wrap &gt; group.bar__controls &gt; link.btn" style="left:86.695%;top:1.350%;width:7.055%;height:3.750%" data-label="Download" data-dom-class="btn btn--primary btn--small"></i>
+          <i class="hot" data-k="w-top" data-p="w-page" data-role="group" data-f="36,138.9,760,444.1" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group#main &gt; group#top" style="left:0.000%;top:6.500%;width:100.000%;height:93.500%" data-dom-id="top" data-dom-class="section hero"></i>
+          <i class="hot" data-k="w-copy" data-p="w-top" data-role="group" data-f="64.5,191.1,703,266.5" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group#main &gt; group#top &gt; group.wrap" style="left:3.750%;top:17.500%;width:92.500%;height:56.100%" data-dom-class="wrap hero__copy"></i>
+          <i class="hot" data-k="w-eyebrow" data-p="w-copy" data-role="group" data-f="373.4,191.1,85.3,13.3" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group#main &gt; group#top &gt; group.wrap &gt; group.eyebrow" style="left:44.391%;top:17.500%;width:11.219%;height:2.800%" data-dom-class="eyebrow"></i>
+          <i class="hot" data-k="w-h1" data-p="w-copy" data-role="heading" data-f="83.5,213.9,665,125.1" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group#main &gt; group#top &gt; group.wrap &gt; heading.display" style="left:6.250%;top:22.300%;width:87.500%;height:26.338%" data-label="Catch ideas before they drift away." data-dom-class="display"></i>
+          <i class="hot" data-k="w-lead" data-p="w-copy" data-role="group" data-f="204,352.1,423.9,58" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group#main &gt; group#top &gt; group.wrap &gt; group.lead" style="left:22.109%;top:51.388%;width:55.781%;height:12.200%" data-dom-class="lead"></i>
+          <i class="hot" data-k="w-actions" data-p="w-copy" data-role="group" data-f="336.5,429.1,158.9,28.5" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group#main &gt; group#top &gt; group.wrap &gt; group.hero__actions" style="left:39.539%;top:67.600%;width:20.914%;height:6.000%" data-dom-class="hero__actions"></i>
+          <i class="hot" data-k="w-badge" data-p="w-actions" data-role="link" data-f="336.5,429.1,85.3,28.5" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group#main &gt; group#top &gt; group.wrap &gt; group.hero__actions &gt; link.badge" style="left:39.539%;top:67.600%;width:11.219%;height:6.000%" data-label="Download on the App Store" data-dom-class="badge"></i>
+          <i class="hot" data-k="w-listen" data-p="w-actions" data-role="button" data-f="430.1,430.3,65.4,26.1" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group#main &gt; group#top &gt; group.wrap &gt; group.hero__actions &gt; button.btn" style="left:51.852%;top:67.850%;width:8.602%;height:5.500%" data-label="Listen" data-dom-class="btn btn--ghost js-only"></i>
+          <i class="hot" data-k="w-stage" data-p="w-top" data-role="group" data-f="36,514.6,760,68.4" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group#main &gt; group#top &gt; group.hero__stage" style="left:0.000%;top:85.600%;width:100.000%;height:14.400%" data-dom-class="hero__stage"></i>
+          <i class="hot" data-k="w-phone" data-p="w-stage" data-role="group" data-f="326.9,514.6,178.1,68.4" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group#main &gt; group#top &gt; group.hero__stage &gt; group.phone" style="left:38.281%;top:85.600%;width:23.438%;height:14.400%" data-dom-class="phone"></i>
+          <i class="hot" data-k="w-screen" data-p="w-phone" data-role="image" data-f="335.8,522.5,160.3,60.5" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group#main &gt; group#top &gt; group.hero__stage &gt; group.phone &gt; image.phone__screen" style="left:39.453%;top:87.263%;width:21.094%;height:12.737%" data-label="The Oryne Ocean: thoughts drift as soft orbs and gather into currents." data-dom-class="phone__screen"></i>
         </div>
-        <div class="list" data-role="table" data-id="ordersTable">
-          <div class="row" data-role="row" data-id="order.1042"><span>Blueberry, 6</span><span class="badge ready">Ready</span></div>
-          <div class="row" data-role="row" data-id="order.1043"><span>Lemon, 12</span><span class="badge">Preparing</span></div>
-          <div class="row" data-role="row" data-id="order.1044"><span>Matcha, 3</span><span class="badge">Preparing</span></div>
-        </div>
-        <div class="foot" data-role="group">
-          <span>Notify when ready</span>
-          <span class="toggle" data-role="checkBox" data-id="notifyToggle" data-label="Notify when ready"><i></i></span>
+      </div>
+      <div class="win calc" data-scene="calc" data-role="window" data-id="main" data-label="Calculator" data-app="Calculator" data-bundle="com.apple.calculator" data-file="calculator" data-mode="reference" data-path="application > window#main" data-f="652,318,230,408" data-text="0" style="left:50.938%;top:39.750%;width:17.969%;height:51.000%">
+        <img src="assets/scene-calculator.png" alt="Calculator">
+          <i class="hot" data-k="c-keypad" data-p="" data-role="group" data-f="652,371,230,354" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView" style="left:0.000%;top:12.990%;width:100.000%;height:86.765%" data-id="CalculatorKeypadView"></i>
+          <i class="hot" data-k="c-display" data-p="c-keypad" data-role="scrollArea" data-f="662,404,210,42" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; scrollArea#StandardInputView" style="left:4.348%;top:21.078%;width:91.304%;height:10.294%" data-label="Edit field" data-id="StandardInputView"></i>
+          <i class="hot" data-k="c-zero-text" data-p="c-display" data-role="staticText" data-f="853,407,19,36" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; scrollArea#StandardInputView &gt; staticText" style="left:87.391%;top:21.814%;width:8.261%;height:8.824%" data-value="0"></i>
+          <i class="hot" data-k="c-Delete" data-p="c-keypad" data-role="button" data-f="662,451,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Delete" style="left:4.348%;top:32.598%;width:20.870%;height:11.765%" data-id="Delete"></i>
+          <i class="hot" data-k="c-AllClear" data-p="c-keypad" data-role="button" data-f="716,451,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#AllClear" style="left:27.826%;top:32.598%;width:20.870%;height:11.765%" data-id="AllClear"></i>
+          <i class="hot" data-k="c-Percent" data-p="c-keypad" data-role="button" data-f="770,451,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Percent" style="left:51.304%;top:32.598%;width:20.870%;height:11.765%" data-id="Percent"></i>
+          <i class="hot" data-k="c-Divide" data-p="c-keypad" data-role="button" data-f="824,451,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Divide" style="left:74.783%;top:32.598%;width:20.870%;height:11.765%" data-id="Divide"></i>
+          <i class="hot" data-k="c-Seven" data-p="c-keypad" data-role="button" data-f="662,505,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Seven" style="left:4.348%;top:45.833%;width:20.870%;height:11.765%" data-id="Seven"></i>
+          <i class="hot" data-k="c-Eight" data-p="c-keypad" data-role="button" data-f="716,505,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Eight" style="left:27.826%;top:45.833%;width:20.870%;height:11.765%" data-id="Eight"></i>
+          <i class="hot" data-k="c-Nine" data-p="c-keypad" data-role="button" data-f="770,505,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Nine" style="left:51.304%;top:45.833%;width:20.870%;height:11.765%" data-id="Nine"></i>
+          <i class="hot" data-k="c-Multiply" data-p="c-keypad" data-role="button" data-f="824,505,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Multiply" style="left:74.783%;top:45.833%;width:20.870%;height:11.765%" data-id="Multiply"></i>
+          <i class="hot" data-k="c-Four" data-p="c-keypad" data-role="button" data-f="662,559,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Four" style="left:4.348%;top:59.069%;width:20.870%;height:11.765%" data-id="Four"></i>
+          <i class="hot" data-k="c-Five" data-p="c-keypad" data-role="button" data-f="716,559,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Five" style="left:27.826%;top:59.069%;width:20.870%;height:11.765%" data-id="Five"></i>
+          <i class="hot" data-k="c-Six" data-p="c-keypad" data-role="button" data-f="770,559,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Six" style="left:51.304%;top:59.069%;width:20.870%;height:11.765%" data-id="Six"></i>
+          <i class="hot" data-k="c-Subtract" data-p="c-keypad" data-role="button" data-f="824,559,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Subtract" style="left:74.783%;top:59.069%;width:20.870%;height:11.765%" data-id="Subtract"></i>
+          <i class="hot" data-k="c-One" data-p="c-keypad" data-role="button" data-f="662,613,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#One" style="left:4.348%;top:72.304%;width:20.870%;height:11.765%" data-id="One"></i>
+          <i class="hot" data-k="c-Two" data-p="c-keypad" data-role="button" data-f="716,613,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Two" style="left:27.826%;top:72.304%;width:20.870%;height:11.765%" data-id="Two"></i>
+          <i class="hot" data-k="c-Three" data-p="c-keypad" data-role="button" data-f="770,613,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Three" style="left:51.304%;top:72.304%;width:20.870%;height:11.765%" data-id="Three"></i>
+          <i class="hot" data-k="c-Add" data-p="c-keypad" data-role="button" data-f="824,613,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Add" style="left:74.783%;top:72.304%;width:20.870%;height:11.765%" data-id="Add"></i>
+          <i class="hot" data-k="c-Negate" data-p="c-keypad" data-role="button" data-f="662,667,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Negate" style="left:4.348%;top:85.539%;width:20.870%;height:11.765%" data-id="Negate"></i>
+          <i class="hot" data-k="c-Zero" data-p="c-keypad" data-role="button" data-f="716,667,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Zero" style="left:27.826%;top:85.539%;width:20.870%;height:11.765%" data-id="Zero"></i>
+          <i class="hot" data-k="c-Decimal" data-p="c-keypad" data-role="button" data-f="770,667,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Decimal" style="left:51.304%;top:85.539%;width:20.870%;height:11.765%" data-id="Decimal"></i>
+          <i class="hot" data-k="c-Equals" data-p="c-keypad" data-role="button" data-f="824,667,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Equals" style="left:74.783%;top:85.539%;width:20.870%;height:11.765%" data-id="Equals"></i>
+          <i class="hot" data-k="c-toolbar" data-p="" data-role="toolbar" data-f="652,318,230,52" data-path="application &gt; window#main &gt; toolbar" style="left:0.000%;top:0.000%;width:100.000%;height:12.745%"></i>
+          <i class="hot" data-k="c-sidebar" data-p="c-toolbar" data-role="button" data-f="752,318,48,52" data-path="application &gt; window#main &gt; toolbar &gt; button" style="left:43.478%;top:0.000%;width:20.870%;height:12.745%" data-label="Show Sidebar"></i>
+          <i class="hot" data-k="c-mode" data-p="c-toolbar" data-role="button" data-f="834,318,44,52" data-path="application &gt; window#main &gt; toolbar &gt; button#Mode: basic; unitConversion: false" style="left:79.130%;top:0.000%;width:19.130%;height:12.745%" data-label="Mode" data-id="Mode: basic; unitConversion: false"></i>
+      </div>
+      <div class="win phone" data-scene="phone" data-role="window" data-label="iPhone 17 Pro – iOS 26.5" data-app="Device Hub" data-bundle="com.inspireocean.app" data-file="devicehub" data-mode="fix" data-project="~/Developer/Oryne" data-path="group > splitGroup" data-f="896,128,250,527.1" data-text="Ocean
+10 fragments
+Resurfacing
+Catching a thought that drifted away
+Product Ideas
+Cooking
+Interface Design
+Light And Color
+Reading
+Capture
+Ocean
+Ask
+Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
+        <div class="screen"><img src="assets/scene-iphone.jpg" alt="Oryne on an iPhone in the Simulator">
+          <i class="hot" data-k="p-product-ideas" data-p="" data-role="button" data-f="928.2,261.8,34.5,60.3" data-path="group &gt; splitGroup &gt; group &gt; splitGroup#com.apple.dt.DeviceKit.DeviceManagementWindow-AppWindow-1, SidebarNavigationSplitView &gt; group &gt; group &gt; button#oceanCurrent.product ideas" style="left:10.684%;top:24.708%;width:14.602%;height:11.751%" data-label="Product Ideas" data-id="oceanCurrent.product ideas"></i>
+          <i class="hot" data-k="p-cooking" data-p="" data-role="button" data-f="1087.1,327.4,34.5,60.3" data-path="group &gt; splitGroup &gt; group &gt; splitGroup#com.apple.dt.DeviceKit.DeviceManagementWindow-AppWindow-1, SidebarNavigationSplitView &gt; group &gt; group &gt; button#oceanCurrent.cooking" style="left:78.022%;top:37.489%;width:14.602%;height:11.751%" data-label="Cooking" data-id="oceanCurrent.cooking"></i>
+          <i class="hot" data-k="p-interface-design" data-p="" data-role="button" data-f="936.4,391,34.5,60.3" data-path="group &gt; splitGroup &gt; group &gt; splitGroup#com.apple.dt.DeviceKit.DeviceManagementWindow-AppWindow-1, SidebarNavigationSplitView &gt; group &gt; group &gt; button#oceanCurrent.interface design" style="left:14.167%;top:49.903%;width:14.602%;height:11.751%" data-label="Interface Design" data-id="oceanCurrent.interface design"></i>
+          <i class="hot" data-k="p-light-and-color" data-p="" data-role="button" data-f="1060.7,456.9,42.1,67.9" data-path="group &gt; splitGroup &gt; group &gt; splitGroup#com.apple.dt.DeviceKit.DeviceManagementWindow-AppWindow-1, SidebarNavigationSplitView &gt; group &gt; group &gt; button#oceanCurrent.light and color" style="left:66.828%;top:62.740%;width:17.836%;height:13.238%" data-label="Light And Color" data-id="oceanCurrent.light and color"></i>
+          <i class="hot" data-k="p-reading" data-p="" data-role="button" data-f="927.6,531.8,34.5,60.3" data-path="group &gt; splitGroup &gt; group &gt; splitGroup#com.apple.dt.DeviceKit.DeviceManagementWindow-AppWindow-1, SidebarNavigationSplitView &gt; group &gt; group &gt; button#oceanCurrent.reading" style="left:10.435%;top:77.340%;width:14.602%;height:11.751%" data-label="Reading" data-id="oceanCurrent.reading"></i>
+          <i class="hot" data-k="p-thought-0" data-p="" data-role="button" data-f="1039.4,455.1,25.8,25.8" data-path="group &gt; splitGroup &gt; group &gt; splitGroup#com.apple.dt.DeviceKit.DeviceManagementWindow-AppWindow-1, SidebarNavigationSplitView &gt; group &gt; group &gt; button#oceanThought" style="left:57.786%;top:62.380%;width:10.945%;height:5.034%" data-label="Sunset gradient study" data-id="oceanThought"></i>
+          <i class="hot" data-k="p-thought-1" data-p="" data-role="button" data-f="1098.7,451.6,25.8,25.8" data-path="group &gt; splitGroup &gt; group &gt; splitGroup#com.apple.dt.DeviceKit.DeviceManagementWindow-AppWindow-1, SidebarNavigationSplitView &gt; group &gt; group &gt; button#oceanThought" style="left:82.910%;top:61.705%;width:10.945%;height:5.034%" data-label="Golden hour on the walk home" data-id="oceanThought"></i>
+          <i class="hot" data-k="p-thought-2" data-p="" data-role="button" data-f="1101.5,471.5,25.8,25.8" data-path="group &gt; splitGroup &gt; group &gt; splitGroup#com.apple.dt.DeviceKit.DeviceManagementWindow-AppWindow-1, SidebarNavigationSplitView &gt; group &gt; group &gt; button#oceanThought" style="left:84.129%;top:65.584%;width:10.945%;height:5.034%" data-label="Warm to cool, not a filter" data-id="oceanThought"></i>
+          <i class="hot" data-k="p-thought-3" data-p="" data-role="button" data-f="1037.6,479.1,25.8,25.8" data-path="group &gt; splitGroup &gt; group &gt; splitGroup#com.apple.dt.DeviceKit.DeviceManagementWindow-AppWindow-1, SidebarNavigationSplitView &gt; group &gt; group &gt; button#oceanThought" style="left:57.015%;top:67.071%;width:10.945%;height:5.034%" data-label="Desk at 6pm" data-id="oceanThought"></i>
+          <i class="hot" data-k="p-title" data-p="" data-role="staticText" data-f="913.2,180.8,58.5,14.5" data-path="group &gt; splitGroup &gt; group &gt; splitGroup#com.apple.dt.DeviceKit.DeviceManagementWindow-AppWindow-1, SidebarNavigationSplitView &gt; group &gt; group &gt; staticText" style="left:4.303%;top:8.924%;width:24.801%;height:2.826%" data-label="Ocean"></i>
+          <i class="hot" data-k="p-count" data-p="" data-role="staticText" data-f="1066,190.4,39.5,5.9" data-path="group &gt; splitGroup &gt; group &gt; splitGroup#com.apple.dt.DeviceKit.DeviceManagementWindow-AppWindow-1, SidebarNavigationSplitView &gt; group &gt; group &gt; staticText" style="left:69.080%;top:10.789%;width:16.741%;height:1.144%" data-label="10 fragments"></i>
+          <i class="hot" data-k="p-settings" data-p="" data-role="button" data-f="1110.8,182.7,18.8,18.8" data-path="group &gt; splitGroup &gt; group &gt; splitGroup#com.apple.dt.DeviceKit.DeviceManagementWindow-AppWindow-1, SidebarNavigationSplitView &gt; group &gt; group &gt; button" style="left:88.035%;top:9.291%;width:7.960%;height:3.661%" data-label="Ocean settings"></i>
         </div>
       </div>
       <div class="outline"></div>
       <div class="hud tag"></div>
       <div class="hud field"><input type="text" placeholder="What should change?" aria-label="Note" autocomplete="off"><span class="hint">↩ copy · esc cancel</span></div>
       <div class="hud toast">Copied</div>
-      <div class="ghost"><i class="edge"></i></div>
-      <button class="ball" type="button" aria-label="The Locant ball: click to point, press and hold for the ring"><i class="edge"></i><i class="glint"></i><i class="glow"></i><i class="tint"></i></button>
+      <div class="ghost"><i class="lens"></i><i class="tint"></i><i class="rim"></i></div>
+      <button class="ball" type="button" aria-label="The Locant ball: click to point, press and hold for the ring"><i class="lens"></i><i class="tint"></i><i class="glow"></i><i class="lift"></i><i class="rim"></i><i class="hand"></i></button>
       <div class="ring" aria-hidden="true"><svg viewBox="0 0 184 184" aria-hidden="true"><path class="wedge snap" d="M157.1 26.9 A92 92 0 0 0 26.9 26.9 L74.3 74.3 A25 25 0 0 1 109.7 74.3 Z"/><path class="wedge text" d="M157.1 157.1 A92 92 0 0 0 157.1 26.9 L109.7 74.3 A25 25 0 0 1 109.7 109.7 Z"/><path class="wedge color" d="M26.9 157.1 A92 92 0 0 0 157.1 157.1 L109.7 109.7 A25 25 0 0 1 74.3 109.7 Z"/><path class="wedge cut" d="M26.9 26.9 A92 92 0 0 0 26.9 157.1 L74.3 109.7 A25 25 0 0 1 74.3 74.3 Z"/><g class="sep"><line x1="109.7" y1="74.3" x2="157.1" y2="26.9"/><line x1="74.3" y1="74.3" x2="26.9" y2="26.9"/><line x1="74.3" y1="109.7" x2="26.9" y2="157.1"/><line x1="109.7" y1="109.7" x2="157.1" y2="157.1"/><circle cx="92" cy="92" r="25"/></g></svg><div class="seg snap"><i class="glyph snap"></i><span>Snap</span></div><div class="seg text"><i class="glyph text"></i><span>Text</span></div><div class="seg color"><i class="glyph color"></i><span>Color</span></div><div class="seg cut"><i class="glyph cut"></i><span>Cut</span></div><div class="hand"></div></div>
     </div>
 
     <div class="result" id="result">
       <h3>What your agent receives</h3>
-      <p class="lede">After Return, this text is on the clipboard. Paste it anywhere.</p>
+      <p class="lede">After Return, this is on the clipboard. Paste it anywhere.</p>
       <div class="lines" id="lines"></div>
     </div>
   </section>
@@ -645,21 +720,38 @@
 </main>
 
 <script>
-// The demo: the ball (FloatingBall.Tokens: 48 pt, 60 percent showing when tucked, an 80 pt wake radius,
-// 2 s idle before it tucks, the springs from Motion.swift) and the overlay (dim, outline, label, note).
+// The demo: a real desktop. The ball (FloatingBall.Tokens: 48 pt, 60 percent showing when tucked, an 80 pt wake
+// radius, 2 s idle before it tucks, the springs from Motion.swift), the ring (Ring.Tokens: a 0.5 s hold, 92 pt, a
+// 25 pt center that cancels), and the overlay (DesignTokens: a 20 percent dim, a 2 pt accent frame, role · identifier).
+// The windows' elements are real: roles, identifiers, DOM handles, and labels read from the apps themselves.
 (function () {
   var stage = document.getElementById('stage'); if (!stage) return;
-  var ring = stage.querySelector('.ring'), hold = null, seg = null, tool = null;
-  var app = stage.querySelector('.app'), ball = stage.querySelector('.ball'), ghost = stage.querySelector('.ghost'),
+  var ball = stage.querySelector('.ball'), ghost = stage.querySelector('.ghost'), ring = stage.querySelector('.ring'),
       box = stage.querySelector('.outline'), tag = stage.querySelector('.tag'), field = stage.querySelector('.field'),
-      input = field.querySelector('input'), toast = stage.querySelector('.toast'), say = document.getElementById('say'),
-      steps = document.querySelectorAll('#steps .s'), lines = document.getElementById('lines'), linesBox = document.getElementById('result');
-  var D = 48, R = 24, SHOW = 0.6, WAKE = 80, SNAP = 48, OUT = 100, IDLE = 2000, HOLD = 500, RING_IN = 25;
-  var state = 'docked', side = 'right', c = { x: 0, y: 0 }, idle = null, homed = false, level = 0, base = null, target = null, press = null, pointedAt = 0;
+      input = field.querySelector('input'), toast = stage.querySelector('.toast'), wall = stage.querySelector('.wall'),
+      say = document.getElementById('say'), steps = document.querySelectorAll('#steps .s'), lines = document.getElementById('lines'),
+      result = document.getElementById('result'), tabs = document.querySelectorAll('.scenes button'),
+      wins = Array.prototype.slice.call(stage.querySelectorAll('.win'));
+  var PT = { web: 760, calc: 230, phone: 250 };          // each window's width in points, for its own scale
+  var S = 0.7656, D = 48 * S, R = D / 2;                // the ball's scale and size in px, set by fit()
+  var SHOW = 0.6, IDLE = 2000, HOLD = 500;
+  var state = 'docked', side = 'right', c = { x: 0, y: 0 }, idle = null, homed = false, level = 0, base = null, target = null,
+      press = null, pointedAt = 0, hold = null, seg = null, tool = null, z = 5;
+  var touch = matchMedia('(hover: none)').matches;
   var W = function () { return stage.clientWidth; }, H = function () { return stage.clientHeight; };
+  var WAKE = function () { return 80 * S; }, SNAP = function () { return 48 * S; }, OUT = function () { return 100 * S; };
+  var ADVICE = 'The app on screen was built from this folder. If you are working in a different checkout of this repo (another worktree or clone), your copy is not the code on screen: change it in this folder, or ask which copy to change.';
+  var HELLO = touch ? 'The ball rests at the right edge. Tap it, then tap anything on the screen. Press and hold for the ring.'
+                    : 'The ball rests at the right edge. Move toward it, then click it. Press and hold for the ring.';
+
+  function fit() {
+    S = Math.max(0.62, Math.min(1, W() / 1280)); D = 48 * S; R = D / 2;
+    stage.style.setProperty('--b', S.toFixed(4));
+    wins.forEach(function (w) { var r = w.getBoundingClientRect(); if (r.width) w.style.setProperty('--s', (r.width / PT[w.dataset.scene]).toFixed(4)); });
+  }
   var tuckPt = function (sd) { return { x: sd === 'right' ? W() - (SHOW * D - R) : (SHOW * D - R), y: c.y }; };
   var homePt = function (sd) { return { x: sd === 'right' ? W() - R : R, y: c.y }; };
-  var outPt = function (sd) { return { x: sd === 'right' ? W() - OUT : OUT, y: c.y }; };
+  var outPt = function (sd) { return { x: sd === 'right' ? W() - OUT() : OUT(), y: c.y }; };
   function place(pt, cls) {
     ball.classList.remove('wake', 'tuck', 'drag'); if (cls) ball.classList.add(cls);
     c.x = pt.x; c.y = pt.y; ball.style.transform = 'translate(' + (pt.x - R) + 'px,' + (pt.y - R) + 'px)';
@@ -670,16 +762,32 @@
   function home() { state = 'awake'; homed = true; place(homePt(side)); later(tuck); }
   function wake() { state = 'awake'; homed = false; clearTimeout(idle); idle = null; place(outPt(side), 'wake'); }
   function rel(e) { var r = stage.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
-  function near(p) { return Math.hypot(p.x - c.x, p.y - c.y) < WAKE; }
+  function near(p) { return Math.hypot(p.x - c.x, p.y - c.y) < WAKE(); }
+  function esc(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+  function num(d) { var t = Math.round(d * 10) / 10; return t === Math.round(t) ? String(Math.round(t)) : t.toFixed(1); }
 
-  // init: tucked into the right edge, a little above the middle; again on load if the stage had no height yet
+  // init: tucked into the right edge, beside the iPhone; again once the stage has a size
   function settle() {
+    fit();
     if (H() < D * 2) return;
-    if (c.y < R || c.y > H() - R) c.y = Math.round(H() * 0.42);
+    if (c.y < R || c.y > H() - R) c.y = Math.round(H() * 0.5);     // the right edge, over the rocks
     ball.style.transition = 'none'; place(state === 'docked' ? tuckPt(side) : homePt(side)); void ball.offsetWidth; ball.style.transition = '';
   }
   settle(); window.addEventListener('load', settle);
   window.addEventListener('resize', function () { if (state !== 'ring' && !press) settle(); });
+  setStep(1, HELLO);
+
+  // phones: one window at a time
+  tabs.forEach(function (b) {
+    b.addEventListener('click', function () {
+      if (state === 'point' || state === 'note' || state === 'tool') cancel();
+      stage.dataset.scene = b.dataset.scene;
+      tabs.forEach(function (t) { t.setAttribute('aria-selected', String(t === b)); });
+      fit();
+    });
+  });
+  // a click on a window outside point mode brings it to the front, as on the desktop
+  wins.forEach(function (w) { w.addEventListener('pointerdown', function () { if (state === 'awake' || state === 'docked') w.style.zIndex = ++z; }); });
 
   // waking and settling follow the pointer; a scroll tucks an awake ball at once
   stage.addEventListener('pointermove', function (e) {
@@ -690,49 +798,64 @@
     else if (state === 'point') hover(e);
     else if (state === 'tool') hoverTool(e);
   });
-  stage.addEventListener('pointerleave', function () { if (state === 'awake') home(); });
+  stage.addEventListener('pointerleave', function () { if (state === 'awake' && !homed) home(); });
   window.addEventListener('scroll', function () { if (state === 'awake') tuck(); }, { passive: true });
 
-  // the ball: a click points, a hold opens the ring, a drag moves it, a drop near an edge tucks it there (the ghost says where)
+  // the ball: a click points, a hold opens the ring, a drag moves it, a drop near an edge tucks it there (the ghost says where).
+  // The press is followed on the document, not by pointer capture: the ball hides while the ring is open.
   ball.addEventListener('pointerdown', function (e) {
-    if (state === 'point' || state === 'note' || state === 'tool') return;
-    e.preventDefault(); try { ball.setPointerCapture(e.pointerId); } catch (err) {} clearTimeout(idle);
+    if (state === 'point' || state === 'note' || state === 'tool' || press) return;
+    e.preventDefault(); clearTimeout(idle);
+    if (state === 'docked') wake();
     press = { x: e.clientX, y: e.clientY, moved: false };
     hold = setTimeout(openRing, HOLD);
+    document.addEventListener('pointermove', pressMove, true);
+    document.addEventListener('pointerup', pressUp, true);
+    document.addEventListener('pointercancel', pressCancel, true);
   });
-  ball.addEventListener('pointermove', function (e) {
+  function unbind() {
+    document.removeEventListener('pointermove', pressMove, true);
+    document.removeEventListener('pointerup', pressUp, true);
+    document.removeEventListener('pointercancel', pressCancel, true);
+  }
+  function pressMove(e) {
     if (state === 'ring') { ringMove(e); return; }
     if (!press) return;
     if (!press.moved && Math.hypot(e.clientX - press.x, e.clientY - press.y) < 4) return;
-    clearTimeout(hold); press.moved = true; state = 'awake';
+    clearTimeout(hold); press.moved = true; state = 'awake'; homed = false;
     var p = rel(e); p.x = Math.max(R, Math.min(W() - R, p.x)); p.y = Math.max(R, Math.min(H() - R, p.y));
     place(p, 'drag');
-    var sd = p.x < SNAP ? 'left' : (p.x > W() - SNAP ? 'right' : null);
+    var sd = p.x < SNAP() ? 'left' : (p.x > W() - SNAP() ? 'right' : null);
     if (sd) { var t = tuckPt(sd); ghost.style.transform = 'translate(' + (t.x - R) + 'px,' + (t.y - R) + 'px)'; ghost.classList.add('on'); }
     else ghost.classList.remove('on');
-  });
-  ball.addEventListener('pointerup', function (e) {
-    clearTimeout(hold);
-    if (state === 'ring') { ringUp(); return; }
+  }
+  function pressUp(e) {
+    unbind(); clearTimeout(hold);
+    if (state === 'ring') { press = null; ringUp(); return; }
     if (!press) return; var moved = press.moved; press = null; ghost.classList.remove('on');
     if (!moved) { point(); return; }
     var p = rel(e); side = p.x < W() / 2 ? 'left' : 'right';
-    if (p.x < SNAP || p.x > W() - SNAP) tuck(); else { ball.classList.remove('drag'); state = 'awake'; later(home); }
-  });
-  ball.addEventListener('pointercancel', function () { clearTimeout(hold); press = null; ghost.classList.remove('on'); if (state === 'ring') closeRing(); home(); });
+    if (p.x < SNAP() || p.x > W() - SNAP()) tuck(); else { ball.classList.remove('drag'); state = 'awake'; homed = false; later(home); }
+  }
+  function pressCancel() {
+    unbind(); clearTimeout(hold); press = null; ghost.classList.remove('on');
+    if (state === 'ring') { closeRing(); ball.classList.remove('gone', 'ready'); }
+    home();
+  }
   ball.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); point(); } });
 
   // the ring: unfolds from the disc after the hold; the quadrant under the pointer lights, the center cancels
   function openRing() {
     if (!press || press.moved) return;
-    state = 'ring'; seg = null; press = null;
-    c.x = Math.max(OUT, Math.min(W() - OUT, c.x)); c.y = Math.max(OUT, Math.min(H() - OUT, c.y));
+    state = 'ring'; seg = null; ball.classList.add('ready');
+    // ringSafe: the ball first comes far enough in for the ring to open on screen
+    c.x = Math.max(OUT(), Math.min(W() - OUT(), c.x)); c.y = Math.max(OUT(), Math.min(H() - OUT(), c.y));
     ring.style.left = c.x + 'px'; ring.style.top = c.y + 'px'; ball.classList.add('gone');
     ring.classList.add('open'); setTimeout(function () { if (state === 'ring') ring.classList.add('labels'); }, 200);
-    say.textContent = 'Slide to a rung and let go. Let go in the middle to cancel.';
+    say.textContent = touch ? 'Slide to a rung and let go. Let go in the middle to cancel.' : 'Slide to a rung and let go. Let go in the middle to cancel.';
   }
   function segmentFor(dx, dy) {
-    if (Math.hypot(dx, dy) <= RING_IN) return null;
+    if (Math.hypot(dx, dy) <= 25 * S) return null;
     if (Math.abs(dy) >= Math.abs(dx)) return dy < 0 ? 'snap' : 'color';
     return dx > 0 ? 'text' : 'cut';
   }
@@ -743,84 +866,76 @@
   }
   function closeRing() { ring.classList.remove('open', 'labels'); ring.querySelectorAll('.wedge').forEach(function (w) { w.classList.remove('on'); }); }
   function ringUp() {
-    var chosen = seg; closeRing();
-    if (!chosen) { state = 'awake'; ball.classList.remove('gone'); later(home); say.textContent = 'Cancelled. Nothing written.'; return; }
+    var chosen = seg; closeRing(); ball.classList.remove('ready');
+    if (!chosen) { state = 'awake'; ball.classList.remove('gone'); place(c); later(home); say.textContent = 'Cancelled. Nothing written.'; return; }
     startTool(chosen);
   }
 
-  // the rungs, here: Snap and Cut take the window, Text copies its words, Color reads the pixel under the cursor
-  var TOOL_SAY = { snap: 'Snap: click the window. On your Mac you can drag a region too.', text: 'Text: click the window and its words go to the clipboard.',
-                   color: 'Color: click to copy the color under the cursor.', cut: 'Cut: click the window to keep its subject on a transparent background.' };
-  function startTool(name) {
-    state = 'tool'; tool = name; pointedAt = Date.now(); clearTimeout(idle);
-    stage.classList.add('pointing'); say.textContent = TOOL_SAY[name];
-    document.addEventListener('keydown', keys);
-  }
-  function hex(el) {
-    while (el && el !== stage) {
-      var bg = getComputedStyle(el).backgroundColor, m = bg && bg.match(/rgba?\((\d+), (\d+), (\d+)(?:, ([\d.]+))?\)/);
-      if (m && (m[4] === undefined || +m[4] > 0)) return '#' + [m[1], m[2], m[3]].map(function (n) { return (+n).toString(16).toUpperCase().padStart(2, '0'); }).join('');
-      el = el.parentNode;
-    }
-    return null;
-  }
-  function hoverTool(e) {
-    var el = document.elementFromPoint(e.clientX, e.clientY), inApp = el && app.contains(el);
-    if (!inApp) { hide(); return; }
-    if (tool === 'color') {
-      var hx = hex(el), p = rel(e); target = el; box.classList.remove('on');
-      tag.innerHTML = '<i class="sw" style="background:' + hx + '"></i>' + hx; tag.classList.add('on');
-      tag.style.left = Math.min(p.x + 14, W() - tag.offsetWidth - 10) + 'px'; tag.style.top = Math.min(p.y + 18, H() - 36) + 'px';
-    } else show(app);
-  }
-  function runTool() {
-    var r = (tool === 'color' ? target : app).getBoundingClientRect(), st = stage.getBoundingClientRect(), text, line;
-    if (tool === 'color') { text = hex(target); line = text + ' copied.'; }
-    else if (tool === 'text') { text = app.innerText.split('\n').map(function (l) { return l.trim(); }).filter(Boolean).join('\n'); line = text.split('\n').length + ' lines, on the clipboard.'; }
-    else if (tool === 'snap') { app.classList.remove('flash'); void app.offsetWidth; app.classList.add('flash'); line = 'Snapped. A PNG of the window, saved and on the clipboard.'; }
-    else { line = 'Cut. The window on a transparent background, as a PNG.'; }
-    if (text) { try { navigator.clipboard && navigator.clipboard.writeText(text); } catch (err) {} }
-    toast.textContent = tool === 'color' ? text + ' copied' : (tool === 'text' ? 'Text copied' : (tool === 'snap' ? 'Snapped' : 'Cut'));
-    toast.style.left = Math.max(12, Math.min(r.left - st.left, W() - 120)) + 'px'; toast.style.top = Math.max(12, r.top - st.top - 36) + 'px'; toast.classList.add('on');
-    setTimeout(function () { toast.classList.remove('on'); toast.textContent = 'Copied'; }, 1400);
-    end(); say.textContent = line;
-  }
-
-  // point mode: the stage dims, the element under the cursor gets the outline and the label
+  // point mode: the stage dims, the element under the cursor gets the frame and the label
   function point() {
     state = 'point'; level = 0; base = null; pointedAt = Date.now(); clearTimeout(idle);
     ball.classList.add('gone'); stage.classList.add('pointing');
-    setStep(1, 'Hover, then click the element. Option steps up to its parent. Esc cancels.');
+    setStep(1, touch ? 'Tap anything: the website, Calculator, or the iPhone app. Esc cancels.'
+                     : 'Point at anything: the website, Calculator, or the iPhone app. Option steps up to the parent. Esc cancels.');
     document.addEventListener('keydown', keys);
   }
-  function chain(el) { var out = []; while (el && el !== app.parentNode) { if (el.dataset && el.dataset.role) out.push(el); el = el.parentNode; } return out; }
-  function nameOf(el) { var d = el.dataset; return d.role + ' · ' + (d.id ? 'id=' + d.id : (d.label || el.textContent.trim())); }
-  function pathOf(el) { return ['application'].concat(chain(el).reverse().map(function (n) { return n.dataset.role + (n.dataset.id ? '#' + n.dataset.id : ''); })).join(' > '); }
-  function frame(el) { var r = el.getBoundingClientRect(), a = app.getBoundingClientRect(); return { x: Math.round(r.left - a.left), y: Math.round(r.top - a.top), w: Math.round(r.width), h: Math.round(r.height) }; }
-  function show(el) {
-    target = el; var r = el.getBoundingClientRect(), st = stage.getBoundingClientRect();
-    box.style.left = (r.left - st.left - 3) + 'px'; box.style.top = (r.top - st.top - 3) + 'px';
-    box.style.width = (r.width + 6) + 'px'; box.style.height = (r.height + 6) + 'px'; box.classList.add('on');
-    tag.innerHTML = ''; tag.textContent = nameOf(el); tag.classList.add('on');
-    var left = Math.min(r.left - st.left, W() - tag.offsetWidth - 10), top = r.bottom - st.top + 10;
-    if (top + 30 > H()) top = r.top - st.top - 36;
-    tag.style.left = Math.max(10, left) + 'px'; tag.style.top = top + 'px';
+  function chain(el) {
+    var win = el.closest('.win'), out = [];
+    while (el && el !== win) { out.push(el); var p = el.dataset.p; el = p ? win.querySelector('[data-k="' + p + '"]') : null; }
+    out.push(win); return out;
+  }
+  function info(el) {
+    var d = el.dataset, win = el.closest('.win'), isWin = el === win;
+    var web = win.dataset.scene === 'web' && !isWin && d.role !== 'webArea';
+    var classes = d.domClass ? d.domClass.split(' ') : [];
+    var ident = d.id || null;
+    var dom = web ? (d.domId ? '#' + d.domId : (classes.length ? '.' + classes.slice(0, 2).join('.') : null)) : null;   // domReadout
+    return { role: d.role, label: d.label || null, ident: ident, domId: d.domId || null, classes: classes, web: web,
+             value: d.value != null ? d.value : null, handle: ident || dom, win: win, isWin: isWin };
+  }
+  // Readout.describing + HudText.readout: role, the label only when there is no handle, the handle in mono
+  function readout(el) {
+    var i = info(el), role = i.role + (!i.handle && i.label ? ' "' + i.label + '"' : '');
+    return '<span>' + esc(role) + '</span>' + (i.handle ? '<span>·</span><span class="mono">' + esc(i.handle) + '</span>' : '<span>·</span><span class="sec">no identifier</span>');
+  }
+  function frameOf(el) {
+    var r = el.getBoundingClientRect(), st = stage.getBoundingClientRect();
+    return { x: r.left - st.left, y: r.top - st.top, w: r.width, h: r.height };
+  }
+  function show(el, html) {
+    target = el; var f = frameOf(el);
+    var l = Math.max(-3, f.x - 3), t = Math.max(-3, f.y - 3), r = Math.min(W() + 3, f.x + f.w + 3), b = Math.min(H() + 3, f.y + f.h + 3);
+    box.style.left = l + 'px'; box.style.top = t + 'px'; box.style.width = (r - l) + 'px'; box.style.height = (b - t) + 'px'; box.classList.add('on');
+    tag.innerHTML = html || readout(el); tag.classList.add('on');
+    var left = Math.min(Math.max(10, f.x), W() - tag.offsetWidth - 10), top = f.y + f.h + 8;
+    if (top + 30 > H() - 6) top = f.y - 34;                      // flipMargin: flip above near the bottom
+    if (top < 6) top = Math.min(H() - 32, f.y + 8);
+    tag.style.left = left + 'px'; tag.style.top = top + 'px';
   }
   function hide() {
-    if (box.classList.contains('on')) { var l = parseFloat(box.style.left) + parseFloat(box.style.width) / 2, t = parseFloat(box.style.top) + parseFloat(box.style.height) / 2; box.style.left = l + 'px'; box.style.top = t + 'px'; box.style.width = '0px'; box.style.height = '0px'; }
+    if (box.classList.contains('on')) {
+      var l = parseFloat(box.style.left) + parseFloat(box.style.width) / 2, t = parseFloat(box.style.top) + parseFloat(box.style.height) / 2;
+      box.style.left = l + 'px'; box.style.top = t + 'px'; box.style.width = '0px'; box.style.height = '0px';
+    }
     box.classList.remove('on'); tag.classList.remove('on'); target = null;
   }
+  function under(e) {
+    var el = document.elementFromPoint(e.clientX, e.clientY);
+    if (!el || !stage.contains(el)) return null;
+    return el.closest('.hot') || el.closest('.win');
+  }
   function hover(e) {
-    var el = document.elementFromPoint(e.clientX, e.clientY), b = el && el.closest && el.closest('[data-role]');
-    if (!b || !app.contains(b)) { hide(); base = null; return; }
+    var b = under(e);
+    if (!b) { hide(); base = null; return; }
     if (b !== base) { base = b; level = 0; }
     var up = chain(base); show(up[Math.min(level, up.length - 1)]);
   }
   stage.addEventListener('pointerup', function (e) {
+    if (e.target === ball || ball.contains(e.target)) return;
     if (Date.now() - pointedAt < 150) return;
-    if (state === 'tool') { if (!target) hoverTool(e); if (target) runTool(); return; }
+    if (state === 'tool') { hoverTool(e); if (target) runTool(); return; }
     if (state !== 'point') return;
-    if (!target) hover(e); if (!target) return;
+    if (!target || touch) hover(e); if (!target) return;
     note();
   });
   function keys(e) {
@@ -830,74 +945,165 @@
 
   // the note: the field under the element, Return copies, Esc cancels and nothing is written
   function note() {
-    state = 'note'; var r = target.getBoundingClientRect(), st = stage.getBoundingClientRect();
+    state = 'note'; var f = frameOf(target);
     tag.classList.remove('on');
-    var left = Math.min(r.left - st.left, W() - field.offsetWidth - 12), top = r.bottom - st.top + 10;
-    if (top + 36 > H()) top = r.top - st.top - 40;
-    field.style.left = Math.max(12, left) + 'px'; field.style.top = top + 'px'; field.classList.add('on');
-    input.value = ''; input.focus(); setStep(2, 'Say what should change, then Return.');
+    var left = Math.min(Math.max(12, f.x), W() - field.offsetWidth - 12), top = f.y + f.h + 8;
+    if (top + 34 > H() - 6) top = f.y - 38;
+    if (top < 6) top = Math.min(H() - 36, f.y + 8);
+    field.style.left = left + 'px'; field.style.top = top + 'px'; field.classList.add('on');
+    input.value = ''; input.focus({ preventScroll: true }); setStep(2, 'Say what should change, then Return.');
   }
   input.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') { e.preventDefault(); cancel(); }
-    else if (e.key === 'Enter') { e.preventDefault(); if (!input.value.trim()) { field.classList.remove('shake'); void field.offsetWidth; field.classList.add('shake'); return; } capture(input.value.trim()); }
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (!input.value.trim()) { field.classList.remove('shake'); void field.offsetWidth; field.classList.add('shake'); return; }
+      capture(input.value.trim());
+    }
   });
   function end() {
-    document.removeEventListener('keydown', keys); field.classList.remove('on'); hide(); stage.classList.remove('pointing'); input.blur();
-    tool = null; ball.classList.remove('gone'); home();
+    document.removeEventListener('keydown', keys); field.classList.remove('on'); hide(); stage.classList.remove('pointing', 'cross'); input.blur();
+    tool = null; state = 'awake'; ball.classList.remove('gone'); home();
   }
   function cancel() { var was = tool; end(); if (was) say.textContent = 'Nothing written.'; else setStep(1, 'Nothing written. Click the ball to try again.'); }
 
-  // the capture: the payload the app puts on the clipboard, here too
+  // the payload, the way MarkdownBuilder writes it: the note first for a reference, last for a fix
   function pad(n) { return (n < 10 ? '0' : '') + n; }
-  function capture(text) {
-    var el = target, f = frame(el), d = new Date(), id = Math.random().toString(36).slice(2, 6);
+  function build(el, text, when) {
+    var i = info(el), wd = i.win.dataset, mode = wd.mode;
+    var f = (i.isWin ? wd.f : el.dataset.f).split(',').map(Number);
+    var d = when || new Date(), id = when ? 'k7q2' : Math.random().toString(36).slice(2, 6);
     var stamp = d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '-' + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
-    var when = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
-    var rows = [
-      ['<span class="h">## Locant capture (fix)</span>', 'Fix: this is your own app, so the agent should change its code.'],
-      ['<span class="k">Image:</span> ~/Pictures/Locant/locant-orders-' + stamp + '-' + id + '.png', 'The picture of the element, saved on your Mac. First, so the agent opens it.'],
-      ['<span class="k">App:</span> Orders (com.example.orders) · Window: Orders', 'Which app and window it is in.'],
-      ['<span class="k">Captured:</span> ' + when + ' · Image region: ' + (f.w + 80) + '×' + (f.h + 80) + ' pt @2x (element + 40 pt)', 'When, and how much around the element the picture shows.'],
-      ['<span class="h">### Target element</span><br>' + esc(nameOf(el)), 'The element\'s name in the code. The agent searches for it and lands in the right file.'],
-      ['<span class="k">Frame:</span> x=' + f.x + ' y=' + f.y + ' w=' + f.w + ' h=' + f.h, 'Where it is and how big, in points.'],
-      ['<span class="k">Path:</span> ' + esc(pathOf(el)), 'Where it sits in the view tree.'],
-      ['<span class="h">### Note</span><br>' + esc(text), 'Your words, as you typed them.']
-    ];
-    lines.innerHTML = rows.map(function (r) { return '<div class="ln"><code>' + r[0] + '</code><span>' + r[1] + '</span></div>'; }).join('');
-    var md = '## Locant capture (fix)\nImage: ~/Pictures/Locant/locant-orders-' + stamp + '-' + id + '.png\nApp: Orders (com.example.orders) · Window: Orders\nCaptured: ' + when + ' · Image region: ' + (f.w + 80) + '×' + (f.h + 80) + ' pt @2x (element + 40 pt)\n\n### Target element\n' + nameOf(el) + '\nFrame: x=' + f.x + ' y=' + f.y + ' w=' + f.w + ' h=' + f.h + '\nPath: ' + pathOf(el) + '\n\n### Note\n' + text + '\n';
-    try { navigator.clipboard && navigator.clipboard.writeText(md); } catch (err) {}
-    var r = el.getBoundingClientRect(), st = stage.getBoundingClientRect();
-    toast.style.left = Math.max(12, Math.min(r.left - st.left, W() - 90)) + 'px'; toast.style.top = Math.max(12, r.top - st.top - 36) + 'px'; toast.classList.add('on');
-    setTimeout(function () { toast.classList.remove('on'); }, 1200);
+    var at = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    var img = '~/Pictures/Locant/locant-' + wd.file + '-' + stamp + '-' + id + '.png';
+    var head = i.role + (i.label ? ' "' + i.label + '"' : '') + (i.ident ? ' · id=' + i.ident : '');
+    if (i.web) { if (i.domId) head += ' · #' + i.domId; if (i.classes.length) head += ' · .' + i.classes.slice(0, 6).join('.') + (i.classes.length > 6 ? ' (+' + (i.classes.length - 6) + ' more)' : ''); }
+    var hasHandle = !!(i.ident || (i.web && (i.domId || i.classes.length)));
+    if (!hasHandle) head += ' · no identifier';
+    var advice = null;
+    if (!i.ident && !i.web) advice = 'No identifier. Grep the label text; add .accessibilityIdentifier("…") to this view so the next capture is exact.';
+    else if (!i.ident && !i.domId) advice = hasHandle ? 'No id attribute. Grep the class names or the label text; give the element an id so the next capture is exact.'
+                                                      : 'No id or class. Grep the label text; give the element an id so the next capture is exact.';
+    var path = i.isWin ? wd.path : el.dataset.path;
+    var src = ['Image: ' + img, 'App: ' + wd.app + ' (' + wd.bundle + ') · Window: ' + wd.label,
+               'Captured: ' + at + ' · Image region: ' + num(f[2] + 80) + '×' + num(f[3] + 80) + ' pt @2x (element + 40 pt)'];
+    if (wd.url) src.push('URL: ' + wd.url);
+    if (wd.project) src.push('Project: ' + wd.project, ADVICE);
+    var elem = ['### Target element', head];
+    if (advice) elem.push(advice);
+    if (i.value != null) elem.push('Value: "' + i.value + '"');
+    elem.push('Frame: x=' + num(f[0]) + ' y=' + num(f[1]) + ' w=' + num(f[2]) + ' h=' + num(f[3]), 'Path: ' + path);
+    var noteBlock = '### Note\n' + text;
+    var blocks = mode === 'reference' ? [noteBlock, src.join('\n'), elem.join('\n')] : [src.join('\n'), elem.join('\n'), noteBlock];
+    var md = '## Locant capture (' + mode + ')\n' + blocks.join('\n\n') + '\n';
+
+    // the same lines, each with what it is for
+    var rows = [['<span class="h">## Locant capture (' + mode + ')</span>', mode === 'fix' ? 'Fix: your own app, so the agent changes its code.' : 'Reference: an app or a page you are pointing at, not your code to change.']];
+    var noteRow = ['<span class="h">### Note</span><br>' + esc(text), 'Your words, as you typed them.'];
+    if (mode === 'reference') rows.push(noteRow);
+    rows.push(['<span class="k">Image:</span> ' + esc(img), 'The picture of the element, saved on your Mac. The agent opens it.']);
+    rows.push(['<span class="k">App:</span> ' + esc(wd.app + ' (' + wd.bundle + ') · Window: ' + wd.label), 'Which app and window it is in.']);
+    rows.push(['<span class="k">Captured:</span> ' + esc(src[2].slice(10)), 'When, and how much around the element the picture shows.']);
+    if (wd.url) rows.push(['<span class="k">URL:</span> ' + esc(wd.url), 'The page it is on.']);
+    if (wd.project) rows.push(['<span class="k">Project:</span> ' + esc(wd.project) + '<br>' + esc(ADVICE), 'The folder the app on screen was built from, so the agent changes that copy, never a look-alike in another.']);
+    rows.push(['<span class="h">### Target element</span><br>' + esc(head),
+      i.ident ? 'Its name in the code. The agent searches for it and lands in the right file.'
+              : hasHandle ? 'The page’s own handles for it, to search the code for.' : 'It has no name in the code, so the next line says how to find it anyway.']);
+    if (advice) rows.push([esc(advice), i.web ? 'How to find it without an id, and how to give it one.' : 'How to find it without a name, and how to give it one.']);
+    if (i.value != null) rows.push(['<span class="k">Value:</span> "' + esc(i.value) + '"', 'What it shows right now.']);
+    rows.push(['<span class="k">Frame:</span> x=' + num(f[0]) + ' y=' + num(f[1]) + ' w=' + num(f[2]) + ' h=' + num(f[3]), 'Where it is on screen and how big, in points.']);
+    rows.push(['<span class="k">Path:</span> ' + esc(path), 'Where it sits in the app’s tree of views.']);
+    if (mode === 'fix') rows.push(noteRow);
+    return { md: md, rows: rows };
+  }
+  function render(rows) { lines.innerHTML = rows.map(function (r) { return '<div class="ln"><code>' + r[0] + '</code><span>' + r[1] + '</span></div>'; }).join(''); }
+  function flashToast(text, el) {
+    var f = frameOf(el); toast.textContent = text;
+    toast.style.left = Math.max(10, Math.min(f.x, W() - toast.offsetWidth - 10)) + 'px'; toast.style.top = Math.max(10, f.y - 34) + 'px';
+    toast.classList.add('on'); setTimeout(function () { toast.classList.remove('on'); }, 1200);
+  }
+  function capture(text) {
+    var el = target, out = build(el, text);
+    render(out.rows);
+    try { navigator.clipboard && navigator.clipboard.writeText(out.md); } catch (err) {}
+    var i = info(el); flashToast(i.handle ? 'Copied · ' + i.handle : 'Copied', el);
     end(); setStep(3, 'Copied, for real. Paste it in your agent; this is what arrives:');
     lines.classList.add('flash'); setTimeout(function () { lines.classList.remove('flash'); }, 900);
-    if (window.innerWidth <= 720) linesBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (window.innerWidth <= 720) result.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
-  function esc(t) { return t.replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
 
-  // before the first capture, the sample: the New order button
-  (function sample() {
-    var el = app.querySelector('[data-id="newOrderButton"]'), f = frame(el);
-    var rows = [
-      ['<span class="h">## Locant capture (fix)</span>', 'Fix: this is your own app, so the agent should change its code.'],
-      ['<span class="k">Image:</span> ~/Pictures/Locant/locant-orders-20261013-153012-k7q2.png', 'The picture of the element, saved on your Mac. First, so the agent opens it.'],
-      ['<span class="k">App:</span> Orders (com.example.orders) · Window: Orders', 'Which app and window it is in.'],
-      ['<span class="k">Captured:</span> 2026-10-13 15:30 · Image region: ' + (f.w + 80) + '×' + (f.h + 80) + ' pt @2x (element + 40 pt)', 'When, and how much around the element the picture shows.'],
-      ['<span class="h">### Target element</span><br>' + esc(nameOf(el)), 'The element\'s name in the code. The agent searches for it and lands in the right file.'],
-      ['<span class="k">Frame:</span> x=' + f.x + ' y=' + f.y + ' w=' + f.w + ' h=' + f.h, 'Where it is and how big, in points.'],
-      ['<span class="k">Path:</span> ' + esc(pathOf(el)), 'Where it sits in the view tree.'],
-      ['<span class="h">### Note</span><br>make this rounded, match the other pills', 'Your words, as you typed them.']
-    ];
-    lines.innerHTML = rows.map(function (r) { return '<div class="ln"><code>' + r[0] + '</code><span>' + r[1] + '</span></div>'; }).join('');
-  })();
+  // the rungs, here: Snap and Cut take the window under the cursor, Text copies its words, Color reads the pixel
+  var TOOL_SAY = { snap: 'Snap: click a window. On your Mac you can drag a region too.', text: 'Text: click a window and its words go to the clipboard.',
+                   color: 'Color: click to copy the color under the cursor.', cut: 'Cut: click a window to keep its subject on a transparent background.' };
+  function startTool(name) {
+    state = 'tool'; tool = name; pointedAt = Date.now(); clearTimeout(idle);
+    stage.classList.add(name === 'snap' || name === 'cut' ? 'cross' : 'pointing'); say.textContent = TOOL_SAY[name];
+    document.addEventListener('keydown', keys);
+  }
+  var pixels = new Map();
+  function sample(img, x, y) {
+    if (!img || !img.naturalWidth) return null;
+    var cv = pixels.get(img);
+    if (!cv) {
+      cv = document.createElement('canvas'); cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+      try { cv.getContext('2d', { willReadFrequently: true }).drawImage(img, 0, 0); } catch (err) { return null; }
+      pixels.set(img, cv);
+    }
+    var r = img.getBoundingClientRect(), px, py;
+    if (img === wall) {
+      var s = Math.max(r.width / img.naturalWidth, r.height / img.naturalHeight);
+      px = (x - r.left - (r.width - img.naturalWidth * s) / 2) / s; py = (y - r.top - (r.height - img.naturalHeight * s) / 2) / s;
+    } else { px = (x - r.left) / r.width * img.naturalWidth; py = (y - r.top) / r.height * img.naturalHeight; }
+    var d;
+    try { d = cv.getContext('2d').getImageData(Math.max(0, Math.min(cv.width - 1, px | 0)), Math.max(0, Math.min(cv.height - 1, py | 0)), 1, 1).data; } catch (err) { return null; }
+    if (d[3] < 128) return null;
+    return '#' + [d[0], d[1], d[2]].map(function (v) { return (v < 16 ? '0' : '') + v.toString(16).toUpperCase(); }).join('');
+  }
+  function colorAt(e) {
+    var el = document.elementFromPoint(e.clientX, e.clientY), win = el && el.closest && el.closest('.win');
+    if (win) {
+      var img = win.querySelector('img'), r = img.getBoundingClientRect();
+      if (e.clientX >= r.left && e.clientX < r.right && e.clientY >= r.top && e.clientY < r.bottom) { var hx = sample(img, e.clientX, e.clientY); if (hx) return hx; }
+      else if (win.classList.contains('web')) return '#2A2A2D';
+      else if (win.classList.contains('phone')) return '#1C1C1E';
+    }
+    return sample(wall, e.clientX, e.clientY);
+  }
+  function hoverTool(e) {
+    if (tool === 'color') {
+      var hx = colorAt(e), p = rel(e); if (!hx) return;
+      target = { hex: hx }; box.classList.remove('on');
+      tag.innerHTML = '<i class="sw" style="background:' + hx + '"></i><span class="mono">' + hx + '</span>'; tag.classList.add('on');
+      tag.style.left = Math.min(p.x + 16, W() - tag.offsetWidth - 10) + 'px'; tag.style.top = Math.min(p.y + 18, H() - 34) + 'px';
+      return;
+    }
+    var el = document.elementFromPoint(e.clientX, e.clientY), win = el && el.closest && el.closest('.win');
+    if (!win) { hide(); return; }
+    show(win, '<span>window</span><span>·</span><span class="mono">' + esc(win.dataset.app) + '</span>');
+  }
+  function runTool() {
+    var text, line, label;
+    if (tool === 'color') { text = target.hex; label = text + ' copied'; line = text + ' is on the clipboard.'; flashToast(label, tag); }
+    else {
+      var win = target;
+      if (tool === 'text') { text = win.dataset.text; label = 'Text copied'; line = text.split('\n').length + ' lines from ' + win.dataset.app + ', on the clipboard.'; }
+      else if (tool === 'snap') { win.classList.remove('flash'); void win.offsetWidth; win.classList.add('flash'); label = 'Snapped'; line = 'Snapped: a PNG of the window, saved and on the clipboard.'; }
+      else { label = 'Cut'; line = 'Cut: the subject on a transparent background, as a PNG.'; }
+      flashToast(label, win);
+    }
+    if (text) { try { navigator.clipboard && navigator.clipboard.writeText(text); } catch (err) {} }
+    end(); say.textContent = line;
+  }
+
+  // before the first capture, the sample: the Product Ideas orb in Oryne, with the note Malik typed
+  render(build(stage.querySelector('[data-k="p-product-ideas"]'), 'make this orb bigger, with satellite nodes like Light And Color', new Date(2026, 9, 13, 15, 30, 12)).rows);
 })();
 
 // Scroll: each block rises in once as it enters the viewport. Without JS nothing is hidden.
 (function () {
   if (!('IntersectionObserver' in window) || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  var els = document.querySelectorAll('section .sect-head, .steps, .stage, .result, .tile, .method, .action, .ba, .split .sect-head, .grid2 .item, .with');
+  var els = document.querySelectorAll('section .sect-head, .steps, .scenes, .stage, .result, .tile, .method, .action, .ba, .split .sect-head, .grid2 .item, .with');
   els.forEach(function (el) { el.classList.add('reveal'); });
-  var groups = {};
   document.querySelectorAll('.tiles, .actions, .grid2').forEach(function (g) { Array.prototype.forEach.call(g.children, function (ch, i) { ch.style.transitionDelay = (i * 70) + 'ms'; }); });
   var io = new IntersectionObserver(function (entries) {
     entries.forEach(function (en) { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } });
