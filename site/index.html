@@ -1,7 +1,8 @@
 <!doctype html>
+<html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Locant</title>
+<title>Locant: Point, don’t describe.</title>
 <meta name="description" content="Point at one element in any app. Your coding agent gets the element, not a screenshot.">
 <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="assets/favicon-64.png">
@@ -9,12 +10,12 @@
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://locant.malikzhang.com/">
 <meta property="og:site_name" content="Locant">
-<meta property="og:title" content="Locant: Point, don't describe.">
+<meta property="og:title" content="Locant: Point, don’t describe.">
 <meta property="og:description" content="Point at one element in any app. Your coding agent gets the element, not a screenshot.">
 <meta property="og:image" content="https://locant.malikzhang.com/assets/og.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="The Locant icon and the words Point, don't describe, beside the overlay outlining an orb in the iPhone Simulator, labeled button · oceanCurrent.product ideas.">
+<meta property="og:image:alt" content="The Locant icon and the words Point, don’t describe, beside the overlay outlining an orb in the iPhone Simulator, labeled button · oceanCurrent.product ideas.">
 <meta name="twitter:card" content="summary_large_image">
 <style>
   /* Borrow, don't brand. The page is set in the system face, the same one the overlay label uses. */
@@ -24,8 +25,9 @@
     --ink: #1d1d1f;
     --muted: #6e6e73;
     --hair: #d2d2d7;
-    --accent: #007aff;
-    --accent: color(display-p3 0 0.478 1);
+    --accent: #0071e3;   /* buttons, the step chips, the overlay frame: one blue, white text clears 4.5:1 */
+    --link: #0066cc;
+    --seg-on: #ffffff;
     --hud: rgba(255, 255, 255, 0.78);
     --hud-edge: rgba(0, 0, 0, 0.08);
     --glass: rgba(255, 255, 255, 0.22);
@@ -47,8 +49,9 @@
       --ink: #f5f5f7;
       --muted: #a1a1a6;
       --hair: #3a3a3c;
-      --accent: #0a84ff;
-      --accent: color(display-p3 0.04 0.52 1);
+      --accent: #0071e3;
+      --link: #2997ff;
+      --seg-on: #636366;
       --hud: rgba(30, 30, 32, 0.78);
       --hud-edge: rgba(255, 255, 255, 0.12);
       --glass: rgba(255, 255, 255, 0.10);
@@ -70,8 +73,9 @@
     --ink: #f5f5f7;
     --muted: #a1a1a6;
     --hair: #3a3a3c;
-    --accent: #0a84ff;
-    --accent: color(display-p3 0.04 0.52 1);
+    --accent: #0071e3;
+    --link: #2997ff;
+    --seg-on: #636366;
     --hud: rgba(30, 30, 32, 0.78);
     --hud-edge: rgba(255, 255, 255, 0.12);
     --glass: rgba(255, 255, 255, 0.10);
@@ -97,7 +101,7 @@
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     padding-inline: 20px;
-    padding-block: 0 96px;
+    padding-block: 0 40px;
   }
   a { color: inherit; }
   code, pre, .mono {
@@ -113,9 +117,9 @@
   p { text-wrap: pretty; }
   h1 { font-size: clamp(38px, 6.4vw, 60px); line-height: 1.06; font-weight: 600; }
   h2 { font-size: clamp(32px, 4.2vw, 48px); line-height: 1.08; font-weight: 600; }
-  h3 { font-size: 21px; line-height: 1.25; font-weight: 600; letter-spacing: -0.012em; }
+  h3 { font-size: 19px; line-height: 1.25; font-weight: 600; letter-spacing: -0.012em; }   /* every card title */
   p { margin: 0; }
-  .lede { font-size: 21px; line-height: 1.4; color: var(--muted); font-weight: 400; letter-spacing: -0.01em; }
+  .lede { font-size: 21px; line-height: 1.4; color: var(--muted); font-weight: 400; letter-spacing: -0.01em; text-wrap: balance; }
   .muted { color: var(--muted); }
   .small { font-size: 14px; line-height: 1.45; }
 
@@ -161,14 +165,13 @@
     padding: 12px 22px; border-radius: 980px; font-weight: 600; font-size: 17px;
   }
   .btn:focus-visible, .link:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-  .link { text-decoration: none; color: var(--accent); font-weight: 500; }
+  .link { text-decoration: none; color: var(--link); font-weight: 500; }
   .link:hover { text-decoration: underline; }
   .fine { font-size: 14px; color: var(--muted); }
   .fine span + span::before { content: "·"; margin-inline: 8px; }
 
   /* the hero loop: the real flow, recorded, seventeen seconds */
   .demo { display: block; width: 100%; max-width: 100%; height: auto; border-radius: 18px; box-shadow: var(--shadow); margin-top: 36px; }
-  figcaption { margin-top: 14px; font-size: 14px; color: var(--muted); text-align: center; }
 
   /* sections */
   section { padding-block: 80px 0; }
@@ -182,8 +185,8 @@
   .steps .s b { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; font-size: 12px; font-weight: 600; color: var(--muted); box-shadow: 0 0 0 1px var(--hair); transition: background .25s ease, color .25s ease, box-shadow .25s ease; }
   .steps .s.on { color: var(--ink); }
   .steps .s.on b { background: var(--accent); color: #fff; box-shadow: none; }
-  .steps .say { flex-basis: 100%; color: var(--ink); min-height: 1.5em; }
-  @media (min-width: 721px) { .steps .say { flex-basis: auto; margin-left: auto; } }
+  .steps .say { flex-basis: 100%; color: var(--ink); min-height: 1.5em; text-wrap: balance; }
+  @media (min-width: 721px) { .steps .say { flex-basis: auto; margin-left: 6px; } }
   .scenes { display: none; }
 
   .stage {
@@ -193,7 +196,7 @@
   }
   .stage .wall { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
   .stage.pointing { cursor: pointer; }
-  .stage.cross { cursor: crosshair; }
+  .stage.cross, .stage.picking { cursor: crosshair; }
   /* windows: placed on a 1280 x 800 pt desktop; --s is each window's own px per pt */
   .win { position: absolute; --s: .7656; }
   .win .hot { position: absolute; display: block; }
@@ -236,14 +239,19 @@
   .stage .hud .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
   .stage .hud .sec { color: rgba(235,235,245,.6); }
   .stage .hud .sw { width: 12px; height: 12px; border-radius: 3px; box-shadow: 0 0 0 1px rgba(255,255,255,.3); flex: none; }
-  .stage .field { width: 290px; }
+  .stage .field { width: min(320px, calc(100% - 24px)); }   /* fieldMinWidth */
   .stage .field.on { pointer-events: auto; }
+  @media (hover: none) {
+    .stage .field { height: 34px; }
+    .stage .field input { font-size: 16px; }
+    .stage .field .hint { display: none; }
+    .stage .ball::before { content: ""; position: absolute; inset: -10px; border-radius: 50%; }
+  }
   .stage .field input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: inherit; font: inherit; }
   .stage .field input::placeholder { color: rgba(235,235,245,.45); }
   .stage .field .hint { color: rgba(235,235,245,.6); flex: none; }
   .stage .field.shake { animation: shake .3s ease; }
   @keyframes shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
-  .stage .toast { font-weight: 600; }
 
   /* the ball: FloatingBall.Tokens, 48 pt of clear glass. Measured on the real disc: inside, the scene keeps its
      brightness but only about 14 percent of its contrast and half its color, so the glass is the average of what is
@@ -324,33 +332,31 @@
 
   /* phones: one window at a time, chosen with the tabs */
   @media (max-width: 720px) {
-    .scenes { display: flex; gap: 2px; padding: 2px; margin: 0 0 12px; width: fit-content; background: var(--frame); border-radius: 9px; }
-    .scenes button { font: inherit; font-size: 14px; border: 0; background: none; color: var(--muted); padding: 6px 12px; border-radius: 7px; cursor: pointer; }
-    .scenes button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+    .scenes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 2px; margin: 0 0 12px; background: var(--frame); border-radius: 10px; }
+    .scenes button { font: inherit; font-size: 15px; border: 0; background: none; color: var(--ink); min-height: 38px; border-radius: 8px; cursor: pointer; }
+    .scenes button[aria-selected="true"] { background: var(--seg-on); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.12); }
     .stage { aspect-ratio: 4 / 5; border-radius: 14px; }
     .stage .win { display: none; }
     .stage[data-scene="web"] .win.web, .stage[data-scene="calc"] .win.calc, .stage[data-scene="phone"] .win.phone { display: block; }
     .stage .win.web { left: 4% !important; width: 84% !important; height: auto !important; aspect-ratio: 760 / 527; top: 50% !important; transform: translateY(-50%); }
     .stage .win.calc { height: 80% !important; width: auto !important; aspect-ratio: 230 / 408; left: 44% !important; top: 10% !important; transform: translateX(-50%); }
     .stage .win.phone { height: 84% !important; width: auto !important; aspect-ratio: 250 / 527.1; left: 44% !important; top: 8% !important; transform: translateX(-50%); }
-    .stage .field { width: 240px; }
   }
 
   /* what your agent receives: the picture Locant saves beside the three things that matter; the raw text folds away */
   .result { margin-top: 40px; }
-  .result h3 { font-size: 24px; letter-spacing: -.01em; }
-  .result > .lede { font-size: 17px; color: var(--muted); margin: 6px 0 18px; }
-  .card { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 32px; align-items: center; padding: 24px; background: var(--surface); border-radius: 20px; box-shadow: 0 0 0 1px var(--hair); }
-  .card .pic { position: relative; margin: 0; aspect-ratio: 4 / 3; border-radius: 14px; background: #161618; overflow: hidden; }
+  .result h3 { font-size: 24px; letter-spacing: -.01em; margin-bottom: 18px; }
+  .card { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 32px; align-items: center; padding: 24px; background: var(--surface); border-radius: 18px; box-shadow: 0 0 0 1px var(--hair); }
+  .card .pic { position: relative; margin: 0; aspect-ratio: 4 / 3; border-radius: 12px; background: var(--frame); overflow: hidden; }
   /* the whole picture, contained and centered: absolute, so its max sizes resolve against the frame */
-  .card .pic canvas { position: absolute; inset: 0; margin: auto; display: block; width: auto; height: auto; max-width: calc(100% - 40px); max-height: calc(100% - 40px); border-radius: 8px; box-shadow: 0 0 0 1px rgba(255,255,255,.1), 0 10px 28px rgba(0,0,0,.45); }
+  .card .pic canvas { position: absolute; inset: 0; margin: auto; display: block; width: auto; height: auto; max-width: calc(100% - 40px); max-height: calc(100% - 40px); border-radius: 8px; box-shadow: 0 0 0 1px var(--hud-edge), 0 8px 24px rgba(0,0,0,.28); }
   .facts { margin: 0; display: grid; gap: 22px; }
   .fact dt { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
   .fact dd { margin: 0; font-size: 17px; }
   .fact.quote dd { font-size: 22px; font-weight: 600; line-height: 1.3; letter-spacing: -.01em; }
   .fact.quote dd::before { content: "“"; } .fact.quote dd::after { content: "”"; }
   .fact code { display: inline-block; max-width: 100%; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 14px; background: var(--frame); border-radius: 8px; padding: 4px 10px; overflow-wrap: anywhere; }
-  .fact .why { display: block; margin-top: 6px; font-size: 14px; color: var(--muted); }
+  .fact .why { display: block; margin-top: 6px; font-size: 14px; color: var(--muted); text-wrap: pretty; }
   .fact .why[hidden] { display: none; }
   .card.new .pic canvas { animation: pop .55s var(--wake) both; }
   .card.new .fact { animation: rise .5s ease both; }
@@ -359,13 +365,13 @@
   @keyframes pop { from { opacity: 0; transform: scale(.94); } }
   @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
   .raw { margin-top: 14px; }
-  .raw summary { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--accent); font-size: 15px; list-style: none; }
+  .raw summary { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--link); font-size: 15px; list-style: none; }
   .raw summary::-webkit-details-marker { display: none; }
   .raw summary::after { content: "›"; display: inline-block; transition: transform .2s ease; }
   .raw[open] summary::after { transform: rotate(90deg); }
   .raw summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
   .raw pre { margin: 12px 0 0; padding: 16px 18px; background: var(--code-bg); border: 1px solid var(--hair); border-radius: 14px; font: 12.5px/1.6 ui-monospace, "SF Mono", Menlo, monospace; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
-  @media (max-width: 720px) { .card { grid-template-columns: 1fr; gap: 20px; padding: 18px; } .fact.quote dd { font-size: 19px; } }
+  @media (max-width: 720px) { .card { grid-template-columns: 1fr; gap: 20px; padding: 20px; border-radius: 14px; } .fact.quote dd { font-size: 19px; } }
 
   /* scroll: blocks rise in once, the way a page on apple.com does; off when motion is reduced */
   @media (prefers-reduced-motion: no-preference) {
@@ -377,22 +383,21 @@
 
   /* why: three numbers from the measurement, then where the method is */
   .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-  .tile { display: grid; gap: 8px; align-content: start; padding: 20px 20px 18px; background: var(--surface); border-radius: 16px; box-shadow: 0 0 0 1px var(--hair); }
-  .tile .big { font-size: 40px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .tile { display: grid; gap: 8px; align-content: start; padding: 20px; background: var(--surface); border-radius: 16px; box-shadow: 0 0 0 1px var(--hair); }
+  .tile .big { font-size: clamp(28px, 4.1vw, 40px); font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
   .tile p { font-size: 17px; color: var(--muted); }
   .method { margin-top: 18px; font-size: 15px; color: var(--muted); }
-  .method a { color: var(--accent); text-decoration: none; }
+  .method a { color: var(--link); text-decoration: none; }
   .method a:hover { text-decoration: underline; }
 
   .actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
-  .action { display: grid; grid-template-rows: auto auto 1fr; gap: 8px; padding: 18px 16px; background: var(--surface); border-radius: 16px; box-shadow: 0 0 0 1px var(--hair); }
+  .action { display: grid; grid-template-rows: auto auto 1fr; gap: 8px; padding: 20px; background: var(--surface); border-radius: 16px; box-shadow: 0 0 0 1px var(--hair); }
   /* the ring's four symbols, drawn in the label color like the app draws them */
   .action .glyph { width: 30px; height: 30px; background: var(--ink); -webkit-mask: var(--glyph) center / contain no-repeat; mask: var(--glyph) center / contain no-repeat; }
   .glyph.snap { --glyph: url("assets/glyph-snap.png"); }
   .glyph.text { --glyph: url("assets/glyph-text.png"); }
   .glyph.color { --glyph: url("assets/glyph-color.png"); }
   .glyph.cut { --glyph: url("assets/glyph-cut.png"); }
-  .action h3 { font-size: 19px; }
   .action p { font-size: 17px; color: var(--muted); }
 
   .split { display: grid; grid-template-columns: 1.15fr 1fr; gap: 40px; align-items: center; }
@@ -402,18 +407,17 @@
   }
   .ba .chrome { height: 30px; background: var(--frame-chrome); border-bottom: 1px solid var(--hair); display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding-inline: 10px; }
   .ba .chrome .dots { display: flex; gap: 6px; }
-  .ba .chrome .dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--hair); display: block; }
+  .ba .chrome .dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); opacity: .35; display: block; }
   .ba .chrome .title { font-weight: 600; color: var(--muted); font-size: 12px; }
   .ba .memo { padding: 12px 14px 10px; color: var(--ink); font-size: 14px; display: grid; gap: 2px; }
-  .ba .memo .el { color: var(--muted); font-size: 12px; }
   .ba .bar { display: flex; align-items: center; gap: 12px; padding: 0 14px 10px; }
   .ba .seg { display: flex; background: var(--frame); border-radius: 7px; padding: 2px; font-size: 11px; color: var(--muted); }
   .ba .seg span { padding: 2px 9px; border-radius: 5px; }
-  .ba .seg .on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
-  .ba .bar .iter { margin-left: auto; font-size: 11px; color: var(--ink); background: var(--frame); border-radius: 6px; padding: 3px 9px; }
+  .ba .seg .on { background: var(--seg-on); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
   /* Slide: one canvas, the after revealed under a draggable accent divider */
   .ba .canvas { position: relative; aspect-ratio: 45 / 14; margin-inline: 14px; border-radius: 8px; overflow: hidden; background: var(--frame); }
   .ba .layer { position: absolute; inset: 0; display: grid; place-items: center; }
+  .ba .layer.before { clip-path: inset(0 50% 0 0); }
   .ba .layer.after { clip-path: inset(0 0 0 50%); }
   .ba .layer i { display: block; width: 40%; height: 34%; background: var(--accent); }
   .ba .layer.before i { border-radius: 6px; }
@@ -425,11 +429,10 @@
   .ba .tag.after { bottom: 6px; right: 6px; }
   .ba .facts { display: grid; gap: 4px; padding: 12px 14px 14px; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11.5px; }
   .ba .facts .stat { color: var(--ink); }
-  .ba .facts .file { color: var(--muted); }
+  .ba .facts .stat span { white-space: nowrap; }
 
   .grid2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
-  .grid2 .item { display: grid; gap: 6px; align-content: start; padding: 18px 20px; background: var(--surface); border-radius: 16px; box-shadow: 0 0 0 1px var(--hair); }
-  .grid2 .item h3 { font-size: 17px; }
+  .grid2 .item { display: grid; gap: 6px; align-content: start; padding: 20px; background: var(--surface); border-radius: 16px; box-shadow: 0 0 0 1px var(--hair); }
   .grid2 .item p { color: var(--muted); font-size: 17px; }
 
   /* works with: two lines of names */
@@ -438,18 +441,17 @@
   .with .lab { color: var(--muted); font-size: 15px; min-width: 60px; }
   .with .pill { background: var(--surface); box-shadow: 0 0 0 1px var(--hair); border-radius: 980px; padding: 7px 14px; font-size: 15px; white-space: nowrap; }
 
+  /* the close: the download, once more, centered like the hero */
+  .end { display: grid; justify-items: center; gap: 20px; text-align: center; }
+
   /* footer: one hairline, then the small print and a single line of links, the way apple.com closes a page */
-  footer { margin-top: 96px; padding-top: 28px; border-top: 1px solid var(--hair); display: grid; gap: 22px; font-size: 12px; line-height: 1.5; color: var(--muted); }
+  footer { margin-top: 80px; padding-top: 28px; border-top: 1px solid var(--hair); display: grid; gap: 22px; font-size: 12px; line-height: 1.5; color: var(--muted); }
   footer .word { max-width: 60ch; font-size: 13px; }
   footer .word p { margin: 0; }
   footer .word .head { margin-bottom: 2px; }
   footer .word b { color: var(--ink); font-weight: 600; font-size: 14px; }
-  footer .word b a { color: inherit; text-decoration: none; transition: color 0.15s ease; }
-  footer .word b a:hover { color: var(--accent); }
-  footer .word b a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
   footer .word .say { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; margin-inline: 6px 8px; }
   footer .word i { font-style: italic; }
-  footer .word .nowrap { white-space: nowrap; }
   footer .row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 24px; }
   footer .links { display: flex; flex-wrap: wrap; margin-left: auto; }
   footer .links a { color: var(--ink); text-decoration: none; }
@@ -457,6 +459,7 @@
   footer .links a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
   footer .links a + a { margin-left: 10px; padding-left: 10px; border-left: 1px solid var(--hair); }
 
+  @media (max-width: 900px) { .actions { grid-template-columns: 1fr 1fr; } }   /* tablets: two by two */
   @media (max-width: 720px) {
     .hero { padding-block: 56px 36px; }
     /* phones get the loop cut at 4:5 (hero-mobile.mp4): the same take, framed on each shot's subject */
@@ -466,10 +469,22 @@
     .grid2, .tiles { grid-template-columns: 1fr; }
     .with .lab { flex-basis: 100%; }
     .actions { grid-template-columns: 1fr 1fr; }
-    .split { grid-template-columns: 1fr; }
+    .split { grid-template-columns: 1fr; gap: 32px; }
+    .split .sect-head { order: -1; }                 /* the heading before its picture, as in every other section */
+    .lede, .sect-head .lede { font-size: 19px; line-height: 1.42; }
+    section { padding-top: 64px; }
+    footer { margin-top: 64px; }
+    .tile .big { font-size: 32px; }
+    .fact code { font-size: 13px; }
+    .raw summary { padding-block: 10px; margin-block: -10px; }
+    .with { gap: 20px; }
+    .steps .say { min-height: 3em; }                 /* the stage stays put as the instruction changes */
   }
   @media (max-width: 440px) {
-    .actions { grid-template-columns: 1fr; }
+    /* the four tools as one compact list: the symbol beside its name and line */
+    .actions { grid-template-columns: 1fr; gap: 10px; }
+    .action { grid-template-columns: 30px 1fr; grid-template-rows: auto auto; column-gap: 16px; row-gap: 2px; align-items: start; }
+    .action .glyph { grid-row: 1 / span 2; margin-top: 2px; }
   }
 </style>
 
@@ -483,7 +498,7 @@
   <div class="in">
     <a class="brand" href="#top"><span class="mark" aria-hidden="true"></span>Locant</a>
     <div class="links">
-      <a href="#how">How it works</a>
+      <a href="#how">Try it</a>
       <a href="#why">Why Locant</a>
       <a href="#privacy">Privacy</a>
     </div>
@@ -493,7 +508,7 @@
 <main id="top">
   <header class="hero col">
     <div class="app-icon" role="img" aria-label="Locant app icon"></div>
-    <h1>Point, don't&nbsp;describe.</h1>
+    <h1>Point, don’t&nbsp;describe.</h1>
     <p class="lede">Your coding agent gets the element you point at, not a screenshot.</p>
     <div class="cta">
       <a class="btn" href="https://github.com/Malik1942/locant/releases/latest/download/Locant.dmg">Download for Mac</a>
@@ -503,7 +518,7 @@
   </header>
 
   <figure class="wide" style="margin-block: 0;">
-    <video class="demo" autoplay muted playsinline preload="metadata" poster="assets/hero-poster.jpg" width="2560" height="1440" aria-label="The loop, recorded: the ball wakes and is clicked, the overlay dims the screen, hovering the orb in the iPhone Simulator shows button · oceanCurrent.product.ideas, a click opens the note field, the note is typed, Enter copies, the Markdown payload lands in Cursor's chat with the image path first, and the loop closes on the Locant card"><source media="(max-width: 720px)" src="assets/hero-mobile.mp4" type="video/mp4"><source src="assets/hero.mp4" type="video/mp4"></video>
+    <video class="demo" autoplay muted playsinline preload="metadata" poster="assets/hero-poster.jpg" width="2560" height="1440" aria-label="Locant in use: point at a button in an iPhone app, type a note, and paste it into Cursor."><source media="(max-width: 720px)" src="assets/hero-mobile.mp4" type="video/mp4"><source src="assets/hero.mp4" type="video/mp4"></video>
     <script>
       // Plays once and rests on the closing card; hovering (or tapping, on a phone) plays it again.
       (function () {
@@ -513,22 +528,21 @@
         v.addEventListener('click', replay);
       })();
     </script>
-    <figcaption>Click the ball, hover, click, say what should change, paste.</figcaption>
   </figure>
 
   <section class="col" id="how">
     <div class="sect-head">
       <h2>Try it here</h2>
-      <p class="lede">A real Mac desktop: a website, a Mac app, and an iPhone app. One ball points at all of them.</p>
+      <p class="lede">One ball points at a website, a Mac app, and an iPhone app.</p>
     </div>
     <div class="steps" id="steps" aria-live="polite">
       <span class="s on"><b>1</b>Point</span><span class="s"><b>2</b>Note</span><span class="s"><b>3</b>Paste</span>
-      <span class="say" id="say">The ball rests at the right edge. Move toward it, then click it. Press and hold for the ring.</span>
+      <span class="say" id="say">Click the ball at the bottom right. Hold it for more tools.</span>
     </div>
     <div class="scenes" role="tablist" aria-label="Screens">
-      <button type="button" role="tab" aria-selected="true" data-scene="web">Website</button><button type="button" role="tab" aria-selected="false" data-scene="calc">Mac app</button><button type="button" role="tab" aria-selected="false" data-scene="phone">iPhone app</button>
+      <button type="button" role="tab" aria-selected="true" data-scene="phone">iPhone app</button><button type="button" role="tab" aria-selected="false" data-scene="web">Website</button><button type="button" role="tab" aria-selected="false" data-scene="calc">Mac app</button>
     </div>
-    <div class="stage" id="stage" data-scene="web">
+    <div class="stage" id="stage" data-scene="phone">
       <img class="wall" src="assets/desktop.jpg" alt="" aria-hidden="true">
       <div class="win web" data-scene="web" data-role="window" data-label="Oryne: catch ideas before they drift away" data-app="Safari" data-bundle="com.apple.Safari" data-file="safari" data-url="https://oryne.malikzhang.com/" data-mode="reference" data-path="application > window" data-f="36,56,760,527" data-text="Oryne
 Features
@@ -631,42 +645,52 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
       <div class="hud field"><input type="text" placeholder="What should change?" aria-label="Note" autocomplete="off"><span class="hint">↩ copy · esc cancel</span></div>
       <div class="hud toast">Copied</div>
       <div class="ghost"><i class="lens"></i><i class="tint"></i><i class="rim"></i></div>
-      <button class="ball is-hidden" type="button" aria-label="The Locant ball: click to point, press and hold for the ring"><i class="lens"></i><i class="tint"></i><i class="glow"></i><i class="lift"></i><i class="rim"></i><i class="hand"></i></button>
+      <button class="ball is-hidden" type="button" aria-label="Locant ball: point at an element"><i class="lens"></i><i class="tint"></i><i class="glow"></i><i class="lift"></i><i class="rim"></i><i class="hand"></i></button>
       <div class="ring" aria-hidden="true"><svg viewBox="0 0 184 184" aria-hidden="true"><path class="wedge snap" d="M157.1 26.9 A92 92 0 0 0 26.9 26.9 L74.3 74.3 A25 25 0 0 1 109.7 74.3 Z"/><path class="wedge text" d="M157.1 157.1 A92 92 0 0 0 157.1 26.9 L109.7 74.3 A25 25 0 0 1 109.7 109.7 Z"/><path class="wedge color" d="M26.9 157.1 A92 92 0 0 0 157.1 157.1 L109.7 109.7 A25 25 0 0 1 74.3 109.7 Z"/><path class="wedge cut" d="M26.9 26.9 A92 92 0 0 0 26.9 157.1 L74.3 109.7 A25 25 0 0 1 74.3 74.3 Z"/><g class="sep"><line x1="109.7" y1="74.3" x2="157.1" y2="26.9"/><line x1="74.3" y1="74.3" x2="26.9" y2="26.9"/><line x1="74.3" y1="109.7" x2="26.9" y2="157.1"/><line x1="109.7" y1="109.7" x2="157.1" y2="157.1"/><circle cx="92" cy="92" r="25"/></g></svg><div class="seg snap"><i class="glyph snap"></i><span>Snap</span></div><div class="seg text"><i class="glyph text"></i><span>Text</span></div><div class="seg color"><i class="glyph color"></i><span>Color</span></div><div class="seg cut"><i class="glyph cut"></i><span>Cut</span></div><div class="hand"></div></div>
     </div>
 
     <div class="result" id="result">
       <h3>What your agent receives</h3>
-      <p class="lede">One paste carries the picture, your note, and the element’s name in the code.</p>
       <div class="card" id="card">
-        <figure class="pic"><canvas id="crop" width="256" height="256" role="img" aria-label="The picture Locant saves: the element and 40 points around it"></canvas></figure>
+        <figure class="pic"><canvas id="crop" width="256" height="256" role="img" aria-label="The picture Locant saves of the element"></canvas></figure>
         <dl class="facts">
           <div class="fact quote"><dt>Your note</dt><dd id="f-note"></dd></div>
           <div class="fact"><dt>The element</dt><dd><code id="f-el"></code><span class="why" id="f-why"></span></dd></div>
           <div class="fact"><dt>Where</dt><dd><span id="f-where"></span><span class="why" id="f-built" hidden></span></dd></div>
         </dl>
       </div>
-      <details class="raw"><summary>See the full text it pastes</summary><pre id="raw"></pre></details>
+      <details class="raw"><summary>See the full paste</summary><pre id="raw"></pre></details>
+    </div>
+  </section>
+
+  <section class="col" id="agents">
+    <div class="sect-head">
+      <h2>Works with your agent</h2>
+      <p class="lede">Paste what you point at into any of these. Claude Code, Cursor, and Codex can also fetch it over MCP.</p>
+    </div>
+    <div class="with">
+      <div class="line"><span class="lab">Agents</span><span class="pill">Claude Code</span><span class="pill">Cursor</span><span class="pill">Codex</span><span class="pill">Grok Bot</span><span class="pill">Antigravity</span></div>
+      <div class="line"><span class="lab">Best in</span><span class="pill">SwiftUI</span><span class="pill">AppKit</span><span class="pill">iPhone Simulator</span><span class="pill">Web pages</span><span class="pill">Electron apps</span></div>
     </div>
   </section>
 
   <section class="col" id="why">
     <div class="sect-head">
       <h2>Why Locant</h2>
-      <p class="lede">Tested against a screenshot: same picture, same note, same model. The agent had two copies of the code, and only one was on screen.</p>
+      <p class="lede">Tested against a screenshot of the same element, with the same note and the same model. The agent had two copies of the code, and only one was on screen.</p>
     </div>
     <div class="tiles">
       <div class="tile"><span class="big">0 of 20</span><p>Locant runs that edited the wrong copy. With a screenshot: 14 of 20.</p></div>
-      <div class="tile"><span class="big">2× faster</span><p>39 seconds to the right file, against 80.</p></div>
-      <div class="tile"><span class="big">Half the cost</span><p>About half the tokens and dollars per run.</p></div>
+      <div class="tile"><span class="big">2× faster</span><p>39 seconds to the right file. With a screenshot: 80 seconds.</p></div>
+      <div class="tile"><span class="big">Half the cost</span><p>$0.55 a run. With a screenshot: $1.13.</p></div>
     </div>
-    <p class="method">80 runs on Claude Code, graded blind. Method and statistics: <a href="https://github.com/Malik1942/locant/blob/main/docs/video/11-measurement-worktrees.md">the report</a>.</p>
+    <p class="method">Tested on Claude Code, graded blind. <a href="https://github.com/Malik1942/locant/blob/main/docs/video/11-measurement-worktrees.md">Read the report</a>.</p>
   </section>
 
   <section class="col" id="actions">
     <div class="sect-head">
-      <h2>Four more, on the same gesture</h2>
-      <p class="lede">Press and hold the ball. Try it in the demo above.</p>
+      <h2>Four more tools</h2>
+      <p class="lede">Press and hold the ball.</p>
     </div>
     <div class="actions">
       <div class="action">
@@ -679,7 +703,7 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
       </div>
       <div class="action">
         <span class="glyph color" aria-hidden="true"></span>
-        <h3>Color</h3><p>Any pixel, as hex, rgb(), hsl(), or SwiftUI Color.</p>
+        <h3>Color</h3><p>Any pixel, as hex, RGB, HSL, or SwiftUI Color.</p>
       </div>
       <div class="action">
         <span class="glyph cut" aria-hidden="true"></span>
@@ -690,25 +714,23 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
 
   <section class="col">
     <div class="split">
-      <div class="ba" role="img" aria-label="The Before and After window: the note and the element on top, a Slide, Side by side, Flip picker, one canvas of the same button with a draggable divider, square-cornered before on the left and pill-shaped after on the right, and the git diff summary beneath">
+      <div class="ba" role="img" aria-label="The Before and After window: the same button before and after the agent’s edit, with the diff">
         <div class="chrome"><div class="dots"><i></i><i></i><i></i></div><span class="title">Before &amp; After</span><span></span></div>
-        <div class="memo">make this rounded, match the other pills<span class="el">com.example.myapp · button id=captureButton</span></div>
-        <div class="bar"><div class="seg"><span class="on">Slide</span><span>Side by side</span><span>Flip</span></div><span class="iter">All iterations (1)</span></div>
+        <div class="memo">make this rounded, match the other pills</div>
+        <div class="bar"><div class="seg"><span class="on">Slide</span><span>Side by side</span><span>Flip</span></div></div>
         <div class="canvas">
           <div class="layer before"><i></i></div>
           <div class="layer after"><i></i></div>
           <div class="divider"></div><div class="knob"></div>
-          <span class="tag before">Before</span><span class="tag after">After #1 · 15:32</span>
+          <span class="tag before">Before</span><span class="tag after">After</span>
         </div>
         <div class="facts">
-          <div class="stat">2 files changed, 12 insertions(+), 4 deletions(-)</div>
-          <div class="file">Sources/Capture/CaptureButton.swift</div>
-          <div class="file">Sources/DesignSystem/Pill.swift</div>
+          <div class="stat"><span>2 files changed,</span> <span>12 insertions(+), 4 deletions(-)</span></div>
         </div>
       </div>
       <div class="sect-head" style="margin: 0;">
         <h2>See what changed</h2>
-        <p class="lede">After the agent's edit, run the app again. Locant finds the same element, captures it when it looks different, and keeps every iteration with the diff beneath.</p>
+        <p class="lede">Run the app after your agent’s edit. Locant finds the same element and shows it before and after, with the diff.</p>
       </div>
     </div>
   </section>
@@ -719,13 +741,13 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
     </div>
     <div class="grid2">
       <div class="item">
-        <h3>Two permissions, both explained</h3><p>Accessibility reads what is under your cursor. Screen Recording captures the pixels. There is no third prompt.</p>
+        <h3>Two permissions, nothing more</h3><p>Accessibility to see what’s under your cursor. Screen Recording to take its picture.</p>
       </div>
       <div class="item">
         <h3>Nothing leaves your Mac</h3><p>No telemetry, no accounts. The one request is a daily check for a newer version, and you can turn it&nbsp;off.</p>
       </div>
       <div class="item">
-        <h3>Signed and notarized</h3><p>Every build is signed with a Developer ID and notarized by Apple. A dmg from GitHub, not the App Store.</p>
+        <h3>Signed and notarized</h3><p>Every build is signed with a Developer ID and notarized by Apple.</p>
       </div>
       <div class="item">
         <h3>Quiet</h3><p>No Dock icon. Nothing pulses, bounces, or waits for you to notice it.</p>
@@ -733,26 +755,20 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
     </div>
   </section>
 
-  <section class="col" id="agents">
-    <div class="sect-head">
-      <h2>Works with your agent</h2>
-      <p class="lede">Paste the capture where you want it. Or connect over MCP in Settings › Agents, say what should change, and the agent fetches the capture itself, image included.</p>
-    </div>
-    <div class="with">
-      <div class="line"><span class="lab">Agents</span><span class="pill">Claude Code</span><span class="pill">Cursor</span><span class="pill">Codex</span><span class="pill">Grok Bot</span><span class="pill">Antigravity</span></div>
-      <div class="line"><span class="lab">Best in</span><span class="pill">SwiftUI</span><span class="pill">AppKit</span><span class="pill">iPhone Simulator</span><span class="pill">Web pages</span><span class="pill">Electron apps</span></div>
-    </div>
+  <section class="col end">
+    <h2>Try Locant on your Mac.</h2>
+    <a class="btn" href="https://github.com/Malik1942/locant/releases/latest/download/Locant.dmg">Download for Mac</a>
+    <p class="fine"><span>Free</span><span>macOS 15 or later</span></p>
   </section>
 
   <footer class="col">
     <div class="word">
-      <p class="head"><b><a href="https://github.com/Malik1942/locant/releases/latest/download/Locant.dmg" title="Download Locant for Mac">lo·cant</a></b><span class="say">/ˈloʊ·kənt/</span><i>noun</i></p>
-      <p>The number in a chemical name that says exactly where a group is attached, as the&nbsp;2 in 2‑methylbutane. <span class="nowrap">One number, one molecule.</span></p>
+      <p class="head"><b>lo·cant</b><span class="say">/ˈloʊ·kənt/</span><i>noun</i></p>
+      <p>The number in a chemical name that says exactly where a group is attached, as the&nbsp;2 in 2‑methylbutane.</p>
     </div>
     <div class="row">
-      <span class="ver">Locant 0.9.2 for Mac</span>
+      <span class="ver">Locant 0.9.2</span>
       <nav class="links" aria-label="Footer">
-        <a href="https://github.com/Malik1942/locant/releases/latest/download/Locant.dmg">Download for Mac</a>
         <a href="https://github.com/Malik1942/locant">GitHub</a>
         <a href="https://github.com/Malik1942/locant/issues/new/choose">Report an issue</a>
         <a href="https://www.malikzhang.com">Built by Malik</a>
@@ -777,17 +793,19 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
       fWhere = document.getElementById('f-where'), fBuilt = document.getElementById('f-built'), raw = document.getElementById('raw'),
       tabs = document.querySelectorAll('.scenes button'), wins = Array.prototype.slice.call(stage.querySelectorAll('.win'));
   var PT = { web: 760, calc: 230, phone: 250 };          // each window's width in points, for its own scale
-  var WHERE = { web: 'Safari · oryne.malikzhang.com', calc: 'Calculator', phone: 'Oryne on iPhone 17 Pro' };
+  var WHERE = { web: 'oryne.malikzhang.com in Safari', calc: 'Calculator', phone: 'Oryne on iPhone 17 Pro' };
   var S = 0.7656, D = 48 * S, R = D / 2;                // points to px, and the disc's size, set by fit()
   var SHOW = 0.6, DOCK_DELAY = 2000, HOLD = 500;
   var touch = matchMedia('(hover: none)').matches;
   var W = function () { return stage.clientWidth; }, H = function () { return stage.clientHeight; };
   var ADVICE = 'The app on screen was built from this folder. If you are working in a different checkout of this repo (another worktree or clone), your copy is not the code on screen: change it in this folder, or ask which copy to change.';
-  var HELLO = touch ? 'The ball rests at the right edge. Tap it, then tap anything on the screen. Press and hold for the ring.'
-                    : 'The ball rests at the right edge. Move toward it, then click it. Press and hold for the ring.';
+  var V = touch ? 'Tap' : 'Click';
+  var HELLO = V + ' the ball at the bottom right. Hold it for more tools.';   // the first time, where it appeared
+  var AGAIN = V + ' the ball to point. Hold it for more tools.';             // later, wherever it rests
 
   // mode: what the demo is doing. bs: the ball's own state, as FloatingBall.State.
   var mode = 'ball', bs = 'hidden';
+  var sizeW = 1, sizeH = 1;   // the stage size home was measured in
   var home = { x: 0, y: 0 }, shown = { x: 0, y: 0 }, dockTimer = null, holdTimer = null, holdDock = false, press = null, seg = null,
       last = null, level = 0, base = null, target = null, pointedAt = 0, tool = null, z = 5;
 
@@ -821,7 +839,8 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
     return { x: t.x, y: H() - R };
   }
   function ringSafe(p) { var m = 100 * S; return { x: clamp(p.x, m, W() - m), y: clamp(p.y, m, H() - m) }; }   // ringMargin
-  function nearEdge(p) { var s = 48 * S; return p.x <= s || W() - p.x <= s || H() - p.y <= s; }                // edgeSnap
+  function nearEdge(p) { if (touch) return false;   // on a touch screen it stays out, whole
+    var s = 48 * S; return p.x <= s || W() - p.x <= s || H() - p.y <= s; }                // edgeSnap
   function inside(p) { return { x: clamp(p.x, R, W() - R), y: clamp(p.y, R, H() - R) }; }
 
   // ---- motion: the disc glides to `p` on one of Motion.swift's springs ----
@@ -847,6 +866,7 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
 
   // ---- FloatingBall.set ----
   function set(ns) {
+    if (touch && (ns === 'rest' || ns === 'ready')) ns = 'awake';
     if (ns === bs) return;
     var wasDocked = bs === 'docked'; bs = ns;
     if (ns === 'awake' || ns === 'ready') {
@@ -864,6 +884,7 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
   }
   function scheduleDock() {
     clearTimeout(dockTimer);
+    if (touch) return;   // on a touch screen it stays out, whole, with its hand
     dockTimer = setTimeout(function () { if (bs === 'rest' && mode === 'ball' && !press) tuck(nearestTuck(current())); }, DOCK_DELAY);
   }
   function tuck(spot) { home = homeFor(spot); set('docked'); move(spot, 'tuck'); }
@@ -894,13 +915,13 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
   function placeFirst() {
     fit();
     var p = { x: W() - 24 * S - R, y: H() - 24 * S - R };
-    home = p; jump(p);
+    home = p; jump(p); sizeW = W(); sizeH = H();
   }
   placeFirst();
   window.addEventListener('resize', function () {
     if (press || mode === 'ring') return;
-    var fx = home.x / Math.max(1, W()), fy = home.y / Math.max(1, H());
-    fit();
+    var fx = home.x / sizeW, fy = home.y / sizeH;
+    fit(); sizeW = W(); sizeH = H();
     if (bs === 'hidden') { placeFirst(); return; }
     var p = { x: fx * W(), y: fy * H() };
     if (bs === 'docked') { var t = nearestTuck(p); home = homeFor(t); jump(t); }
@@ -910,6 +931,7 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
     if (bs !== 'hidden') return;
     placeFirst();
     ball.classList.add('revealing'); bs = 'rest'; look('rest');
+    if (touch) set('awake');
     setTimeout(function () { ball.classList.remove('revealing'); }, 900);
     scheduleDock();
     cursorMoved(pointerHere());
@@ -936,7 +958,7 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
   ball.addEventListener('pointerdown', function (e) {
     if (mode !== 'ball' || press || bs === 'hidden') return;
     var p = rel(e.clientX, e.clientY), c = current();
-    if (Math.hypot(p.x - c.x, p.y - c.y) > R + 2 * S) return;
+    if (Math.hypot(p.x - c.x, p.y - c.y) > R + (e.pointerType === 'touch' ? 10 : 2 * S)) return;
     e.preventDefault();
     if (e.pointerType === 'touch') { last = { x: e.clientX, y: e.clientY, touch: true }; }
     press = { x: e.clientX, y: e.clientY, grab: { x: p.x - c.x, y: p.y - c.y }, moved: false, samples: [{ t: e.timeStamp, x: p.x, y: p.y }] };
@@ -957,7 +979,7 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
     if (mode === 'ring') { ringMove(p); return; }
     press.samples.push({ t: e.timeStamp, x: p.x, y: p.y });
     press.samples = press.samples.filter(function (s) { return e.timeStamp - s.t <= 160; });
-    if (!press.moved && Math.hypot(e.clientX - press.x, e.clientY - press.y) <= 6 * S) return;
+    if (!press.moved && Math.hypot(e.clientX - press.x, e.clientY - press.y) <= (e.pointerType === 'touch' ? 10 : 6 * S)) return;   // a finger drifts
     if (!press.moved) { press.moved = true; clearTimeout(holdTimer); ball.classList.add('dragging'); }
     // absolute: the disc sits exactly where the cursor carried it
     var c = { x: clamp(p.x - press.grab.x, R * 0.2, W() - R * 0.2), y: clamp(p.y - press.grab.y, R * 0.2, H() - R * 0.2) };
@@ -980,6 +1002,7 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
     if (mode === 'ring') { ringEnd(); return; }
     ghost.classList.remove('on');
     if (!pr.moved) { point(); return; }
+    if (say.textContent === HELLO) setStep(1, AGAIN);   // it is no longer where it first appeared
     // FloatingBall.dragEnded and Throw.release
     pr.samples.push({ t: e.timeStamp, x: rel(e.clientX, e.clientY).x, y: rel(e.clientX, e.clientY).y });
     var v = velocity(pr.samples), c = { x: shown.x, y: shown.y };
@@ -992,7 +1015,7 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
   }
   function pressCancel() {
     unbind(); clearTimeout(holdTimer); press = null; ball.classList.remove('dragging'); ghost.classList.remove('on');
-    if (mode === 'ring') { closeRing(); mode = 'ball'; ball.classList.remove('gone'); }
+    if (mode === 'ring') { seg = null; ringEnd(); return; }
     cursorMoved(pointerHere());
   }
   ball.addEventListener('keydown', function (e) { if ((e.key === 'Enter' || e.key === ' ') && mode === 'ball') { e.preventDefault(); point(); } });
@@ -1006,7 +1029,7 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
     ring.style.left = ringAt.x + 'px'; ring.style.top = ringAt.y + 'px';
     ball.classList.add('gone'); stage.classList.remove('over-ball');
     ring.classList.add('open'); setTimeout(function () { if (mode === 'ring') ring.classList.add('labels'); }, 200);
-    say.textContent = 'Slide to a rung and let go. Let go in the middle to cancel.';
+    setStep(0, 'Slide to a tool, then let go.');
   }
   function segmentFor(dx, dy) {
     if (Math.hypot(dx, dy) <= 25 * S) return null;
@@ -1022,7 +1045,7 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
   function ringEnd() {       // pressEnded: the ring closes and the ball keeps its state
     var chosen = seg; closeRing();
     if (chosen) { startTool(chosen); return; }
-    mode = 'ball'; ball.classList.remove('gone'); setStep(1, HELLO);
+    mode = 'ball'; ball.classList.remove('gone'); setStep(1, AGAIN);
     scheduleDock(); look(bs); cursorMoved(pointerHere());
   }
 
@@ -1030,8 +1053,7 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
   function point() {
     mode = 'point'; level = 0; base = null; pointedAt = Date.now(); clearTimeout(dockTimer);
     ball.classList.add('gone'); stage.classList.remove('over-ball'); stage.classList.add('pointing');
-    setStep(1, touch ? 'Tap anything: the website, Calculator, or the iPhone app.'
-                     : 'Point at anything: the website, Calculator, or the iPhone app. Option steps up to the parent. Esc cancels.');
+    setStep(1, touch ? 'Tap what you want changed.' : 'Click what you want changed. Esc cancels.');
     document.addEventListener('keydown', keys);
   }
   function chain(el) {
@@ -1090,9 +1112,15 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
     var up = chain(base); show(up[Math.min(level, up.length - 1)]);
   }
   stage.addEventListener('pointermove', function (e) { if (mode === 'point') hover(e); else if (mode === 'tool') hoverTool(e); });
+  // touch: no compatibility mousedown after the tap, so the note field keeps the focus note() gives it
+  stage.addEventListener('pointerdown', function (e) { if (e.pointerType === 'touch' && mode === 'point') e.preventDefault(); });
   stage.addEventListener('pointerup', function (e) {
     if (ball.contains(e.target)) return;
     if (Date.now() - pointedAt < 150) return;
+    if (e.pointerType === 'touch') {
+      if (mode === 'note' && !field.contains(e.target)) { cancel(); return; }
+      if ((mode === 'point' || (mode === 'tool' && tool !== 'color')) && !under(e)) { cancel(); return; }
+    }
     if (mode === 'tool') { hoverTool(e); if (target) runTool(); return; }
     if (mode !== 'point') return;
     if (!target || e.pointerType === 'touch') hover(e); if (!target) return;
@@ -1106,14 +1134,15 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
   // ---- the note: the field under the element; Return copies, Esc cancels ----
   function note() {
     mode = 'note'; var f = frameOf(target);
-    tag.classList.remove('on');
     var left = Math.min(Math.max(12, f.x), W() - field.offsetWidth - 12), top = f.y + f.h + 8;
     if (top + 34 > H() - 6) top = f.y - 38;
     if (top < 6) top = Math.min(H() - 36, f.y + 8);
     field.style.left = left + 'px'; field.style.top = top + 'px'; field.classList.add('on');
-    input.value = ''; input.focus({ preventScroll: true }); setStep(2, 'Say what should change, then Return.');
+    if (touch) tag.style.top = clamp(top > f.y ? f.y - 34 : f.y + f.h + 8, 6, H() - 32) + 'px'; else tag.classList.remove('on');
+    input.value = ''; input.focus({ preventScroll: true }); setStep(2, 'Type a note, then press Return.');
   }
   input.addEventListener('keydown', function (e) {
+    if (e.isComposing || e.keyCode === 229) return;   // Return that confirms an input-method composition
     if (e.key === 'Escape') { e.preventDefault(); cancel(); }
     else if (e.key === 'Enter') {
       e.preventDefault();
@@ -1122,11 +1151,11 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
     }
   });
   function end() {           // back to the ball, which picks its state from where the cursor is
-    document.removeEventListener('keydown', keys); field.classList.remove('on'); hide(); stage.classList.remove('pointing', 'cross'); input.blur();
+    document.removeEventListener('keydown', keys); field.classList.remove('on'); hide(); stage.classList.remove('pointing', 'cross', 'picking'); input.blur();
     tool = null; mode = 'ball'; ball.classList.remove('gone');
     look(bs); scheduleDock(); cursorMoved(pointerHere());
   }
-  function cancel() { end(); setStep(1, HELLO); }
+  function cancel() { end(); setStep(1, AGAIN); }
 
   // ---- the payload, as MarkdownBuilder writes it: the note first for a reference, last for a fix ----
   function pad(n) { return (n < 10 ? '0' : '') + n; }
@@ -1175,35 +1204,38 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
     var i = info(el), wd = i.win.dataset;
     fNote.textContent = text;
     fEl.textContent = readoutText(el);
-    fWhy.textContent = i.ident ? 'Its name in the code. Your agent searches for it and opens the right file.'
-                     : i.handle ? 'The page’s own handle for it. Your agent searches the code for it.'
-                     : 'It has no name in the code, so the paste says how to find it by its label.';
+    fWhy.textContent = wd.mode === 'reference' ? (wd.url ? 'A live site, not your local build, so your agent takes it as a reference.' : 'Not your code, so your agent takes it as a reference.')
+                     : i.ident ? 'Its name in the code, so your agent opens the right file.'
+                     : i.handle ? 'Its id or class in the page’s code, so your agent finds it.'
+                     : 'No name in the code, so your agent finds it by its label.';
     fWhere.textContent = WHERE[wd.scene] || wd.app;
-    if (wd.project) { fBuilt.hidden = false; fBuilt.textContent = 'Built from ' + wd.project + ', so your agent edits that copy.'; } else fBuilt.hidden = true;
+    if (wd.project) { fBuilt.hidden = false; fBuilt.textContent = 'Built from ' + wd.project + ', so your agent edits that folder.'; } else fBuilt.hidden = true;
     raw.textContent = build(el, text, when);
     drawCrop(el);
   }
-  function flashToast(text, el) {
-    var f = frameOf(el); toast.textContent = text;
-    toast.style.left = Math.max(10, Math.min(f.x, W() - toast.offsetWidth - 10)) + 'px'; toast.style.top = Math.max(10, f.y - 34) + 'px';
+  function flashToast(html, el) {
+    var f = frameOf(el); toast.innerHTML = html;
+    var top = f.y + f.h + 8; if (top + 30 > H() - 6) top = f.y - 34;
+    toast.style.left = clamp(f.x + f.w / 2 - toast.offsetWidth / 2, 10, W() - toast.offsetWidth - 10) + 'px'; toast.style.top = Math.max(10, top) + 'px';
     toast.classList.add('on'); setTimeout(function () { toast.classList.remove('on'); }, 1200);
   }
+  function copiedHtml(what) { return '<span>Copied</span>' + (what ? '<span>·</span><span class="mono">' + esc(what) + '</span>' : ''); }
   function capture(text) {
     var el = target;
     present(el, text);
     try { navigator.clipboard && navigator.clipboard.writeText(raw.textContent); } catch (err) {}
-    var i = info(el); flashToast(i.handle ? 'Copied · ' + i.handle : 'Copied', el);
-    end(); setStep(3, 'Copied. Paste it in your agent; this is what it gets.');
+    flashToast(copiedHtml(info(el).handle), el);
+    end(); setStep(3, 'See what your agent gets below.');
     card.classList.remove('new'); void card.offsetWidth; card.classList.add('new');
-    if (window.innerWidth <= 720) result.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (window.innerWidth <= 720) setTimeout(function () { result.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 700);   // after the toast
   }
 
-  // ---- the rungs, here: Snap and Cut take the window under the cursor, Text copies its words, Color reads the pixel ----
-  var TOOL_SAY = { snap: 'Snap: click a window. On your Mac you can drag a region too.', text: 'Text: click a window and its words go to the clipboard.',
-                   color: 'Color: click to copy the color under the cursor.', cut: 'Cut: click a window to keep its subject on a transparent background.' };
+  // ---- the ring's tools, here: Snap and Cut take the window under the cursor, Text copies its words, Color reads the pixel ----
+  var X = touch ? '' : ' Esc cancels.';
+  var TOOL_SAY = { snap: V + ' a window to snap it.' + X, text: V + ' a window to copy its words.' + X, color: V + ' anywhere to copy that color.' + X, cut: V + ' a window to cut out its subject.' + X };
   function startTool(name) {
     mode = 'tool'; tool = name; pointedAt = Date.now(); clearTimeout(dockTimer);
-    stage.classList.add(name === 'snap' || name === 'cut' ? 'cross' : 'pointing'); say.textContent = TOOL_SAY[name];
+    stage.classList.add(name === 'color' ? 'picking' : name === 'text' ? 'pointing' : 'cross'); setStep(0, TOOL_SAY[name]);
     document.addEventListener('keydown', keys);
   }
   var pixels = new Map();
@@ -1247,18 +1279,18 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
     if (!win) { hide(); return; }
     show(win, '<span>window</span><span>·</span><span class="mono">' + esc(win.dataset.app) + '</span>');
   }
-  function runTool() {
-    var text, line, label;
-    if (tool === 'color') { text = target.hex; label = text + ' copied'; line = text + ' is on the clipboard.'; flashToast(label, tag); }
+  function runTool() {      // the toast says what happened; the line goes back to the start
+    var text = null;
+    if (tool === 'color') { text = target.hex; flashToast(copiedHtml(text), tag); }
     else {
-      var win = target;
-      if (tool === 'text') { text = win.dataset.text; label = 'Text copied'; line = text.split('\n').length + ' lines from ' + win.dataset.app + ', on the clipboard.'; }
-      else if (tool === 'snap') { win.classList.remove('flash'); void win.offsetWidth; win.classList.add('flash'); label = 'Snapped'; line = 'Snapped: a PNG of the window, saved and on the clipboard.'; }
-      else { label = 'Cut'; line = 'Cut: the subject on a transparent background, as a PNG.'; }
-      flashToast(label, win);
+      var win = target, html;
+      if (tool === 'text') { text = win.dataset.text; var n = text.split('\n').length; html = copiedHtml(n + (n === 1 ? ' line' : ' lines')); }
+      else if (tool === 'snap') { win.classList.remove('flash'); void win.offsetWidth; win.classList.add('flash'); html = '<span>Snapped</span>'; }
+      else html = '<span>Cut</span>';
+      flashToast(html, win);
     }
     if (text) { try { navigator.clipboard && navigator.clipboard.writeText(text); } catch (err) {} }
-    end(); say.textContent = line;
+    end(); setStep(1, AGAIN);
   }
 
   // before the first capture, the sample: the Product Ideas orb in Oryne, with the note Malik typed
@@ -1270,7 +1302,7 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
 // Scroll: each block rises in once as it enters the viewport. Without JS nothing is hidden.
 (function () {
   if (!('IntersectionObserver' in window) || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  var els = document.querySelectorAll('section .sect-head, .steps, .scenes, .stage, .result, .tile, .method, .action, .ba, .split .sect-head, .grid2 .item, .with');
+  var els = document.querySelectorAll('section .sect-head, .steps, .scenes, .stage, .result, .tile, .method, .action, .ba, .split .sect-head, .grid2 .item, .with, .end');
   els.forEach(function (el) { el.classList.add('reveal'); });
   document.querySelectorAll('.tiles, .actions, .grid2').forEach(function (g) { Array.prototype.forEach.call(g.children, function (ch, i) { ch.style.transitionDelay = (i * 70) + 'ms'; }); });
   var io = new IntersectionObserver(function (entries) {
