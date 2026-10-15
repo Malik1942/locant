@@ -26,15 +26,12 @@
     --hair: #d2d2d7;
     --accent: #007aff;
     --accent: color(display-p3 0 0.478 1);
-    --ribbon: color-mix(in srgb, var(--accent) 17%, var(--ground));
-    --ribbon-hi: color-mix(in srgb, var(--accent) 24%, var(--ground));
     --hud: rgba(255, 255, 255, 0.78);
     --hud-edge: rgba(0, 0, 0, 0.08);
     --glass: rgba(255, 255, 255, 0.22);
     --glass-edge: rgba(255, 255, 255, 0.55);
     --frame: #e9e9ee;
     --frame-chrome: #f7f7fa;
-    --dim: rgba(0, 0, 0, 0.2);
     --code-bg: #ffffff;
     --key-bg: #ffffff;
     --shadow: 0 1px 2px rgba(0,0,0,.06), 0 12px 32px rgba(0,0,0,.08);
@@ -52,15 +49,12 @@
       --hair: #3a3a3c;
       --accent: #0a84ff;
       --accent: color(display-p3 0.04 0.52 1);
-      --ribbon: color-mix(in srgb, var(--accent) 26%, var(--surface));
-      --ribbon-hi: color-mix(in srgb, var(--accent) 34%, var(--surface));
       --hud: rgba(30, 30, 32, 0.78);
       --hud-edge: rgba(255, 255, 255, 0.12);
       --glass: rgba(255, 255, 255, 0.10);
       --glass-edge: rgba(255, 255, 255, 0.28);
       --frame: #2c2c2e;
       --frame-chrome: #3a3a3c;
-      --dim: rgba(0, 0, 0, 0.2);
       --code-bg: #1c1c1e;
       --key-bg: #2c2c2e;
       --shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.5);
@@ -78,15 +72,12 @@
     --hair: #3a3a3c;
     --accent: #0a84ff;
     --accent: color(display-p3 0.04 0.52 1);
-    --ribbon: color-mix(in srgb, var(--accent) 26%, var(--surface));
-    --ribbon-hi: color-mix(in srgb, var(--accent) 34%, var(--surface));
     --hud: rgba(30, 30, 32, 0.78);
     --hud-edge: rgba(255, 255, 255, 0.12);
     --glass: rgba(255, 255, 255, 0.10);
     --glass-edge: rgba(255, 255, 255, 0.28);
     --frame: #2c2c2e;
     --frame-chrome: #3a3a3c;
-    --dim: rgba(0, 0, 0, 0.2);
     --code-bg: #1c1c1e;
     --key-bg: #2c2c2e;
     --shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.5);
@@ -146,24 +137,6 @@
   .nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
   @media (max-width: 720px) { .nav .links { display: none; } .nav .dl { margin-left: auto; } }
 
-  /* ribbon: the announcement strip above the nav, so the nav hairline is the only
-     rule between the chrome and the page, and the bar scrolls away on its own */
-  .ribbon {
-    margin-inline: -20px; padding: 9px 20px;
-    text-align: center; font-size: 13px; line-height: 1.35; color: var(--ink);
-    background: var(--ribbon);
-    transition: background .18s ease;
-  }
-  .ribbon:hover { background: var(--ribbon-hi); }
-  .ribbon p { margin: 0; text-wrap: balance; }
-  .ribbon b { font-weight: 600; }
-  /* the bar is the blue; the link stays ink so it clears AA on the stronger tint
-     and the Download pill keeps its place as the only saturated blue up here */
-  .ribbon a { color: var(--ink); font-weight: 500; white-space: nowrap;
-    text-decoration: underline; text-underline-offset: 2px;
-    text-decoration-color: color-mix(in srgb, var(--ink) 35%, transparent); }
-  .ribbon a:hover { text-decoration-color: var(--ink); }
-  .ribbon a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
   html { scroll-behavior: smooth; scroll-padding-top: 64px; }
   @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 
@@ -178,15 +151,9 @@
     border-radius: 29px;                 /* 22.37% of the edge, so the shadow follows the squircle */
     box-shadow: var(--icon-shadow);
   }
-  .hero .name { font-size: 21px; font-weight: 600; letter-spacing: -0.01em; margin-top: 6px; }
-  .hero .name span { color: var(--muted); font-weight: 400; }
   .hero h1 { max-width: 22ch; }
   .hero h1 em { font-style: italic; font-weight: 600; }
   .hero .lede { max-width: 38ch; }
-  .hero .proof { font-size: 15px; color: var(--muted); max-width: 52ch; margin-top: -6px; text-wrap: balance; }
-  .hero .proof b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .hero .proof a { color: var(--accent); text-decoration: none; white-space: nowrap; }
-  .hero .proof a:hover { text-decoration: underline; }
   .cta { display: flex; gap: 10px 22px; align-items: center; flex-wrap: wrap; justify-content: center; margin-top: 4px; }
   .btn {
     display: inline-block; text-decoration: none;
@@ -197,8 +164,6 @@
   .link { text-decoration: none; color: var(--accent); font-weight: 500; }
   .link:hover { text-decoration: underline; }
   .fine { font-size: 14px; color: var(--muted); }
-  .fine { display: flex; flex-wrap: wrap; justify-content: center; }   /* two groups; on phones each takes a line */
-  .fine .g { display: inline-flex; }
   .fine span + span::before { content: "·"; margin-inline: 8px; }
 
   /* the hero loop: the real flow, recorded, seventeen seconds */
@@ -210,95 +175,225 @@
   .sect-head { display: grid; gap: 10px; margin-bottom: 32px; max-width: 640px; }
   .sect-head .lede { font-size: 21px; }
 
-  /* three steps, each with the thing you see */
-  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
-  .step { display: grid; gap: 12px; align-content: start; }
-  .step .vis {
-    position: relative; height: 120px; border-radius: 14px; background: var(--surface); box-shadow: 0 0 0 1px var(--hair);
-    display: grid; grid-template-columns: minmax(0, 1fr); place-items: center; padding: 32px 12px 14px; overflow: hidden;
-  }
-  .step .vis .n { position: absolute; top: 10px; left: 14px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .step .text { display: grid; gap: 4px; }
-  .step h3 { font-size: 19px; }
-  .step p { font-size: 17px; color: var(--muted); }
-  kbd {
-    font-family: inherit; font-size: 13px; font-weight: 600; color: var(--ink);
-    border: 1px solid var(--hair); border-bottom-width: 2px; border-radius: 6px; padding: 1px 7px; background: var(--key-bg);
-  }
-  .keys { display: flex; align-items: center; gap: 8px; }
-  .keys kbd { font-size: 22px; padding: 6px 14px; border-radius: 9px; }
-  .keys .plus { color: var(--muted); font-size: 13px; }
-  /* the note field: label.bg at 6 pt, 28 pt tall, label.sans 12 pt, the hint right-aligned in the secondary color */
-  .hud {
-    background: var(--hud); border: 1px solid var(--hud-edge); border-radius: 6px; height: 28px; padding: 0 8px;
-    font-size: 12px; color: var(--ink); white-space: nowrap; display: flex; align-items: center; gap: 8px;
-    max-width: 100%; box-shadow: 0 4px 14px rgba(0,0,0,.10);
-  }
-  .hud > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-  .hud .hint { flex: none; }
-  .hud .caret { display: inline-block; width: 1px; height: 14px; background: var(--ink); vertical-align: -3px; margin-left: 1px; }
-  .hud .hint { color: var(--muted); }
-  .term {
-    width: 100%; background: var(--ground); color: var(--ink); border: 1px solid var(--hair); border-radius: 8px; padding: 8px 12px;
-    font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11.5px; line-height: 1.5; text-align: left; white-space: nowrap; overflow: hidden;
-  }
-  .term .h { color: var(--muted); }
-  .term .k { color: var(--accent); }
+  /* the demo: a real desktop. The wallpaper is macOS's own (Lake Tahoe); the windows are a website in Safari,
+     Calculator, and an iPhone app in the Simulator, captured on a Mac with their accessibility data */
+  .steps { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin: -12px 0 18px; font-size: 15px; color: var(--muted); }
+  .steps .s { display: inline-flex; align-items: center; gap: 7px; transition: color .25s ease; }
+  .steps .s b { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; font-size: 12px; font-weight: 600; color: var(--muted); box-shadow: 0 0 0 1px var(--hair); transition: background .25s ease, color .25s ease, box-shadow .25s ease; }
+  .steps .s.on { color: var(--ink); }
+  .steps .s.on b { background: var(--accent); color: #fff; box-shadow: none; }
+  .steps .say { flex-basis: 100%; color: var(--ink); min-height: 1.5em; }
+  @media (min-width: 721px) { .steps .say { flex-basis: auto; margin-left: auto; } }
+  .scenes { display: none; }
 
-  /* the overlay, up close: four real frames */
-  .frames { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-  .frame { display: grid; gap: 10px; align-content: start; }
-  .frame .pic { aspect-ratio: 3 / 2; border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); }
-  .frame .pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .frame h3 { font-size: 17px; }
-  .frame p { font-size: 17px; color: var(--muted); }
-  .frame code { font-size: 0.9em; }
-
-  /* the ball: four real states */
-  .states { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-  .state { display: grid; gap: 10px; align-content: start; }
-  .state .pic { aspect-ratio: 1; border-radius: 16px; overflow: hidden; box-shadow: 0 0 0 1px var(--hair); }
-  .state .pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .state h3 { font-size: 17px; }
-  .state p { font-size: 17px; color: var(--muted); }
-
-  /* payload with what each line is for */
-  .payload-wrap { display: grid; gap: 24px; }
-  pre.payload {
-    margin: 0; background: var(--code-bg); border: 1px solid var(--hair); border-radius: 12px;
-    padding: 18px 20px; overflow-x: auto; line-height: 1.6; font-size: 13px;
+  .stage {
+    position: relative; aspect-ratio: 16 / 10; border-radius: 18px; overflow: hidden; isolation: isolate;
+    background: #3d6c97; box-shadow: var(--shadow); user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+    --b: .7656;
   }
-  pre.payload .h { color: var(--muted); }
-  pre.payload .k { color: var(--accent); }
-  /* the same cards as Privacy and Known limitations */
-  .notes { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  .note { display: grid; gap: 6px; align-content: start; padding: 18px 20px; background: var(--surface); border-radius: 16px; box-shadow: 0 0 0 1px var(--hair); }
-  .note h3 { font-size: 17px; }
-  .note p { font-size: 17px; color: var(--muted); }
+  .stage .wall { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+  .stage.pointing { cursor: pointer; }
+  .stage.cross { cursor: crosshair; }
+  /* windows: placed on a 1280 x 800 pt desktop; --s is each window's own px per pt */
+  .win { position: absolute; --s: .7656; }
+  .win .hot { position: absolute; display: block; }
+  .win img { display: block; width: 100%; height: 100%; -webkit-user-drag: none; pointer-events: none; }
+  .win.web { z-index: 1; border-radius: calc(12px * var(--s)); overflow: hidden; background: #1d1d1f; box-shadow: 0 0 0 1px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.08), 0 calc(22px * var(--s)) calc(60px * var(--s)) rgba(0,0,0,.42); }
+  .win.web .chrome { position: absolute; inset: 0 0 auto; height: calc(52 / 527 * 100%); display: flex; align-items: center; gap: calc(14px * var(--s)); padding-inline: calc(18px * var(--s)); background: #2a2a2d; border-bottom: 1px solid rgba(0,0,0,.6); }
+  .win .lights { display: flex; gap: calc(8px * var(--s)); }
+  .win .lights i { width: calc(12px * var(--s)); height: calc(12px * var(--s)); border-radius: 50%; display: block; background: #ff5f57; box-shadow: inset 0 0 0 .5px rgba(0,0,0,.25); }
+  .win .lights i + i { background: #febc2e; }
+  .win .lights i + i + i { background: #28c840; }
+  .win.web .arrows { display: flex; gap: calc(16px * var(--s)); margin-left: calc(10px * var(--s)); }
+  .win.web .arrows i { width: calc(8px * var(--s)); height: calc(8px * var(--s)); border-left: calc(1.6px * var(--s)) solid #a1a1a6; border-bottom: calc(1.6px * var(--s)) solid #a1a1a6; transform: rotate(45deg); display: block; }
+  .win.web .arrows .fwd { transform: rotate(-135deg); opacity: .45; }
+  .win.web .addr { position: absolute; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: calc(6px * var(--s)); height: calc(30px * var(--s)); padding: 0 calc(90px * var(--s)); border-radius: calc(9px * var(--s)); background: rgba(255,255,255,.07); color: #e5e5ea; font-size: calc(13px * var(--s)); white-space: nowrap; }
+  .win.web .lock { width: calc(7px * var(--s)); height: calc(6px * var(--s)); border-radius: calc(1.5px * var(--s)); background: #a1a1a6; position: relative; display: block; }
+  .win.web .lock::before { content: ""; position: absolute; left: 12%; right: 12%; bottom: 80%; height: calc(5px * var(--s)); border: calc(1.4px * var(--s)) solid #a1a1a6; border-bottom: 0; border-radius: calc(4px * var(--s)) calc(4px * var(--s)) 0 0; }
+  .win.web .view { position: absolute; inset: calc(52 / 527 * 100%) 0 0; }
+  .win.calc { z-index: 2; border-radius: calc(26px * var(--s)); filter: drop-shadow(0 calc(16px * var(--s)) calc(30px * var(--s)) rgba(0,0,0,.42)) drop-shadow(0 0 .5px rgba(0,0,0,.8)); }
+  /* the iPhone: the Simulator's screen in a titanium edge; screen corners 55 pt, here at the window's scale */
+  .win.phone { z-index: 3; border-radius: calc(39.3px * var(--s)); background: linear-gradient(150deg, #6b6c70, #2a2a2d 22%, #1c1c1e 60%, #3a3a3d); box-shadow: inset 0 0 0 calc(1px * var(--s)) rgba(255,255,255,.22), inset 0 0 0 calc(3px * var(--s)) #0c0c0d, 0 0 0 1px rgba(0,0,0,.5), 0 calc(20px * var(--s)) calc(50px * var(--s)) rgba(0,0,0,.45); }
+  .win.phone .screen { position: absolute; inset: calc(7px * var(--s)); border-radius: calc(32.3px * var(--s)); overflow: hidden; background: #000; }
+  .win.flash::after, .win.phone.flash .screen::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: #fff; animation: shutter .45s ease-out forwards; pointer-events: none; z-index: 5; }
+  .win.phone.flash::after { content: none; }
+  @keyframes shutter { from { opacity: .85; } to { opacity: 0; } }
 
-  /* the fallback ladder: the target line the payload carries at each rung */
-  .ladder { display: grid; background: var(--surface); border-radius: 14px; box-shadow: 0 0 0 1px var(--hair); overflow: hidden; }
-  .rung { display: grid; grid-template-columns: 26px 220px 1fr; gap: 18px; align-items: center; padding: 15px 18px; }
-  .rung + .rung { border-top: 1px solid var(--hair); }
-  .rung .n { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 14px; }
-  .rung .chip { justify-self: start; background: var(--hud); border: 1px solid var(--hud-edge); border-radius: 6px; padding: 3px 8px; font-size: 12px; white-space: nowrap; }
-  .rung .chip code { font-size: 0.95em; }
-  .rung .chip.dash { border-style: dashed; color: var(--muted); }
-  .rung p { color: var(--muted); font-size: 17px; }
-  .rung b { color: var(--ink); font-weight: 600; }
+  /* the overlay (DesignTokens): the dim is the frame's outer shadow, 20 percent black, so the element inside keeps
+     its own color; the frame is 2 pt of the accent with 6 pt corners; the label reads role · identifier */
+  .stage .outline { position: absolute; left: 50%; top: 50%; width: 0; height: 0; z-index: 10; border: 2px solid transparent; border-radius: calc(6px * var(--b)); opacity: 0; pointer-events: none;
+    box-shadow: 0 0 0 9999px rgba(0,0,0,.2); transition: top .08s ease, left .08s ease, width .08s ease, height .08s ease, opacity .2s ease, border-color .08s ease; }
+  .stage.pointing .outline, .stage.cross .outline { opacity: 1; }
+  .stage .outline.on { border-color: var(--accent); }
+  .stage .hud {
+    position: absolute; z-index: 11; opacity: 0; pointer-events: none; transition: opacity .08s ease;
+    display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 8px; max-width: calc(100% - 20px);
+    background: rgba(40,40,43,.84); -webkit-backdrop-filter: blur(20px) saturate(1.6); backdrop-filter: blur(20px) saturate(1.6);
+    border: 1px solid rgba(255,255,255,.12); border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,.28);
+    color: #f5f5f7; font-size: 12px; white-space: nowrap;
+  }
+  .stage .hud.on { opacity: 1; }
+  .stage .hud .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
+  .stage .hud .sec { color: rgba(235,235,245,.6); }
+  .stage .hud .sw { width: 12px; height: 12px; border-radius: 3px; box-shadow: 0 0 0 1px rgba(255,255,255,.3); flex: none; }
+  .stage .field { width: 290px; }
+  .stage .field.on { pointer-events: auto; }
+  .stage .field input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: inherit; font: inherit; }
+  .stage .field input::placeholder { color: rgba(235,235,245,.45); }
+  .stage .field .hint { color: rgba(235,235,245,.6); flex: none; }
+  .stage .field.shake { animation: shake .3s ease; }
+  @keyframes shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+  .stage .toast { font-weight: 600; }
+
+  /* the ball: FloatingBall.Tokens, 48 pt of clear glass. Measured on the real disc: inside, the scene keeps its
+     brightness but only about 14 percent of its contrast and half its color, so the glass is the average of what is
+     under it (a wide blur) laid over a light blur that keeps the shapes. The rim is a dark hairline at the edge and a
+     light half-point line 1.5 pt inside. The script sets the state, as FloatingBall.State: rest and docked at 90 percent
+     (restAlpha) with the glow drifting; awake and ready at full strength with the hand; ready swells to 1.04 (hoverScale).
+     No opacity on the ball itself: that would make it a backdrop root and its glass would see nothing behind it. */
+  .stage .ball, .stage .ghost {
+    position: absolute; left: 0; top: 0; z-index: 12; width: calc(48px * var(--b)); height: calc(48px * var(--b)); margin: 0; padding: 0; border: 0;
+    border-radius: 50%; background: transparent; -webkit-tap-highlight-color: transparent;
+  }
+  .stage .ball > i, .stage .ghost > i { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; display: block; }
+  .stage .ball .lens, .stage .ghost .lens { -webkit-backdrop-filter: blur(calc(1.4px * var(--b))) saturate(.5) brightness(1.03); backdrop-filter: blur(calc(1.4px * var(--b))) saturate(.5) brightness(1.03); }
+  .stage .ball .tint, .stage .ghost .tint { -webkit-backdrop-filter: blur(calc(26px * var(--b))) saturate(.5) brightness(1.03); backdrop-filter: blur(calc(26px * var(--b))) saturate(.5) brightness(1.03); }
+  .stage .ball .lens { opacity: .9; }
+  .stage .ball .tint { opacity: .738; }
+  .stage .ball.is-awake .lens, .stage .ball.is-ready .lens { opacity: 1; }
+  .stage .ball.is-awake .tint, .stage .ball.is-ready .tint { opacity: .82; }
+  .stage .ball > i { transition: opacity .2s ease-out; }
+  .stage .ball .glow { background: radial-gradient(closest-side, rgba(255,255,255,.14), rgba(255,255,255,0)); opacity: .5; }
+  .stage .ball.is-rest .glow, .stage .ball.is-docked .glow { animation: drift 6s ease-in-out infinite; }
+  @keyframes drift { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+  .stage .ball .lift { background: rgba(255,255,255,.12); opacity: 0; }
+  .stage .ball.is-ready .lift { opacity: 1; }
+  .stage .ball .rim, .stage .ghost .rim { box-shadow: 0 0 0 calc(1px * var(--b)) rgba(0,0,0,.24), inset 0 0 0 calc(.6px * var(--b)) rgba(0,0,0,.16); }
+  .stage .ball .rim::after, .stage .ghost .rim::after { content: ""; position: absolute; inset: calc(1.5px * var(--b)); border-radius: 50%; box-shadow: 0 0 0 calc(.6px * var(--b)) rgba(255,255,255,.26); }
+  /* the hand fades in awake and ready, settling from 0.92 */
+  .stage .ball .hand { background: #fff; opacity: 0; transform: scale(.92); transition: opacity .2s ease-out, transform .45s var(--hover); -webkit-mask: url("assets/ball-hand.png") center / 50% no-repeat; mask: url("assets/ball-hand.png") center / 50% no-repeat; filter: drop-shadow(0 .5px .5px rgba(0,0,0,.2)); }
+  .stage .ball.is-awake .hand, .stage .ball.is-ready .hand { opacity: 1; transform: none; }
+  .stage .ball:focus-visible .hand, .stage .ball:focus-visible .lift { opacity: 1; transform: none; }
+  /* before its first appearance, and while the ring or the overlay is up, the glass fades, not the ball */
+  .stage .ball.is-hidden > i, .stage .ball.gone > i { opacity: 0 !important; }
+  .stage .ball.is-hidden, .stage .ball.gone { pointer-events: none; }
+  .stage .ball.revealing > i { transition-duration: .8s; }
+  /* the position is the translate property, not transform: transform composes after scale, so a 1.04 swell would
+     multiply the whole offset and push the disc out from under the cursor */
+  .stage .ball { cursor: inherit; touch-action: none; outline: none; scale: 1; will-change: translate, scale; transition: translate .7s var(--settle), scale .45s var(--hover); }
+  .stage .ball.is-ready { scale: 1.04; }
+  .stage .ball.is-hidden { scale: .94; }
+  /* out of an edge it swells from 0.94: only the scale skips its transition for that frame, the glide keeps its spring */
+  .stage .ball.from-edge { scale: .94; transition-property: translate; }
+  .stage .ball.m-wake { transition-duration: .8s, .45s; transition-timing-function: var(--wake), var(--hover); }
+  .stage .ball.m-settle { transition-duration: .7s, .45s; transition-timing-function: var(--settle), var(--hover); }
+  .stage .ball.m-tuck { transition-duration: .55s, .45s; transition-timing-function: var(--tuck), var(--hover); }
+  .stage .ball.m-drag { transition: scale .45s var(--hover); }
+  .stage.over-ball { cursor: pointer; }
+  .stage .ghost { pointer-events: none; }
+  .stage .ghost > i { opacity: 0 !important; transition: opacity .2s ease; }
+  .stage .ghost.on .lens, .stage .ghost.on .rim { opacity: .35 !important; }
+  .stage .ghost.on .tint { opacity: .3 !important; }
+  @media (prefers-reduced-motion: reduce) { .stage .ball .glow { animation: none !important; opacity: .7; } }
+
+  /* the ring: Ring.Tokens, 92 pt of the regular glass. Measured on the real ring: a little darker than what is under
+     it, half its contrast, most of its color, lighter toward the top; a crisp dark 1 pt edge with a light line inside.
+     It unfolds from disc size on the wake spring; the labels come in after 0.2 s. */
+  .stage .ring {
+    position: absolute; left: 0; top: 0; z-index: 12; width: calc(184px * var(--b)); height: calc(184px * var(--b)); margin: calc(-92px * var(--b)) 0 0 calc(-92px * var(--b)); border-radius: 50%;
+    background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.02) 50%, rgba(0,0,0,.06));
+    -webkit-backdrop-filter: blur(calc(6.5px * var(--b))) saturate(.8) brightness(.9); backdrop-filter: blur(calc(6.5px * var(--b))) saturate(.8) brightness(.9);
+    box-shadow: 0 0 0 1px rgba(0,0,0,.42), 0 calc(10px * var(--b)) calc(30px * var(--b)) rgba(0,0,0,.25);
+    opacity: 0; transform: scale(.26); pointer-events: none; transition: transform .12s ease-in, opacity .12s ease-in;
+  }
+  .stage .ring::before { content: ""; position: absolute; inset: calc(1.5px * var(--b)); border-radius: 50%; box-shadow: 0 0 0 calc(.75px * var(--b)) rgba(255,255,255,.2); pointer-events: none; }
+  .stage .ring.open { opacity: 1; transform: none; transition: transform .8s var(--wake), opacity .1s ease; }
+  .stage .ring svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .stage .ring .wedge { fill: transparent; transition: fill .12s ease; }
+  .stage .ring .wedge.on { fill: rgba(255,255,255,.1); }
+  .stage .ring .sep { stroke: rgba(255,255,255,.16); stroke-width: 1; fill: none; vector-effect: non-scaling-stroke; }
+  .stage .ring .seg { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: grid; justify-items: center; gap: calc(4px * var(--b)); font-size: max(11px, calc(13px * var(--b))); color: rgba(255,255,255,.86); text-shadow: 0 1px 2px rgba(0,0,0,.2); white-space: nowrap; }
+  .stage .ring .seg.snap { top: calc(50% - 54px * var(--b)); }
+  .stage .ring .seg.text { left: calc(50% + 54px * var(--b)); }
+  .stage .ring .seg.color { top: calc(50% + 54px * var(--b)); }
+  .stage .ring .seg.cut { left: calc(50% - 54px * var(--b)); }
+  .stage .ring .glyph { width: calc(24px * var(--b)); height: calc(24px * var(--b)); background: #fff; -webkit-mask: var(--glyph) center / contain no-repeat; mask: var(--glyph) center / contain no-repeat; }
+  .stage .ring .seg span { opacity: 0; transition: opacity .2s ease; }
+  .stage .ring.labels .seg span { opacity: 1; }
+  .stage .ring .hand { position: absolute; left: 50%; top: 50%; width: calc(26px * var(--b)); height: calc(26px * var(--b)); margin: calc(-13px * var(--b)) 0 0 calc(-13px * var(--b)); background: #fff; -webkit-mask: url("assets/ball-hand.png") center / contain no-repeat; mask: url("assets/ball-hand.png") center / contain no-repeat; }
+
+  /* phones: one window at a time, chosen with the tabs */
+  @media (max-width: 720px) {
+    .scenes { display: flex; gap: 2px; padding: 2px; margin: 0 0 12px; width: fit-content; background: var(--frame); border-radius: 9px; }
+    .scenes button { font: inherit; font-size: 14px; border: 0; background: none; color: var(--muted); padding: 6px 12px; border-radius: 7px; cursor: pointer; }
+    .scenes button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+    .stage { aspect-ratio: 4 / 5; border-radius: 14px; }
+    .stage .win { display: none; }
+    .stage[data-scene="web"] .win.web, .stage[data-scene="calc"] .win.calc, .stage[data-scene="phone"] .win.phone { display: block; }
+    .stage .win.web { left: 4% !important; width: 84% !important; height: auto !important; aspect-ratio: 760 / 527; top: 50% !important; transform: translateY(-50%); }
+    .stage .win.calc { height: 80% !important; width: auto !important; aspect-ratio: 230 / 408; left: 44% !important; top: 10% !important; transform: translateX(-50%); }
+    .stage .win.phone { height: 84% !important; width: auto !important; aspect-ratio: 250 / 527.1; left: 44% !important; top: 8% !important; transform: translateX(-50%); }
+    .stage .field { width: 240px; }
+  }
+
+  /* what your agent receives: the picture Locant saves beside the three things that matter; the raw text folds away */
+  .result { margin-top: 40px; }
+  .result h3 { font-size: 24px; letter-spacing: -.01em; }
+  .result > .lede { font-size: 17px; color: var(--muted); margin: 6px 0 18px; }
+  .card { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 32px; align-items: center; padding: 24px; background: var(--surface); border-radius: 20px; box-shadow: 0 0 0 1px var(--hair); }
+  .card .pic { position: relative; margin: 0; aspect-ratio: 4 / 3; border-radius: 14px; background: #161618; overflow: hidden; }
+  /* the whole picture, contained and centered: absolute, so its max sizes resolve against the frame */
+  .card .pic canvas { position: absolute; inset: 0; margin: auto; display: block; width: auto; height: auto; max-width: calc(100% - 40px); max-height: calc(100% - 40px); border-radius: 8px; box-shadow: 0 0 0 1px rgba(255,255,255,.1), 0 10px 28px rgba(0,0,0,.45); }
+  .facts { margin: 0; display: grid; gap: 22px; }
+  .fact dt { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .fact dd { margin: 0; font-size: 17px; }
+  .fact.quote dd { font-size: 22px; font-weight: 600; line-height: 1.3; letter-spacing: -.01em; }
+  .fact.quote dd::before { content: "“"; } .fact.quote dd::after { content: "”"; }
+  .fact code { display: inline-block; max-width: 100%; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 14px; background: var(--frame); border-radius: 8px; padding: 4px 10px; overflow-wrap: anywhere; }
+  .fact .why { display: block; margin-top: 6px; font-size: 14px; color: var(--muted); }
+  .fact .why[hidden] { display: none; }
+  .card.new .pic canvas { animation: pop .55s var(--wake) both; }
+  .card.new .fact { animation: rise .5s ease both; }
+  .card.new .fact:nth-child(2) { animation-delay: .06s; }
+  .card.new .fact:nth-child(3) { animation-delay: .12s; }
+  @keyframes pop { from { opacity: 0; transform: scale(.94); } }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+  .raw { margin-top: 14px; }
+  .raw summary { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--accent); font-size: 15px; list-style: none; }
+  .raw summary::-webkit-details-marker { display: none; }
+  .raw summary::after { content: "›"; display: inline-block; transition: transform .2s ease; }
+  .raw[open] summary::after { transform: rotate(90deg); }
+  .raw summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+  .raw pre { margin: 12px 0 0; padding: 16px 18px; background: var(--code-bg); border: 1px solid var(--hair); border-radius: 14px; font: 12.5px/1.6 ui-monospace, "SF Mono", Menlo, monospace; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+  @media (max-width: 720px) { .card { grid-template-columns: 1fr; gap: 20px; padding: 18px; } .fact.quote dd { font-size: 19px; } }
+
+  /* scroll: blocks rise in once, the way a page on apple.com does; off when motion is reduced */
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal { opacity: 0; transform: translateY(16px); transition: opacity .7s ease, transform .7s cubic-bezier(.2,.7,.2,1); }
+    .reveal.in { opacity: 1; transform: none; }
+  }
+
+  :root { --wake: linear(0.0000 0.0%, 0.0275 2.5%, 0.0957 5.0%, 0.1872 7.5%, 0.2895 10.0%, 0.3936 12.5%, 0.4936 15.0%, 0.5856 17.5%, 0.6678 20.0%, 0.7391 22.5%, 0.7996 25.0%, 0.8499 27.5%, 0.8909 30.0%, 0.9235 32.5%, 0.9490 35.0%, 0.9685 37.5%, 0.9830 40.0%, 0.9934 42.5%, 1.0007 45.0%, 1.0054 47.5%, 1.0083 50.0%, 1.0097 52.5%, 1.0102 55.0%, 1.0100 57.5%, 1.0093 60.0%, 1.0084 62.5%, 1.0074 65.0%, 1.0063 67.5%, 1.0053 70.0%, 1.0043 72.5%, 1.0035 75.0%, 1.0027 77.5%, 1.0021 80.0%, 1.0016 82.5%, 1.0012 85.0%, 1.0008 87.5%, 1.0005 90.0%, 1.0003 92.5%, 1.0002 95.0%, 1.0001 97.5%, 1.0000 100.0%); --settle: linear(0.0000 0.0%, 0.0258 2.5%, 0.0892 5.0%, 0.1739 7.5%, 0.2681 10.0%, 0.3640 12.5%, 0.4563 15.0%, 0.5419 17.5%, 0.6191 20.0%, 0.6871 22.5%, 0.7460 25.0%, 0.7961 27.5%, 0.8382 30.0%, 0.8731 32.5%, 0.9016 35.0%, 0.9248 37.5%, 0.9433 40.0%, 0.9579 42.5%, 0.9694 45.0%, 0.9783 47.5%, 0.9850 50.0%, 0.9901 52.5%, 0.9938 55.0%, 0.9965 57.5%, 0.9984 60.0%, 0.9997 62.5%, 1.0006 65.0%, 1.0011 67.5%, 1.0014 70.0%, 1.0015 72.5%, 1.0015 75.0%, 1.0014 77.5%, 1.0013 80.0%, 1.0012 82.5%, 1.0010 85.0%, 1.0009 87.5%, 1.0008 90.0%, 1.0006 92.5%, 1.0005 95.0%, 1.0004 97.5%, 1.0000 100.0%); --tuck: linear(0.0000 0.0%, 0.0204 2.5%, 0.0712 5.0%, 0.1403 7.5%, 0.2190 10.0%, 0.3009 12.5%, 0.3819 15.0%, 0.4592 17.5%, 0.5311 20.0%, 0.5966 22.5%, 0.6555 25.0%, 0.7077 27.5%, 0.7535 30.0%, 0.7932 32.5%, 0.8275 35.0%, 0.8568 37.5%, 0.8817 40.0%, 0.9027 42.5%, 0.9204 45.0%, 0.9351 47.5%, 0.9474 50.0%, 0.9575 52.5%, 0.9658 55.0%, 0.9727 57.5%, 0.9783 60.0%, 0.9828 62.5%, 0.9865 65.0%, 0.9894 67.5%, 0.9918 70.0%, 0.9936 72.5%, 0.9951 75.0%, 0.9963 77.5%, 0.9972 80.0%, 0.9979 82.5%, 0.9985 85.0%, 0.9989 87.5%, 0.9992 90.0%, 0.9995 92.5%, 0.9997 95.0%, 0.9998 97.5%, 1.0000 100.0%); --hover: linear(0.0000 0.0%, 0.0169 2.5%, 0.0596 5.0%, 0.1183 7.5%, 0.1860 10.0%, 0.2575 12.5%, 0.3294 15.0%, 0.3993 17.5%, 0.4656 20.0%, 0.5273 22.5%, 0.5840 25.0%, 0.6355 27.5%, 0.6819 30.0%, 0.7233 32.5%, 0.7601 35.0%, 0.7925 37.5%, 0.8210 40.0%, 0.8460 42.5%, 0.8677 45.0%, 0.8866 47.5%, 0.9029 50.0%, 0.9171 52.5%, 0.9292 55.0%, 0.9397 57.5%, 0.9487 60.0%, 0.9564 62.5%, 0.9630 65.0%, 0.9686 67.5%, 0.9734 70.0%, 0.9775 72.5%, 0.9809 75.0%, 0.9839 77.5%, 0.9864 80.0%, 0.9885 82.5%, 0.9903 85.0%, 0.9918 87.5%, 0.9931 90.0%, 0.9942 92.5%, 0.9951 95.0%, 0.9959 97.5%, 1.0000 100.0%); }
+
+  /* why: three numbers from the measurement, then where the method is */
+  .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .tile { display: grid; gap: 8px; align-content: start; padding: 20px 20px 18px; background: var(--surface); border-radius: 16px; box-shadow: 0 0 0 1px var(--hair); }
+  .tile .big { font-size: 40px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .tile p { font-size: 17px; color: var(--muted); }
+  .method { margin-top: 18px; font-size: 15px; color: var(--muted); }
+  .method a { color: var(--accent); text-decoration: none; }
+  .method a:hover { text-decoration: underline; }
 
   .actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
-  .action { display: grid; grid-template-rows: auto auto 1fr auto; gap: 8px; padding: 18px 16px; background: var(--surface); border-radius: 16px; box-shadow: 0 0 0 1px var(--hair); }
+  .action { display: grid; grid-template-rows: auto auto 1fr; gap: 8px; padding: 18px 16px; background: var(--surface); border-radius: 16px; box-shadow: 0 0 0 1px var(--hair); }
   /* the ring's four symbols, drawn in the label color like the app draws them */
   .action .glyph { width: 30px; height: 30px; background: var(--ink); -webkit-mask: var(--glyph) center / contain no-repeat; mask: var(--glyph) center / contain no-repeat; }
-  .action .glyph.snap { --glyph: url("assets/glyph-snap.png"); }
-  .action .glyph.text { --glyph: url("assets/glyph-text.png"); }
-  .action .glyph.color { --glyph: url("assets/glyph-color.png"); }
-  .action .glyph.cut { --glyph: url("assets/glyph-cut.png"); }
+  .glyph.snap { --glyph: url("assets/glyph-snap.png"); }
+  .glyph.text { --glyph: url("assets/glyph-text.png"); }
+  .glyph.color { --glyph: url("assets/glyph-color.png"); }
+  .glyph.cut { --glyph: url("assets/glyph-cut.png"); }
   .action h3 { font-size: 19px; }
   .action p { font-size: 17px; color: var(--muted); }
-  .action .keeps { font-size: 12px; color: var(--muted); margin-top: 2px; align-self: end; }
-  .rulebox { margin-top: 18px; font-size: 17px; color: var(--muted); }
 
   .split { display: grid; grid-template-columns: 1.15fr 1fr; gap: 40px; align-items: center; }
   .ba {
@@ -332,30 +427,16 @@
   .ba .facts .stat { color: var(--ink); }
   .ba .facts .file { color: var(--muted); }
 
-  .shot { display: grid; justify-items: center; }
-  .shot img { width: 100%; max-width: 980px; height: auto; display: block; }   /* the full column, like the hero loop */
-  .shot .light { display: var(--show-light); }
-  .shot .dark { display: var(--show-dark); }
-
   .grid2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
   .grid2 .item { display: grid; gap: 6px; align-content: start; padding: 18px 20px; background: var(--surface); border-radius: 16px; box-shadow: 0 0 0 1px var(--hair); }
   .grid2 .item h3 { font-size: 17px; }
   .grid2 .item p { color: var(--muted); font-size: 17px; }
 
-  /* agents, one row each, the same rows as the ladder */
-  .agents { display: grid; background: var(--surface); border-radius: 14px; box-shadow: 0 0 0 1px var(--hair); overflow: hidden; }
-  .agent { display: grid; grid-template-columns: 240px 1fr auto; gap: 18px; align-items: center; padding: 15px 18px; font-size: 17px; }
-  .agent + .agent { border-top: 1px solid var(--hair); }
-  .agent b { font-weight: 600; }
-  .agent span { color: var(--muted); font-size: 17px; }
-  .agent .chip { justify-self: end; color: var(--ink); background: var(--hud); border: 1px solid var(--hud-edge); border-radius: 6px; padding: 3px 8px; font-size: 12px; white-space: nowrap; }
-  .agent .chip.dash { border-style: dashed; color: var(--muted); }
-
-  /* limitations, one card each */
-  .limits { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-  .limit { display: grid; gap: 6px; align-content: start; padding: 18px 20px; background: var(--surface); border-radius: 16px; box-shadow: 0 0 0 1px var(--hair); }
-  .limit h3 { font-size: 17px; }
-  .limit p { font-size: 17px; color: var(--muted); }
+  /* works with: two lines of names */
+  .with { display: grid; gap: 12px; }
+  .with .line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .with .lab { color: var(--muted); font-size: 15px; min-width: 60px; }
+  .with .pill { background: var(--surface); box-shadow: 0 0 0 1px var(--hair); border-radius: 980px; padding: 7px 14px; font-size: 15px; white-space: nowrap; }
 
   /* footer: one hairline, then the small print and a single line of links, the way apple.com closes a page */
   footer { margin-top: 96px; padding-top: 28px; border-top: 1px solid var(--hair); display: grid; gap: 22px; font-size: 12px; line-height: 1.5; color: var(--muted); }
@@ -380,31 +461,14 @@
     .hero { padding-block: 56px 36px; }
     /* phones get the loop cut at 4:5 (hero-mobile.mp4): the same take, framed on each shot's subject */
     .demo { aspect-ratio: 4 / 5; object-fit: cover; border-radius: 14px; }
-    .ribbon .v { display: none; }   /* two lines instead of three on a phone */
-    .fine .g { flex-basis: 100%; justify-content: center; }
-    .fine .g + .g::before { content: none; }
-    /* phones get the same window captured at its narrowest (480 pt), so macOS wraps the text itself */
-    .shot img { max-width: 480px; border-radius: 12px; box-shadow: var(--shadow); }               /* room for the mock window, its label, and the ball */
-    pre.payload { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; padding: 14px 16px; }
     footer .links { margin-left: 0; flex-basis: 100%; }
     .app-icon { width: 96px; height: 96px; border-radius: 21.5px; }
-    .grid2, .notes, .limits { grid-template-columns: 1fr; }
-    .agent { grid-template-columns: 1fr auto; gap: 6px 12px; }
-    .agent .chip { grid-row: 1; grid-column: 2; }
-    .agent > span:not(.chip) { grid-column: 1 / -1; }
-    .steps { grid-template-columns: 1fr; gap: 16px; }
-    .step { grid-template-columns: 224px 1fr; align-items: center; gap: 20px; }
-    .step .vis { height: 108px; padding: 28px 12px 12px; }
-    .step .hud .hint { display: none; }
-    .step .term { font-size: 10.5px; padding: 8px 10px; }
-    .actions, .states { grid-template-columns: 1fr 1fr; }
-    .frames { grid-template-columns: 1fr; }
+    .grid2, .tiles { grid-template-columns: 1fr; }
+    .with .lab { flex-basis: 100%; }
+    .actions { grid-template-columns: 1fr 1fr; }
     .split { grid-template-columns: 1fr; }
-    .rung { grid-template-columns: 26px 1fr; }
-    .rung p { grid-column: 2; }
   }
   @media (max-width: 440px) {
-    .step { grid-template-columns: 1fr; }
     .actions { grid-template-columns: 1fr; }
   }
 </style>
@@ -415,15 +479,12 @@
 </script>
 <script defer src="/_vercel/insights/script.js"></script>
 
-<div class="ribbon">
-  <p><b>Made for the Palantir Product Design Show&nbsp;&amp;&nbsp;Tell.</b> <span class="v">v0.4 in three hours, now v0.9.2.</span> <a href="https://github.com/Malik1942/locant/tags">See the commits&nbsp;›</a></p>
-</div>
 <nav class="nav" aria-label="Site">
   <div class="in">
     <a class="brand" href="#top"><span class="mark" aria-hidden="true"></span>Locant</a>
     <div class="links">
       <a href="#how">How it works</a>
-      <a href="#measured">Measured</a>
+      <a href="#why">Why Locant</a>
       <a href="#privacy">Privacy</a>
     </div>
     <a class="dl" href="https://github.com/Malik1942/locant/releases/latest/download/Locant.dmg">Download</a>
@@ -432,15 +493,13 @@
 <main id="top">
   <header class="hero col">
     <div class="app-icon" role="img" aria-label="Locant app icon"></div>
-    <p class="name">Locant <span>for Mac</span></p>
     <h1>Point, don't&nbsp;describe.</h1>
-    <p class="lede">Point at one element in any app. Your coding agent gets the element, not a screenshot.</p>
-    <p class="proof">Given a screenshot, the agent changed the wrong worktree's code in <b>14 of 20</b> runs. Given a Locant capture, <b>0 of 20</b>. <a href="#measured">How it was measured</a></p>
+    <p class="lede">Your coding agent gets the element you point at, not a screenshot.</p>
     <div class="cta">
       <a class="btn" href="https://github.com/Malik1942/locant/releases/latest/download/Locant.dmg">Download for Mac</a>
       <a class="link" href="https://github.com/Malik1942/locant">View on GitHub</a>
     </div>
-    <p class="fine"><span class="g"><span>macOS 15 or later</span><span>Apple silicon and Intel</span></span><span class="g"><span>Free</span><span>No account</span></span></p>
+    <p class="fine"><span>Free</span><span>macOS 15 or later</span></p>
   </header>
 
   <figure class="wide" style="margin-block: 0;">
@@ -454,160 +513,177 @@
         v.addEventListener('click', replay);
       })();
     </script>
-    <figcaption>Click the ball, hover, click, say what should change, paste. Every frame is a real capture.</figcaption>
+    <figcaption>Click the ball, hover, click, say what should change, paste.</figcaption>
   </figure>
 
-  <section class="wide" id="how">
-    <div class="col"><div class="sect-head">
-      <h2>Three seconds, start to paste</h2>
-    </div></div>
-    <div class="steps">
-      <div class="step">
-        <div class="vis"><span class="n">1</span><div class="keys"><kbd>⌃</kbd><span class="plus">twice</span></div></div>
-        <div class="text"><h3>Point</h3><p>Double-tap Control, or click the ball. Hover, then click the element. Hold ⇧ to add more, from any app.</p></div>
-      </div>
-      <div class="step">
-        <div class="vis"><span class="n">2</span><div class="hud"><span>make this rounded<span class="caret"></span></span><span class="hint">↩ copy · esc cancel</span></div></div>
-        <div class="text"><h3>Note</h3><p>Type what should change. Enter captures. Esc cancels, nothing written.</p></div>
-      </div>
-      <div class="step">
-        <div class="vis"><span class="n">3</span><div class="term"><span class="h">## Locant capture (fix)</span><br><span class="k">Image:</span> ~/Pictures/Locant/…<br>button · id=captureButton</div></div>
-        <div class="text"><h3>Paste</h3><p>⌘V in the conversation you want. The text and the image both arrive; a terminal gets the text, image path first.</p></div>
-      </div>
-    </div>
-  </section>
-
-  <section class="wide" id="point">
-    <div class="col">
-      <div class="sect-head">
-        <h2>Point, up close</h2>
-        <p class="lede">The overlay over Calculator. Every frame is a real capture.</p>
-      </div>
-    </div>
-    <div class="frames">
-      <div class="frame">
-        <div class="pic"><img src="assets/overlay-hover.jpg" width="1260" height="840" alt="The overlay over Calculator: the 8 key outlined in blue, with the label button · Eight beneath it"></div>
-        <h3>Hover</h3><p>The element under the cursor and its identifier: <code>button · Eight</code>.</p>
-      </div>
-      <div class="frame">
-        <div class="pic"><img src="assets/overlay-option.jpg" width="1260" height="840" alt="With Option held, the whole keypad is outlined and the label reads group · CalculatorKeypadView"></div>
-        <h3>Option</h3><p>Steps to the parent: <code>group · CalculatorKeypadView</code>. Again for the next level.</p>
-      </div>
-      <div class="frame">
-        <div class="pic"><img src="assets/overlay-drag.jpg" width="1260" height="840" alt="A dragged frame around the number keys with a 161 by 167 point readout"></div>
-        <h3>Drag</h3><p>A frame, with every element inside it listed for the agent.</p>
-      </div>
-      <div class="frame">
-        <div class="pic"><img src="assets/overlay-note.jpg" width="1260" height="840" alt="After the click, a note field under the highlighted key reads make this key bigger, with Return to copy and Escape to cancel"></div>
-        <h3>Note</h3><p>Click, say what should change, Return. Esc cancels, nothing written.</p>
-      </div>
-    </div>
-  </section>
-
-  <section class="col" id="ball">
+  <section class="col" id="how">
     <div class="sect-head">
-      <h2>The ball</h2>
-      <p class="lede">A glass disc that lives at the edge of the screen and stays out of the way until you reach for it.</p>
+      <h2>Try it here</h2>
+      <p class="lede">A real Mac desktop: a website, a Mac app, and an iPhone app. One ball points at all of them.</p>
     </div>
-    <div class="states">
-      <div class="state">
-        <div class="pic"><img src="assets/ball-docked.png" width="200" height="200" alt="The ball docked: a half disc tucked into the screen edge"></div>
-        <h3>Docked</h3><p>After two seconds without use it tucks into the nearest edge, part of it showing.</p>
+    <div class="steps" id="steps" aria-live="polite">
+      <span class="s on"><b>1</b>Point</span><span class="s"><b>2</b>Note</span><span class="s"><b>3</b>Paste</span>
+      <span class="say" id="say">The ball rests at the right edge. Move toward it, then click it. Press and hold for the ring.</span>
+    </div>
+    <div class="scenes" role="tablist" aria-label="Screens">
+      <button type="button" role="tab" aria-selected="true" data-scene="web">Website</button><button type="button" role="tab" aria-selected="false" data-scene="calc">Mac app</button><button type="button" role="tab" aria-selected="false" data-scene="phone">iPhone app</button>
+    </div>
+    <div class="stage" id="stage" data-scene="web">
+      <img class="wall" src="assets/desktop.jpg" alt="" aria-hidden="true">
+      <div class="win web" data-scene="web" data-role="window" data-label="Oryne: catch ideas before they drift away" data-app="Safari" data-bundle="com.apple.Safari" data-file="safari" data-url="https://oryne.malikzhang.com/" data-mode="reference" data-path="application > window" data-f="36,56,760,527" data-text="Oryne
+Features
+Use cases
+Privacy
+FAQ
+Sound
+Download
+For iPhone and iPad
+Catch ideas before they drift away.
+Oryne is a calm home for your thoughts, voice notes, screenshots, and links. Related ideas gather on their own, and forgotten ones come back when they matter.
+Listen" style="left:2.812%;top:7.000%;width:59.375%;height:65.875%">
+        <div class="chrome"><span class="lights"><i></i><i></i><i></i></span><span class="arrows"><i class="back"></i><i class="fwd"></i></span><span class="addr"><i class="lock"></i>oryne.malikzhang.com</span></div>
+        <div class="view"><img src="assets/scene-web.jpg" alt="The Oryne website in Safari">
+          <i class="hot" data-k="w-page" data-p="" data-role="webArea" data-f="36,108,760,475" data-path="application &gt; window &gt; scrollArea &gt; webArea" style="left:0.000%;top:0.000%;width:100.000%;height:100.000%" data-label="Oryne: catch ideas before they drift away"></i>
+          <i class="hot" data-k="w-bar" data-p="w-page" data-role="group" data-f="36,108,760,30.9" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group.bar" style="left:0.000%;top:0.000%;width:100.000%;height:6.500%" data-dom-class="bar"></i>
+          <i class="hot" data-k="w-barwrap" data-p="w-bar" data-role="group" data-f="64.5,108,703,30.6" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group.bar &gt; group.wrap" style="left:3.750%;top:0.000%;width:92.500%;height:6.438%" data-dom-class="wrap bar__inner"></i>
+          <i class="hot" data-k="w-mark" data-p="w-barwrap" data-role="link" data-f="83.5,115.6,51.9,15.4" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group.bar &gt; group.wrap &gt; link.wordmark" style="left:6.250%;top:1.600%;width:6.828%;height:3.250%" data-label="Oryne" data-dom-class="wordmark"></i>
+          <i class="hot" data-k="w-nav" data-p="w-barwrap" data-role="group" data-f="421.7,117.1,154.1,12.4" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group.bar &gt; group.wrap &gt; group.bar__nav" style="left:50.750%;top:1.925%;width:20.281%;height:2.600%" data-dom-class="bar__nav"></i>
+          <i class="hot" data-k="w-features" data-p="w-nav" data-role="link" data-f="421.7,117.1,31.6,12.4" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group.bar &gt; group.wrap &gt; group.bar__nav &gt; link" style="left:50.750%;top:1.925%;width:4.156%;height:2.600%" data-label="Features"></i>
+          <i class="hot" data-k="w-uses" data-p="w-nav" data-role="link" data-f="467.5,117.1,37.9,12.4" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group.bar &gt; group.wrap &gt; group.bar__nav &gt; link" style="left:56.781%;top:1.925%;width:4.992%;height:2.600%" data-label="Use cases"></i>
+          <i class="hot" data-k="w-privacy" data-p="w-nav" data-role="link" data-f="519.8,117.1,27,12.4" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group.bar &gt; group.wrap &gt; group.bar__nav &gt; link" style="left:63.656%;top:1.925%;width:3.555%;height:2.600%" data-label="Privacy"></i>
+          <i class="hot" data-k="w-faq" data-p="w-nav" data-role="link" data-f="561.1,117.1,14.8,12.4" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group.bar &gt; group.wrap &gt; group.bar__nav &gt; link" style="left:69.086%;top:1.925%;width:1.953%;height:2.600%" data-label="FAQ"></i>
+          <i class="hot" data-k="w-controls" data-p="w-barwrap" data-role="group" data-f="590.1,114.4,158.4,17.8" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group.bar &gt; group.wrap &gt; group.bar__controls" style="left:72.906%;top:1.350%;width:20.844%;height:3.750%" data-dom-class="bar__controls"></i>
+          <i class="hot" data-k="w-lang" data-p="w-controls" data-role="link" data-f="590.1,114.4,42.8,17.8" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group.bar &gt; group.wrap &gt; group.bar__controls &gt; link.lang" style="left:72.906%;top:1.350%;width:5.625%;height:3.750%" data-label="Switch to Chinese" data-dom-class="lang"></i>
+          <i class="hot" data-k="w-sound" data-p="w-controls" data-role="button" data-f="638.8,114.4,50.2,17.8" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group.bar &gt; group.wrap &gt; group.bar__controls &gt; button.icon-btn" style="left:79.313%;top:1.350%;width:6.602%;height:3.750%" data-label="Sound" data-dom-class="icon-btn js-only"></i>
+          <i class="hot" data-k="w-download" data-p="w-controls" data-role="link" data-f="694.9,114.4,53.6,17.8" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group.bar &gt; group.wrap &gt; group.bar__controls &gt; link.btn" style="left:86.695%;top:1.350%;width:7.055%;height:3.750%" data-label="Download" data-dom-class="btn btn--primary btn--small"></i>
+          <i class="hot" data-k="w-top" data-p="w-page" data-role="group" data-f="36,138.9,760,444.1" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group#main &gt; group#top" style="left:0.000%;top:6.500%;width:100.000%;height:93.500%" data-dom-id="top" data-dom-class="section hero"></i>
+          <i class="hot" data-k="w-copy" data-p="w-top" data-role="group" data-f="64.5,191.1,703,266.5" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group#main &gt; group#top &gt; group.wrap" style="left:3.750%;top:17.500%;width:92.500%;height:56.100%" data-dom-class="wrap hero__copy"></i>
+          <i class="hot" data-k="w-eyebrow" data-p="w-copy" data-role="group" data-f="373.4,191.1,85.3,13.3" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group#main &gt; group#top &gt; group.wrap &gt; group.eyebrow" style="left:44.391%;top:17.500%;width:11.219%;height:2.800%" data-dom-class="eyebrow"></i>
+          <i class="hot" data-k="w-h1" data-p="w-copy" data-role="heading" data-f="83.5,213.9,665,125.1" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group#main &gt; group#top &gt; group.wrap &gt; heading.display" style="left:6.250%;top:22.300%;width:87.500%;height:26.338%" data-label="Catch ideas before they drift away." data-dom-class="display"></i>
+          <i class="hot" data-k="w-lead" data-p="w-copy" data-role="group" data-f="204,352.1,423.9,58" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group#main &gt; group#top &gt; group.wrap &gt; group.lead" style="left:22.109%;top:51.388%;width:55.781%;height:12.200%" data-dom-class="lead"></i>
+          <i class="hot" data-k="w-actions" data-p="w-copy" data-role="group" data-f="336.5,429.1,158.9,28.5" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group#main &gt; group#top &gt; group.wrap &gt; group.hero__actions" style="left:39.539%;top:67.600%;width:20.914%;height:6.000%" data-dom-class="hero__actions"></i>
+          <i class="hot" data-k="w-badge" data-p="w-actions" data-role="link" data-f="336.5,429.1,85.3,28.5" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group#main &gt; group#top &gt; group.wrap &gt; group.hero__actions &gt; link.badge" style="left:39.539%;top:67.600%;width:11.219%;height:6.000%" data-label="Download on the App Store" data-dom-class="badge"></i>
+          <i class="hot" data-k="w-listen" data-p="w-actions" data-role="button" data-f="430.1,430.3,65.4,26.1" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group#main &gt; group#top &gt; group.wrap &gt; group.hero__actions &gt; button.btn" style="left:51.852%;top:67.850%;width:8.602%;height:5.500%" data-label="Listen" data-dom-class="btn btn--ghost js-only"></i>
+          <i class="hot" data-k="w-stage" data-p="w-top" data-role="group" data-f="36,514.6,760,68.4" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group#main &gt; group#top &gt; group.hero__stage" style="left:0.000%;top:85.600%;width:100.000%;height:14.400%" data-dom-class="hero__stage"></i>
+          <i class="hot" data-k="w-phone" data-p="w-stage" data-role="group" data-f="326.9,514.6,178.1,68.4" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group#main &gt; group#top &gt; group.hero__stage &gt; group.phone" style="left:38.281%;top:85.600%;width:23.438%;height:14.400%" data-dom-class="phone"></i>
+          <i class="hot" data-k="w-screen" data-p="w-phone" data-role="image" data-f="335.8,522.5,160.3,60.5" data-path="application &gt; window &gt; scrollArea &gt; webArea &gt; group#main &gt; group#top &gt; group.hero__stage &gt; group.phone &gt; image.phone__screen" style="left:39.453%;top:87.263%;width:21.094%;height:12.737%" data-label="The Oryne Ocean: thoughts drift as soft orbs and gather into currents." data-dom-class="phone__screen"></i>
+        </div>
       </div>
-      <div class="state">
-        <div class="pic"><img src="assets/ball-awake.png" width="220" height="220" alt="The ball awake: a full glass disc on the desktop"></div>
-        <h3>Awake</h3><p>Move toward it and it comes back out. Drag it anywhere, or flick it at an edge.</p>
+      <div class="win calc" data-scene="calc" data-role="window" data-id="main" data-label="Calculator" data-app="Calculator" data-bundle="com.apple.calculator" data-file="calculator" data-mode="reference" data-path="application > window#main" data-f="652,318,230,408" data-text="0" style="left:50.938%;top:39.750%;width:17.969%;height:51.000%">
+        <img src="assets/scene-calculator.png" alt="Calculator">
+          <i class="hot" data-k="c-keypad" data-p="" data-role="group" data-f="652,371,230,354" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView" style="left:0.000%;top:12.990%;width:100.000%;height:86.765%" data-id="CalculatorKeypadView"></i>
+          <i class="hot" data-k="c-display" data-p="c-keypad" data-role="scrollArea" data-f="662,404,210,42" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; scrollArea#StandardInputView" style="left:4.348%;top:21.078%;width:91.304%;height:10.294%" data-label="Edit field" data-id="StandardInputView"></i>
+          <i class="hot" data-k="c-zero-text" data-p="c-display" data-role="staticText" data-f="853,407,19,36" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; scrollArea#StandardInputView &gt; staticText" style="left:87.391%;top:21.814%;width:8.261%;height:8.824%" data-value="0"></i>
+          <i class="hot" data-k="c-Delete" data-p="c-keypad" data-role="button" data-f="662,451,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Delete" style="left:4.348%;top:32.598%;width:20.870%;height:11.765%" data-id="Delete"></i>
+          <i class="hot" data-k="c-AllClear" data-p="c-keypad" data-role="button" data-f="716,451,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#AllClear" style="left:27.826%;top:32.598%;width:20.870%;height:11.765%" data-id="AllClear"></i>
+          <i class="hot" data-k="c-Percent" data-p="c-keypad" data-role="button" data-f="770,451,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Percent" style="left:51.304%;top:32.598%;width:20.870%;height:11.765%" data-id="Percent"></i>
+          <i class="hot" data-k="c-Divide" data-p="c-keypad" data-role="button" data-f="824,451,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Divide" style="left:74.783%;top:32.598%;width:20.870%;height:11.765%" data-id="Divide"></i>
+          <i class="hot" data-k="c-Seven" data-p="c-keypad" data-role="button" data-f="662,505,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Seven" style="left:4.348%;top:45.833%;width:20.870%;height:11.765%" data-id="Seven"></i>
+          <i class="hot" data-k="c-Eight" data-p="c-keypad" data-role="button" data-f="716,505,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Eight" style="left:27.826%;top:45.833%;width:20.870%;height:11.765%" data-id="Eight"></i>
+          <i class="hot" data-k="c-Nine" data-p="c-keypad" data-role="button" data-f="770,505,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Nine" style="left:51.304%;top:45.833%;width:20.870%;height:11.765%" data-id="Nine"></i>
+          <i class="hot" data-k="c-Multiply" data-p="c-keypad" data-role="button" data-f="824,505,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Multiply" style="left:74.783%;top:45.833%;width:20.870%;height:11.765%" data-id="Multiply"></i>
+          <i class="hot" data-k="c-Four" data-p="c-keypad" data-role="button" data-f="662,559,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Four" style="left:4.348%;top:59.069%;width:20.870%;height:11.765%" data-id="Four"></i>
+          <i class="hot" data-k="c-Five" data-p="c-keypad" data-role="button" data-f="716,559,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Five" style="left:27.826%;top:59.069%;width:20.870%;height:11.765%" data-id="Five"></i>
+          <i class="hot" data-k="c-Six" data-p="c-keypad" data-role="button" data-f="770,559,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Six" style="left:51.304%;top:59.069%;width:20.870%;height:11.765%" data-id="Six"></i>
+          <i class="hot" data-k="c-Subtract" data-p="c-keypad" data-role="button" data-f="824,559,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Subtract" style="left:74.783%;top:59.069%;width:20.870%;height:11.765%" data-id="Subtract"></i>
+          <i class="hot" data-k="c-One" data-p="c-keypad" data-role="button" data-f="662,613,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#One" style="left:4.348%;top:72.304%;width:20.870%;height:11.765%" data-id="One"></i>
+          <i class="hot" data-k="c-Two" data-p="c-keypad" data-role="button" data-f="716,613,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Two" style="left:27.826%;top:72.304%;width:20.870%;height:11.765%" data-id="Two"></i>
+          <i class="hot" data-k="c-Three" data-p="c-keypad" data-role="button" data-f="770,613,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Three" style="left:51.304%;top:72.304%;width:20.870%;height:11.765%" data-id="Three"></i>
+          <i class="hot" data-k="c-Add" data-p="c-keypad" data-role="button" data-f="824,613,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Add" style="left:74.783%;top:72.304%;width:20.870%;height:11.765%" data-id="Add"></i>
+          <i class="hot" data-k="c-Negate" data-p="c-keypad" data-role="button" data-f="662,667,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Negate" style="left:4.348%;top:85.539%;width:20.870%;height:11.765%" data-id="Negate"></i>
+          <i class="hot" data-k="c-Zero" data-p="c-keypad" data-role="button" data-f="716,667,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Zero" style="left:27.826%;top:85.539%;width:20.870%;height:11.765%" data-id="Zero"></i>
+          <i class="hot" data-k="c-Decimal" data-p="c-keypad" data-role="button" data-f="770,667,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Decimal" style="left:51.304%;top:85.539%;width:20.870%;height:11.765%" data-id="Decimal"></i>
+          <i class="hot" data-k="c-Equals" data-p="c-keypad" data-role="button" data-f="824,667,48,48" data-path="application &gt; window#main &gt; group &gt; splitGroup#main, SidebarNavigationSplitView &gt; group &gt; group#CalculatorKeypadView &gt; button#Equals" style="left:74.783%;top:85.539%;width:20.870%;height:11.765%" data-id="Equals"></i>
+          <i class="hot" data-k="c-toolbar" data-p="" data-role="toolbar" data-f="652,318,230,52" data-path="application &gt; window#main &gt; toolbar" style="left:0.000%;top:0.000%;width:100.000%;height:12.745%"></i>
+          <i class="hot" data-k="c-sidebar" data-p="c-toolbar" data-role="button" data-f="752,318,48,52" data-path="application &gt; window#main &gt; toolbar &gt; button" style="left:43.478%;top:0.000%;width:20.870%;height:12.745%" data-label="Show Sidebar"></i>
+          <i class="hot" data-k="c-mode" data-p="c-toolbar" data-role="button" data-f="834,318,44,52" data-path="application &gt; window#main &gt; toolbar &gt; button#Mode: basic; unitConversion: false" style="left:79.130%;top:0.000%;width:19.130%;height:12.745%" data-label="Mode" data-id="Mode: basic; unitConversion: false"></i>
       </div>
-      <div class="state">
-        <div class="pic"><img src="assets/ball-ready.png" width="220" height="220" alt="The ball ready: the pointing hand appears on the disc"></div>
-        <h3>Ready</h3><p>Under the cursor the hand appears. Click to point.</p>
+      <div class="win phone" data-scene="phone" data-role="window" data-label="iPhone 17 Pro – iOS 26.5" data-app="Device Hub" data-bundle="com.inspireocean.app" data-file="devicehub" data-mode="fix" data-project="~/Developer/Oryne" data-path="group > splitGroup" data-f="896,128,250,527.1" data-text="Ocean
+10 fragments
+Resurfacing
+Catching a thought that drifted away
+Product Ideas
+Cooking
+Interface Design
+Light And Color
+Reading
+Capture
+Ocean
+Ask
+Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
+        <div class="screen"><img src="assets/scene-iphone.jpg" alt="Oryne on an iPhone in the Simulator">
+          <i class="hot" data-k="p-product-ideas" data-p="" data-role="button" data-f="928.2,261.8,34.5,60.3" data-path="group &gt; splitGroup &gt; group &gt; splitGroup#com.apple.dt.DeviceKit.DeviceManagementWindow-AppWindow-1, SidebarNavigationSplitView &gt; group &gt; group &gt; button#oceanCurrent.product ideas" style="left:10.684%;top:24.708%;width:14.602%;height:11.751%" data-label="Product Ideas" data-id="oceanCurrent.product ideas"></i>
+          <i class="hot" data-k="p-cooking" data-p="" data-role="button" data-f="1087.1,327.4,34.5,60.3" data-path="group &gt; splitGroup &gt; group &gt; splitGroup#com.apple.dt.DeviceKit.DeviceManagementWindow-AppWindow-1, SidebarNavigationSplitView &gt; group &gt; group &gt; button#oceanCurrent.cooking" style="left:78.022%;top:37.489%;width:14.602%;height:11.751%" data-label="Cooking" data-id="oceanCurrent.cooking"></i>
+          <i class="hot" data-k="p-interface-design" data-p="" data-role="button" data-f="936.4,391,34.5,60.3" data-path="group &gt; splitGroup &gt; group &gt; splitGroup#com.apple.dt.DeviceKit.DeviceManagementWindow-AppWindow-1, SidebarNavigationSplitView &gt; group &gt; group &gt; button#oceanCurrent.interface design" style="left:14.167%;top:49.903%;width:14.602%;height:11.751%" data-label="Interface Design" data-id="oceanCurrent.interface design"></i>
+          <i class="hot" data-k="p-light-and-color" data-p="" data-role="button" data-f="1060.7,456.9,42.1,67.9" data-path="group &gt; splitGroup &gt; group &gt; splitGroup#com.apple.dt.DeviceKit.DeviceManagementWindow-AppWindow-1, SidebarNavigationSplitView &gt; group &gt; group &gt; button#oceanCurrent.light and color" style="left:66.828%;top:62.740%;width:17.836%;height:13.238%" data-label="Light And Color" data-id="oceanCurrent.light and color"></i>
+          <i class="hot" data-k="p-reading" data-p="" data-role="button" data-f="927.6,531.8,34.5,60.3" data-path="group &gt; splitGroup &gt; group &gt; splitGroup#com.apple.dt.DeviceKit.DeviceManagementWindow-AppWindow-1, SidebarNavigationSplitView &gt; group &gt; group &gt; button#oceanCurrent.reading" style="left:10.435%;top:77.340%;width:14.602%;height:11.751%" data-label="Reading" data-id="oceanCurrent.reading"></i>
+          <i class="hot" data-k="p-thought-0" data-p="" data-role="button" data-f="1039.4,455.1,25.8,25.8" data-path="group &gt; splitGroup &gt; group &gt; splitGroup#com.apple.dt.DeviceKit.DeviceManagementWindow-AppWindow-1, SidebarNavigationSplitView &gt; group &gt; group &gt; button#oceanThought" style="left:57.786%;top:62.380%;width:10.945%;height:5.034%" data-label="Sunset gradient study" data-id="oceanThought"></i>
+          <i class="hot" data-k="p-thought-1" data-p="" data-role="button" data-f="1098.7,451.6,25.8,25.8" data-path="group &gt; splitGroup &gt; group &gt; splitGroup#com.apple.dt.DeviceKit.DeviceManagementWindow-AppWindow-1, SidebarNavigationSplitView &gt; group &gt; group &gt; button#oceanThought" style="left:82.910%;top:61.705%;width:10.945%;height:5.034%" data-label="Golden hour on the walk home" data-id="oceanThought"></i>
+          <i class="hot" data-k="p-thought-2" data-p="" data-role="button" data-f="1101.5,471.5,25.8,25.8" data-path="group &gt; splitGroup &gt; group &gt; splitGroup#com.apple.dt.DeviceKit.DeviceManagementWindow-AppWindow-1, SidebarNavigationSplitView &gt; group &gt; group &gt; button#oceanThought" style="left:84.129%;top:65.584%;width:10.945%;height:5.034%" data-label="Warm to cool, not a filter" data-id="oceanThought"></i>
+          <i class="hot" data-k="p-thought-3" data-p="" data-role="button" data-f="1037.6,479.1,25.8,25.8" data-path="group &gt; splitGroup &gt; group &gt; splitGroup#com.apple.dt.DeviceKit.DeviceManagementWindow-AppWindow-1, SidebarNavigationSplitView &gt; group &gt; group &gt; button#oceanThought" style="left:57.015%;top:67.071%;width:10.945%;height:5.034%" data-label="Desk at 6pm" data-id="oceanThought"></i>
+          <i class="hot" data-k="p-title" data-p="" data-role="staticText" data-f="913.2,180.8,58.5,14.5" data-path="group &gt; splitGroup &gt; group &gt; splitGroup#com.apple.dt.DeviceKit.DeviceManagementWindow-AppWindow-1, SidebarNavigationSplitView &gt; group &gt; group &gt; staticText" style="left:4.303%;top:8.924%;width:24.801%;height:2.826%" data-label="Ocean"></i>
+          <i class="hot" data-k="p-count" data-p="" data-role="staticText" data-f="1066,190.4,39.5,5.9" data-path="group &gt; splitGroup &gt; group &gt; splitGroup#com.apple.dt.DeviceKit.DeviceManagementWindow-AppWindow-1, SidebarNavigationSplitView &gt; group &gt; group &gt; staticText" style="left:69.080%;top:10.789%;width:16.741%;height:1.144%" data-label="10 fragments"></i>
+          <i class="hot" data-k="p-settings" data-p="" data-role="button" data-f="1110.8,182.7,18.8,18.8" data-path="group &gt; splitGroup &gt; group &gt; splitGroup#com.apple.dt.DeviceKit.DeviceManagementWindow-AppWindow-1, SidebarNavigationSplitView &gt; group &gt; group &gt; button" style="left:88.035%;top:9.291%;width:7.960%;height:3.661%" data-label="Ocean settings"></i>
+        </div>
       </div>
-      <div class="state">
-        <div class="pic"><img src="assets/ball-ring.png" width="520" height="520" alt="The ring: Snap, Text, Color and Cut around the ball, revealed by pressing and holding"></div>
-        <h3>The ring</h3><p>Press and hold for Snap, Text, Color, and Cut. Release on one.</p>
+      <div class="outline"></div>
+      <div class="hud tag"></div>
+      <div class="hud field"><input type="text" placeholder="What should change?" aria-label="Note" autocomplete="off"><span class="hint">↩ copy · esc cancel</span></div>
+      <div class="hud toast">Copied</div>
+      <div class="ghost"><i class="lens"></i><i class="tint"></i><i class="rim"></i></div>
+      <button class="ball is-hidden" type="button" aria-label="The Locant ball: click to point, press and hold for the ring"><i class="lens"></i><i class="tint"></i><i class="glow"></i><i class="lift"></i><i class="rim"></i><i class="hand"></i></button>
+      <div class="ring" aria-hidden="true"><svg viewBox="0 0 184 184" aria-hidden="true"><path class="wedge snap" d="M157.1 26.9 A92 92 0 0 0 26.9 26.9 L74.3 74.3 A25 25 0 0 1 109.7 74.3 Z"/><path class="wedge text" d="M157.1 157.1 A92 92 0 0 0 157.1 26.9 L109.7 74.3 A25 25 0 0 1 109.7 109.7 Z"/><path class="wedge color" d="M26.9 157.1 A92 92 0 0 0 157.1 157.1 L109.7 109.7 A25 25 0 0 1 74.3 109.7 Z"/><path class="wedge cut" d="M26.9 26.9 A92 92 0 0 0 26.9 157.1 L74.3 109.7 A25 25 0 0 1 74.3 74.3 Z"/><g class="sep"><line x1="109.7" y1="74.3" x2="157.1" y2="26.9"/><line x1="74.3" y1="74.3" x2="26.9" y2="26.9"/><line x1="74.3" y1="109.7" x2="26.9" y2="157.1"/><line x1="109.7" y1="109.7" x2="157.1" y2="157.1"/><circle cx="92" cy="92" r="25"/></g></svg><div class="seg snap"><i class="glyph snap"></i><span>Snap</span></div><div class="seg text"><i class="glyph text"></i><span>Text</span></div><div class="seg color"><i class="glyph color"></i><span>Color</span></div><div class="seg cut"><i class="glyph cut"></i><span>Cut</span></div><div class="hand"></div></div>
+    </div>
+
+    <div class="result" id="result">
+      <h3>What your agent receives</h3>
+      <p class="lede">One paste carries the picture, your note, and the element’s name in the code.</p>
+      <div class="card" id="card">
+        <figure class="pic"><canvas id="crop" width="256" height="256" role="img" aria-label="The picture Locant saves: the element and 40 points around it"></canvas></figure>
+        <dl class="facts">
+          <div class="fact quote"><dt>Your note</dt><dd id="f-note"></dd></div>
+          <div class="fact"><dt>The element</dt><dd><code id="f-el"></code><span class="why" id="f-why"></span></dd></div>
+          <div class="fact"><dt>Where</dt><dd><span id="f-where"></span><span class="why" id="f-built" hidden></span></dd></div>
+        </dl>
       </div>
+      <details class="raw"><summary>See the full text it pastes</summary><pre id="raw"></pre></details>
     </div>
   </section>
 
-  <section class="col" id="payload">
+  <section class="col" id="why">
     <div class="sect-head">
-      <h2>What your agent receives</h2>
-      <p class="lede">Enough to find the right file on the first try.</p>
+      <h2>Why Locant</h2>
+      <p class="lede">Tested against a screenshot: same picture, same note, same model. The agent had two copies of the code, and only one was on screen.</p>
     </div>
-    <div class="payload-wrap">
-<pre class="payload"><span class="h">## Locant capture (fix)</span>
-<span class="k">Image:</span> ~/Pictures/Locant/locant-simulator-20260913-153012-k7q2.png
-<span class="k">App:</span> Simulator (com.example.myapp) · Window: iPhone 17 Pro
-<span class="k">Captured:</span> 2026-09-13 15:30 · Image region: 450×130 pt @2x (element + 40 pt)
-
-<span class="h">### Target element</span>
-button · id=captureButton
-<span class="k">Frame:</span> x=43 y=894 w=370 h=50
-<span class="k">Path:</span> application > window > group > group > button#captureButton
-
-<span class="h">### Note</span>
-make this rounded, match the other pills</pre>
-      <div class="notes">
-        <div class="note"><h3>Image first</h3><p>Terminal agents get only the text on paste. The path leads, so the agent can open the PNG.</p></div>
-        <div class="note"><h3>Fix or reference</h3><p>Your own apps are inferred: the Simulator, anything built on this Mac, anything signed with your Team ID.</p></div>
-        <div class="note"><h3>Identifier and path</h3><p>The accessibility identifier is what the agent greps for. The path says where in the tree it sits.</p></div>
-        <div class="note"><h3>On disk too</h3><p>A PNG and a JSON sidecar in Pictures, tagged in Finder, validating against a published schema.</p></div>
-      </div>
+    <div class="tiles">
+      <div class="tile"><span class="big">0 of 20</span><p>Locant runs that edited the wrong copy. With a screenshot: 14 of 20.</p></div>
+      <div class="tile"><span class="big">2× faster</span><p>39 seconds to the right file, against 80.</p></div>
+      <div class="tile"><span class="big">Half the cost</span><p>About half the tokens and dollars per run.</p></div>
     </div>
-  </section>
-
-  <section class="col" id="measured">
-    <div class="sect-head">
-      <h2>Measured against a screenshot</h2>
-      <p class="lede">Same crop, same note, same model. The app on screen was built in one worktree and the agent works in another, as when each Claude Code session gets its own. The only difference is what gets pasted: Locant's crop of the component, or the Locant capture with its text.</p>
-    </div>
-    <figure class="shot" style="margin: 0 0 18px;">
-      <img src="assets/measured-worktrees.png" width="2560" height="1440" alt="Two panels. Changed the wrong copy at some point: screenshot 14 of 20 runs, Locant 0 of 20. Right with no reply needed: screenshot 4 of 20, Locant 19 of 20. Dot strips of time to the first change in the right file: screenshot median 80 seconds, with 4 runs that never got there; Locant median 39 seconds.">
-    </figure>
-    <div class="ladder">
-      <div class="rung"><span class="n">1</span><span class="chip">14 of 20 · 0 of 20</span><p><b>Changed the copy that wasn't on screen.</b> Screenshot runs edited the agent's own worktree first; Locant runs went to the folder that built the app. In 14 pairs only the screenshot run did, never the reverse: exact McNemar p &lt; 0.001.</p></div>
-      <div class="rung"><span class="n">2</span><span class="chip">4 of 20 · 19 of 20</span><p><b>Right with no reply.</b> A run could get one reply when it asked or said the screen didn't match its code. The screenshot side needed 12 replies; Locant needed 1. p &lt; 0.001.</p></div>
-      <div class="rung"><span class="n">3</span><span class="chip">80 s → 39 s</span><p><b>Time to the first change in the right file,</b> medians of the runs that got there; Locant first in 17 of 20 pairs. Wilcoxon p &lt; 0.001. About half the cost.</p></div>
-      <div class="rung"><span class="n">4</span><span class="chip">16 of 20 · 20 of 20</span><p><b>Right in the end, after at most one reply.</b> All four screenshot misses are the same change: a look-alike in the agent's own copy, changed without a word, so you would find out only after rebuilding. p = 0.125, the lowest four pairs can reach.</p></div>
-      <div class="rung"><span class="n">5</span><span class="chip dash">Five changes, one app, one model</span><p><b>Read the caveats.</b> Claude Code on Opus 5 at medium effort, fresh session per run, no MCP on either side, no memory, every checkout reset between runs, four pairs per change with the order alternated, graded blind. A first round found Locant 0.9.0 short (the wrong copy in 9 of 20); one sentence in its payload fixed that, is measured here, and ships in 0.9.1. Method, both rounds and statistics: <a href="https://github.com/Malik1942/locant/blob/main/docs/video/11-measurement-worktrees.md">the report</a>.</p></div>
-    </div>
-  </section>
-
-  <section class="col">
-    <div class="sect-head">
-      <h2>When there is no element</h2>
-      <p class="lede">Locant steps down a ladder and says which rung it reached.</p>
-    </div>
-    <div class="ladder">
-      <div class="rung"><span class="n">1</span><span class="chip">button · <code>id=captureButton</code></span><p><b>Element</b> with a declared identifier. The best case.</p></div>
-      <div class="rung"><span class="n">2</span><span class="chip">button "Save changes" · no identifier</span><p><b>Label only.</b> The nearest labeled neighbors are named too.</p></div>
-      <div class="rung"><span class="n">3</span><span class="chip">Elements in frame (6)</span><p><b>Drawn frame.</b> Drag on the overlay; everything inside is listed.</p></div>
-      <div class="rung"><span class="n">4</span><span class="chip">Text in image · Nearby</span><p><b>Text and neighbors.</b> Words in the image are recognized.</p></div>
-      <div class="rung"><span class="n">5</span><span class="chip dash">No element information available</span><p><b>Image.</b> The payload says so, and still carries your note.</p></div>
-    </div>
+    <p class="method">80 runs on Claude Code, graded blind. Method and statistics: <a href="https://github.com/Malik1942/locant/blob/main/docs/video/11-measurement-worktrees.md">the report</a>.</p>
   </section>
 
   <section class="col" id="actions">
     <div class="sect-head">
       <h2>Four more, on the same gesture</h2>
-      <p class="lede">Press and hold the ball for the ring.</p>
+      <p class="lede">Press and hold the ball. Try it in the demo above.</p>
     </div>
     <div class="actions">
       <div class="action">
         <span class="glyph snap" aria-hidden="true"></span>
-        <h3>Snap</h3><p>A region or a window, as a PNG.</p><p class="keeps">Keeps a file</p>
+        <h3>Snap</h3><p>A region or a window, as a PNG.</p>
       </div>
       <div class="action">
         <span class="glyph text" aria-hidden="true"></span>
-        <h3>Text</h3><p>Recognized lines, to the clipboard.</p><p class="keeps">Keeps nothing</p>
+        <h3>Text</h3><p>The words on screen, to the clipboard.</p>
       </div>
       <div class="action">
         <span class="glyph color" aria-hidden="true"></span>
-        <h3>Color</h3><p>Hex, rgb(), hsl(), or SwiftUI Color. sRGB or Display P3.</p><p class="keeps">Keeps nothing</p>
+        <h3>Color</h3><p>Any pixel, as hex, rgb(), hsl(), or SwiftUI Color.</p>
       </div>
       <div class="action">
         <span class="glyph cut" aria-hidden="true"></span>
-        <h3>Cut</h3><p>The subject on a transparent background.</p><p class="keeps">Keeps a file</p>
+        <h3>Cut</h3><p>The subject on a transparent background.</p>
       </div>
     </div>
   </section>
@@ -632,19 +708,9 @@ make this rounded, match the other pills</pre>
       </div>
       <div class="sect-head" style="margin: 0;">
         <h2>See what changed</h2>
-        <p class="lede">After the agent's edit, run the app again. Locant finds the same element, captures it when it looks different, and keeps every iteration with the diff beneath. Show before &amp; after is in the menu bar.</p>
+        <p class="lede">After the agent's edit, run the app again. Locant finds the same element, captures it when it looks different, and keeps every iteration with the diff beneath.</p>
       </div>
     </div>
-  </section>
-
-  <section class="col">
-    <div class="sect-head">
-      <h2>Settings that look like Settings</h2>
-      <p class="lede">The one place Locant is a window. Every default works on first launch.</p>
-    </div>
-    <figure class="shot" style="margin: 0;">
-      <picture class="light"><source media="(max-width: 720px)" srcset="assets/settings-light-phone.png" width="960" height="1500"><img src="assets/settings-light.png" width="2024" height="1616" alt="Locant Settings window, General tab: Accessibility and Screen Recording granted, the floating ball and auto-hide on, trackpad taps and sounds on, a daily update check with the version number, and the Help row"></picture><picture class="dark"><source media="(max-width: 720px)" srcset="assets/settings-dark-phone.png" width="960" height="1500"><img src="assets/settings-dark.png" width="2024" height="1616" alt="Locant Settings window, General tab: Accessibility and Screen Recording granted, the floating ball and auto-hide on, trackpad taps and sounds on, a daily update check with the version number, and the Help row"></picture>
-    </figure>
   </section>
 
   <section class="col" id="privacy">
@@ -656,42 +722,25 @@ make this rounded, match the other pills</pre>
         <h3>Two permissions, both explained</h3><p>Accessibility reads what is under your cursor. Screen Recording captures the pixels. There is no third prompt.</p>
       </div>
       <div class="item">
-        <h3>Nothing leaves the machine</h3><p>No telemetry, no accounts. The one request is a daily check for a newer version on GitHub, and you can turn it&nbsp;off.</p>
+        <h3>Nothing leaves your Mac</h3><p>No telemetry, no accounts. The one request is a daily check for a newer version, and you can turn it&nbsp;off.</p>
       </div>
       <div class="item">
         <h3>Signed and notarized</h3><p>Every build is signed with a Developer ID and notarized by Apple. A dmg from GitHub, not the App Store.</p>
       </div>
       <div class="item">
-        <h3>Quiet</h3><p>No Dock icon. Idle memory under 30 MB. Nothing pulses, bounces, or waits for you to notice it.</p>
+        <h3>Quiet</h3><p>No Dock icon. Nothing pulses, bounces, or waits for you to notice it.</p>
       </div>
     </div>
   </section>
 
   <section class="col" id="agents">
     <div class="sect-head">
-      <h2>Paste it, or let the agent fetch it</h2>
-      <p class="lede">You choose where a capture goes by pasting it there. Cursor, the Codex app, and Grok Bot keep only half of a capture pasted whole, so after your ⌘V Locant adds the image: the text and the image both arrive. Locant is also an MCP server: connect Claude Code, Cursor, or Codex in Settings › Agents, then say what should change and the agent pulls the capture itself, image included. Run end to end; each row says when:</p>
+      <h2>Works with your agent</h2>
+      <p class="lede">Paste the capture where you want it. Or connect over MCP in Settings › Agents, say what should change, and the agent fetches the capture itself, image included.</p>
     </div>
-    <div class="agents">
-      <div class="agent"><b>Claude Code</b><span>Fetches the capture over MCP and opens the image; 80 measured runs above</span><span class="chip">Verified Sep 15, 2026</span></div>
-      <div class="agent"><b>Cursor</b><span>A paste carries the text and the image; fetches over MCP too, after Cursor asks once to enable the server</span><span class="chip">Verified Oct 1, 2026</span></div>
-      <div class="agent"><b>Codex app</b><span>A paste carries the text and the image</span><span class="chip">Verified Oct 1, 2026</span></div>
-      <div class="agent"><b>Codex CLI</b><span>Fetches over MCP and views the image at the path</span><span class="chip">Verified Sep 15, 2026</span></div>
-      <div class="agent"><b>Grok Bot</b><span>Reads the capture on your Mac with the <a href="https://github.com/Malik1942/locant#in-grok-bot">Locant skill</a>; a paste carries the text and the image</span><span class="chip">Verified Oct 1, 2026</span></div>
-      <div class="agent"><b>Antigravity</b><span>A paste carries the text and the image</span><span class="chip">Verified Oct 1, 2026</span></div>
-      <div class="agent"><b>Gemini CLI</b><span>Paste, or the snippet from Settings › Agents</span><span class="chip dash">Untested</span></div>
-    </div>
-  </section>
-
-  <section class="col">
-    <div class="sect-head">
-      <h2>Known limitations</h2>
-      <p class="lede">Hit one of these, or something not on the list? <a href="https://github.com/Malik1942/locant/issues/new/choose">Open an issue</a> and say which app you pointed at.</p>
-    </div>
-    <div class="limits">
-      <div class="limit"><h3>Quality follows the app</h3><p>SwiftUI, AppKit, and the Simulator work well. Web pages and Electron apps carry their DOM id and classes, and the page URL; Electron builds its tree on first contact, so the first hover can lag.</p></div>
-      <div class="limit"><h3>Custom-drawn UIs expose little</h3><p>Figma, games, and canvases reach the bottom of the ladder. The payload says so, and still carries the image.</p></div>
-      <div class="limit"><h3>Hover picks the smallest control</h3><p>It sticks to that control across its padding. Press Option to step to the parent, and again for the next level.</p></div>
+    <div class="with">
+      <div class="line"><span class="lab">Agents</span><span class="pill">Claude Code</span><span class="pill">Cursor</span><span class="pill">Codex</span><span class="pill">Grok Bot</span><span class="pill">Antigravity</span></div>
+      <div class="line"><span class="lab">Best in</span><span class="pill">SwiftUI</span><span class="pill">AppKit</span><span class="pill">iPhone Simulator</span><span class="pill">Web pages</span><span class="pill">Electron apps</span></div>
     </div>
   </section>
 
@@ -706,9 +755,527 @@ make this rounded, match the other pills</pre>
         <a href="https://github.com/Malik1942/locant/releases/latest/download/Locant.dmg">Download for Mac</a>
         <a href="https://github.com/Malik1942/locant">GitHub</a>
         <a href="https://github.com/Malik1942/locant/issues/new/choose">Report an issue</a>
-        <a href="https://www.youtube.com/watch?v=gIjtllxV-gI">Watch the film</a>
         <a href="https://www.malikzhang.com">Built by Malik</a>
       </nav>
     </div>
   </footer>
 </main>
+
+<script>
+// The demo: a real desktop. The ball is FloatingBall's state machine (48 pt; rest, docked, awake, ready by the cursor's
+// distance; 60 percent showing when tucked; 2 s at rest before it tucks; throws; the springs from Motion.swift), the
+// ring is Ring.Tokens (a 0.5 s hold, 92 pt, a 25 pt center that cancels), and the overlay is DesignTokens (a 20 percent
+// dim, a 2 pt accent frame, role · identifier). The windows' elements are real, read from the apps themselves.
+(function () {
+  var stage = document.getElementById('stage'); if (!stage) return;
+  var ball = stage.querySelector('.ball'), ghost = stage.querySelector('.ghost'), ring = stage.querySelector('.ring'),
+      box = stage.querySelector('.outline'), tag = stage.querySelector('.tag'), field = stage.querySelector('.field'),
+      input = field.querySelector('input'), toast = stage.querySelector('.toast'), wall = stage.querySelector('.wall'),
+      say = document.getElementById('say'), steps = document.querySelectorAll('#steps .s'),
+      result = document.getElementById('result'), card = document.getElementById('card'), crop = document.getElementById('crop'),
+      fNote = document.getElementById('f-note'), fEl = document.getElementById('f-el'), fWhy = document.getElementById('f-why'),
+      fWhere = document.getElementById('f-where'), fBuilt = document.getElementById('f-built'), raw = document.getElementById('raw'),
+      tabs = document.querySelectorAll('.scenes button'), wins = Array.prototype.slice.call(stage.querySelectorAll('.win'));
+  var PT = { web: 760, calc: 230, phone: 250 };          // each window's width in points, for its own scale
+  var WHERE = { web: 'Safari · oryne.malikzhang.com', calc: 'Calculator', phone: 'Oryne on iPhone 17 Pro' };
+  var S = 0.7656, D = 48 * S, R = D / 2;                // points to px, and the disc's size, set by fit()
+  var SHOW = 0.6, DOCK_DELAY = 2000, HOLD = 500;
+  var touch = matchMedia('(hover: none)').matches;
+  var W = function () { return stage.clientWidth; }, H = function () { return stage.clientHeight; };
+  var ADVICE = 'The app on screen was built from this folder. If you are working in a different checkout of this repo (another worktree or clone), your copy is not the code on screen: change it in this folder, or ask which copy to change.';
+  var HELLO = touch ? 'The ball rests at the right edge. Tap it, then tap anything on the screen. Press and hold for the ring.'
+                    : 'The ball rests at the right edge. Move toward it, then click it. Press and hold for the ring.';
+
+  // mode: what the demo is doing. bs: the ball's own state, as FloatingBall.State.
+  var mode = 'ball', bs = 'hidden';
+  var home = { x: 0, y: 0 }, shown = { x: 0, y: 0 }, dockTimer = null, holdTimer = null, holdDock = false, press = null, seg = null,
+      last = null, level = 0, base = null, target = null, pointedAt = 0, tool = null, z = 5;
+
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function esc(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+  function num(d) { var t = Math.round(d * 10) / 10; return t === Math.round(t) ? String(Math.round(t)) : t.toFixed(1); }
+  function rel(x, y) { var r = stage.getBoundingClientRect(); return { x: x - r.left, y: y - r.top }; }
+  function setStep(n, text) { steps.forEach(function (el, i) { el.classList.toggle('on', i === n - 1); }); if (text) say.textContent = text; }
+
+  function fit() {
+    S = Math.max(0.62, Math.min(1, W() / 1280)); D = 48 * S; R = D / 2;
+    stage.style.setProperty('--b', S.toFixed(4));
+    wins.forEach(function (w) { var r = w.getBoundingClientRect(); if (r.width) w.style.setProperty('--s', (r.width / PT[w.dataset.scene]).toFixed(4)); });
+  }
+
+  // ---- edges (BallEdges): tucks on the left, right, and bottom; the center keeps one diameter from each edge's ends ----
+  function tuckOn(edge, p) {
+    var off = SHOW * D - R;
+    if (edge === 'right') return { edge: edge, x: W() - off, y: clamp(p.y, D, H() - D) };
+    if (edge === 'left') return { edge: edge, x: off, y: clamp(p.y, D, H() - D) };
+    return { edge: 'bottom', x: clamp(p.x, D, W() - D), y: H() - off };
+  }
+  function nearestTuck(p) {
+    var best = null;
+    ['right', 'bottom', 'left'].forEach(function (e) { var t = tuckOn(e, p), d = Math.hypot(t.x - p.x, t.y - p.y); if (!best || d < best.d) { best = t; best.d = d; } });
+    return best;
+  }
+  function homeFor(t) {      // the same spot with the whole disc on screen, touching the edge
+    if (t.edge === 'right') return { x: W() - R, y: t.y };
+    if (t.edge === 'left') return { x: R, y: t.y };
+    return { x: t.x, y: H() - R };
+  }
+  function ringSafe(p) { var m = 100 * S; return { x: clamp(p.x, m, W() - m), y: clamp(p.y, m, H() - m) }; }   // ringMargin
+  function nearEdge(p) { var s = 48 * S; return p.x <= s || W() - p.x <= s || H() - p.y <= s; }                // edgeSnap
+  function inside(p) { return { x: clamp(p.x, R, W() - R), y: clamp(p.y, R, H() - R) }; }
+
+  // ---- motion: the disc glides to `p` on one of Motion.swift's springs ----
+  function move(p, spring) {
+    ball.classList.remove('m-wake', 'm-settle', 'm-tuck', 'm-drag'); ball.classList.add('m-' + spring);
+    shown = { x: p.x, y: p.y };
+    ball.style.translate = (p.x - R) + 'px ' + (p.y - R) + 'px';   // not transform: scale would multiply it
+  }
+  function jump(p) { ball.style.transition = 'none'; move(p, 'drag'); void ball.offsetWidth; ball.style.transition = ''; }
+  function current() {       // the disc's center as drawn this frame, mid-glide included
+    var r = ball.getBoundingClientRect(), s = stage.getBoundingClientRect();
+    return { x: r.left + r.width / 2 - s.left, y: r.top + r.height / 2 - s.top };
+  }
+  function same(a, b) { return Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) < 0.5; }
+
+  // ---- the look per state (DiscView.apply): the hand awake and ready, 1.04 ready, a swell from 0.94 out of an edge ----
+  function look(s, waking) {
+    ball.classList.remove('is-hidden', 'is-rest', 'is-docked', 'is-awake', 'is-ready');
+    ball.classList.add('is-' + s);
+    stage.classList.toggle('over-ball', s === 'ready' && mode === 'ball');
+    if (waking) { ball.classList.add('from-edge'); void ball.offsetWidth; ball.classList.remove('from-edge'); }
+  }
+
+  // ---- FloatingBall.set ----
+  function set(ns) {
+    if (ns === bs) return;
+    var wasDocked = bs === 'docked'; bs = ns;
+    if (ns === 'awake' || ns === 'ready') {
+      clearTimeout(dockTimer);
+      var safe = ringSafe(home);
+      if (wasDocked || !same(safe, shown)) move(safe, 'wake');
+      look(ns, wasDocked);
+    } else if (ns === 'rest') {
+      if (!same(shown, home)) move(home, wasDocked ? 'wake' : 'settle');
+      look('rest');
+      scheduleDock();
+    } else if (ns === 'docked') {
+      look('docked');
+    }
+  }
+  function scheduleDock() {
+    clearTimeout(dockTimer);
+    dockTimer = setTimeout(function () { if (bs === 'rest' && mode === 'ball' && !press) tuck(nearestTuck(current())); }, DOCK_DELAY);
+  }
+  function tuck(spot) { home = homeFor(spot); set('docked'); move(spot, 'tuck'); }
+
+  // ---- FloatingBall.cursorMoved: the nearer of the disc as drawn and its home counts, so a disc that moved in stays ----
+  function cursorMoved(p) {
+    if (mode !== 'ball' || press || bs === 'hidden') return;
+    var d = p ? Math.min(Math.hypot(p.x - current().x, p.y - current().y), Math.hypot(p.x - home.x, p.y - home.y)) : Infinity;
+    if (holdDock) { if (d <= 80 * S) return; holdDock = false; }
+    if (d <= R + 4 * S) set('ready');
+    else if (d <= 80 * S) set('awake');
+    else if (bs === 'awake' || bs === 'ready') set('rest');
+  }
+  function pointerHere() {
+    if (!last || last.touch) return null;
+    var r = stage.getBoundingClientRect();
+    return last.x >= r.left && last.x <= r.right && last.y >= r.top && last.y <= r.bottom ? rel(last.x, last.y) : null;
+  }
+  document.addEventListener('pointermove', function (e) {
+    last = { x: e.clientX, y: e.clientY, touch: e.pointerType === 'touch' };
+    if (mode === 'ball') cursorMoved(pointerHere());
+  }, { passive: true });
+  stage.addEventListener('pointerleave', function () { if (mode === 'ball') cursorMoved(null); });
+  // the page scrolling moves the desktop under a still cursor
+  window.addEventListener('scroll', function () { if (mode === 'ball') cursorMoved(pointerHere()); }, { passive: true });
+
+  // ---- first launch: when the desktop comes into view the disc appears at rest, bottom right, 24 pt in, then tucks ----
+  function placeFirst() {
+    fit();
+    var p = { x: W() - 24 * S - R, y: H() - 24 * S - R };
+    home = p; jump(p);
+  }
+  placeFirst();
+  window.addEventListener('resize', function () {
+    if (press || mode === 'ring') return;
+    var fx = home.x / Math.max(1, W()), fy = home.y / Math.max(1, H());
+    fit();
+    if (bs === 'hidden') { placeFirst(); return; }
+    var p = { x: fx * W(), y: fy * H() };
+    if (bs === 'docked') { var t = nearestTuck(p); home = homeFor(t); jump(t); }
+    else { home = inside(p); jump(bs === 'rest' ? home : ringSafe(home)); }
+  });
+  function reveal() {
+    if (bs !== 'hidden') return;
+    placeFirst();
+    ball.classList.add('revealing'); bs = 'rest'; look('rest');
+    setTimeout(function () { ball.classList.remove('revealing'); }, 900);
+    scheduleDock();
+    cursorMoved(pointerHere());
+  }
+  if ('IntersectionObserver' in window) {
+    var seen = new IntersectionObserver(function (en) { if (en[0].isIntersecting) { seen.disconnect(); setTimeout(reveal, 250); } }, { threshold: 0.55 });
+    seen.observe(stage);
+  } else reveal();
+  setStep(1, HELLO);
+
+  // phones: one window at a time
+  tabs.forEach(function (b) {
+    b.addEventListener('click', function () {
+      if (mode === 'point' || mode === 'note' || mode === 'tool') cancel();
+      stage.dataset.scene = b.dataset.scene;
+      tabs.forEach(function (t) { t.setAttribute('aria-selected', String(t === b)); });
+      fit();
+    });
+  });
+  // a click on a window brings it to the front, as on the desktop
+  wins.forEach(function (w) { w.addEventListener('pointerdown', function () { if (mode === 'ball') w.style.zIndex = ++z; }); });
+
+  // ---- the press (BallView): only the disc takes it; a hold opens the ring, 6 pt of travel drags, a release clicks ----
+  ball.addEventListener('pointerdown', function (e) {
+    if (mode !== 'ball' || press || bs === 'hidden') return;
+    var p = rel(e.clientX, e.clientY), c = current();
+    if (Math.hypot(p.x - c.x, p.y - c.y) > R + 2 * S) return;
+    e.preventDefault();
+    if (e.pointerType === 'touch') { last = { x: e.clientX, y: e.clientY, touch: true }; }
+    press = { x: e.clientX, y: e.clientY, grab: { x: p.x - c.x, y: p.y - c.y }, moved: false, samples: [{ t: e.timeStamp, x: p.x, y: p.y }] };
+    clearTimeout(dockTimer);
+    holdTimer = setTimeout(openRing, HOLD);
+    document.addEventListener('pointermove', pressMove, true);
+    document.addEventListener('pointerup', pressUp, true);
+    document.addEventListener('pointercancel', pressCancel, true);
+  });
+  function unbind() {
+    document.removeEventListener('pointermove', pressMove, true);
+    document.removeEventListener('pointerup', pressUp, true);
+    document.removeEventListener('pointercancel', pressCancel, true);
+  }
+  function pressMove(e) {
+    if (!press) return;
+    var p = rel(e.clientX, e.clientY);
+    if (mode === 'ring') { ringMove(p); return; }
+    press.samples.push({ t: e.timeStamp, x: p.x, y: p.y });
+    press.samples = press.samples.filter(function (s) { return e.timeStamp - s.t <= 160; });
+    if (!press.moved && Math.hypot(e.clientX - press.x, e.clientY - press.y) <= 6 * S) return;
+    if (!press.moved) { press.moved = true; clearTimeout(holdTimer); ball.classList.add('dragging'); }
+    // absolute: the disc sits exactly where the cursor carried it
+    var c = { x: clamp(p.x - press.grab.x, R * 0.2, W() - R * 0.2), y: clamp(p.y - press.grab.y, R * 0.2, H() - R * 0.2) };
+    home = c; move(c, 'drag');
+    if (bs === 'docked') { bs = 'rest'; }
+    if (nearEdge(c)) { var t = nearestTuck(c); ghost.style.transform = 'translate(' + (t.x - R) + 'px,' + (t.y - R) + 'px)'; ghost.classList.add('on'); }
+    else ghost.classList.remove('on');
+  }
+  function velocity(samples) {   // Throw.velocity: over the last 80 ms, in points per second, capped at 4000
+    var lastS = samples[samples.length - 1], first = null;
+    for (var i = 0; i < samples.length; i++) if (lastS.t - samples[i].t <= 80) { first = samples[i]; break; }
+    if (!first || lastS.t <= first.t) return { x: 0, y: 0 };
+    var dt = (lastS.t - first.t) / 1000, v = { x: (lastS.x - first.x) / dt / S, y: (lastS.y - first.y) / dt / S }, sp = Math.hypot(v.x, v.y);
+    return sp > 4000 ? { x: v.x * 4000 / sp, y: v.y * 4000 / sp } : v;
+  }
+  function pressUp(e) {
+    unbind(); clearTimeout(holdTimer);
+    var pr = press; press = null; ball.classList.remove('dragging');
+    if (!pr) return;
+    if (mode === 'ring') { ringEnd(); return; }
+    ghost.classList.remove('on');
+    if (!pr.moved) { point(); return; }
+    // FloatingBall.dragEnded and Throw.release
+    pr.samples.push({ t: e.timeStamp, x: rel(e.clientX, e.clientY).x, y: rel(e.clientX, e.clientY).y });
+    var v = velocity(pr.samples), c = { x: shown.x, y: shown.y };
+    if (Math.hypot(v.x, v.y) >= 700) {
+      var land = { x: clamp(c.x + v.x * 0.499 * S, 0, W()), y: clamp(c.y + v.y * 0.499 * S, 0, H()) };
+      if (nearEdge(land)) { tuck(nearestTuck(land)); holdDock = true; }
+      else { home = inside(land); move(home, 'settle'); if (bs === 'rest') scheduleDock(); else set('rest'); }
+    } else if (nearEdge(c)) { tuck(nearestTuck(c)); holdDock = true; }
+    else { home = inside(c); bs = 'rest'; set('ready'); }
+  }
+  function pressCancel() {
+    unbind(); clearTimeout(holdTimer); press = null; ball.classList.remove('dragging'); ghost.classList.remove('on');
+    if (mode === 'ring') { closeRing(); mode = 'ball'; ball.classList.remove('gone'); }
+    cursorMoved(pointerHere());
+  }
+  ball.addEventListener('keydown', function (e) { if ((e.key === 'Enter' || e.key === ' ') && mode === 'ball') { e.preventDefault(); point(); } });
+
+  // ---- the ring: unfolds from the disc after the hold; the quadrant under the pointer lights, the center cancels ----
+  var ringAt = { x: 0, y: 0 };
+  function openRing() {
+    if (!press || press.moved || mode !== 'ball') return;
+    mode = 'ring'; seg = null; clearTimeout(dockTimer);
+    ringAt = ringSafe(current());
+    ring.style.left = ringAt.x + 'px'; ring.style.top = ringAt.y + 'px';
+    ball.classList.add('gone'); stage.classList.remove('over-ball');
+    ring.classList.add('open'); setTimeout(function () { if (mode === 'ring') ring.classList.add('labels'); }, 200);
+    say.textContent = 'Slide to a rung and let go. Let go in the middle to cancel.';
+  }
+  function segmentFor(dx, dy) {
+    if (Math.hypot(dx, dy) <= 25 * S) return null;
+    if (Math.abs(dy) >= Math.abs(dx)) return dy < 0 ? 'snap' : 'color';
+    return dx > 0 ? 'text' : 'cut';
+  }
+  function ringMove(p) {
+    var sg = segmentFor(p.x - ringAt.x, p.y - ringAt.y);
+    if (sg === seg) return; seg = sg;
+    ring.querySelectorAll('.wedge').forEach(function (w) { w.classList.toggle('on', w.classList.contains(sg || '-')); });
+  }
+  function closeRing() { ring.classList.remove('open', 'labels'); ring.querySelectorAll('.wedge').forEach(function (w) { w.classList.remove('on'); }); }
+  function ringEnd() {       // pressEnded: the ring closes and the ball keeps its state
+    var chosen = seg; closeRing();
+    if (chosen) { startTool(chosen); return; }
+    mode = 'ball'; ball.classList.remove('gone'); setStep(1, HELLO);
+    scheduleDock(); look(bs); cursorMoved(pointerHere());
+  }
+
+  // ---- point mode: the stage dims, the element under the cursor gets the frame and the label ----
+  function point() {
+    mode = 'point'; level = 0; base = null; pointedAt = Date.now(); clearTimeout(dockTimer);
+    ball.classList.add('gone'); stage.classList.remove('over-ball'); stage.classList.add('pointing');
+    setStep(1, touch ? 'Tap anything: the website, Calculator, or the iPhone app.'
+                     : 'Point at anything: the website, Calculator, or the iPhone app. Option steps up to the parent. Esc cancels.');
+    document.addEventListener('keydown', keys);
+  }
+  function chain(el) {
+    var win = el.closest('.win'), out = [];
+    while (el && el !== win) { out.push(el); var p = el.dataset.p; el = p ? win.querySelector('[data-k="' + p + '"]') : null; }
+    out.push(win); return out;
+  }
+  function info(el) {
+    var d = el.dataset, win = el.closest('.win'), isWin = el === win;
+    var web = win.dataset.scene === 'web' && !isWin && d.role !== 'webArea';
+    var classes = d.domClass ? d.domClass.split(' ') : [];
+    var ident = d.id || null;
+    var dom = web ? (d.domId ? '#' + d.domId : (classes.length ? '.' + classes.slice(0, 2).join('.') : null)) : null;   // domReadout
+    return { role: d.role, label: d.label || null, ident: ident, domId: d.domId || null, classes: classes, web: web,
+             value: d.value != null ? d.value : null, handle: ident || dom, win: win, isWin: isWin };
+  }
+  // Readout.describing: the role, the label only when there is no handle, then the handle or "no identifier"
+  function readoutText(el) {
+    var i = info(el);
+    return i.role + (!i.handle && i.label ? ' "' + i.label + '"' : '') + ' · ' + (i.handle || 'no identifier');
+  }
+  function readout(el) {
+    var i = info(el), role = i.role + (!i.handle && i.label ? ' "' + i.label + '"' : '');
+    return '<span>' + esc(role) + '</span>' + (i.handle ? '<span>·</span><span class="mono">' + esc(i.handle) + '</span>' : '<span>·</span><span class="sec">no identifier</span>');
+  }
+  function frameOf(el) {
+    var r = el.getBoundingClientRect(), st = stage.getBoundingClientRect();
+    return { x: r.left - st.left, y: r.top - st.top, w: r.width, h: r.height };
+  }
+  function show(el, html) {
+    target = el; var f = frameOf(el);
+    var l = Math.max(-3, f.x - 3), t = Math.max(-3, f.y - 3), r = Math.min(W() + 3, f.x + f.w + 3), b = Math.min(H() + 3, f.y + f.h + 3);
+    box.style.left = l + 'px'; box.style.top = t + 'px'; box.style.width = (r - l) + 'px'; box.style.height = (b - t) + 'px'; box.classList.add('on');
+    tag.innerHTML = html || readout(el); tag.classList.add('on');
+    var left = Math.min(Math.max(10, f.x), W() - tag.offsetWidth - 10), top = f.y + f.h + 8;
+    if (top + 30 > H() - 6) top = f.y - 34;                      // flipMargin: above the element near the bottom
+    if (top < 6) top = Math.min(H() - 32, f.y + 8);
+    tag.style.left = left + 'px'; tag.style.top = top + 'px';
+  }
+  function hide() {
+    if (box.classList.contains('on')) {
+      var l = parseFloat(box.style.left) + parseFloat(box.style.width) / 2, t = parseFloat(box.style.top) + parseFloat(box.style.height) / 2;
+      box.style.left = l + 'px'; box.style.top = t + 'px'; box.style.width = '0px'; box.style.height = '0px';
+    }
+    box.classList.remove('on'); tag.classList.remove('on'); target = null;
+  }
+  function under(e) {
+    var el = document.elementFromPoint(e.clientX, e.clientY);
+    if (!el || !stage.contains(el)) return null;
+    return el.closest('.hot') || el.closest('.win');
+  }
+  function hover(e) {
+    var b = under(e);
+    if (!b) { hide(); base = null; return; }
+    if (b !== base) { base = b; level = 0; }
+    var up = chain(base); show(up[Math.min(level, up.length - 1)]);
+  }
+  stage.addEventListener('pointermove', function (e) { if (mode === 'point') hover(e); else if (mode === 'tool') hoverTool(e); });
+  stage.addEventListener('pointerup', function (e) {
+    if (ball.contains(e.target)) return;
+    if (Date.now() - pointedAt < 150) return;
+    if (mode === 'tool') { hoverTool(e); if (target) runTool(); return; }
+    if (mode !== 'point') return;
+    if (!target || e.pointerType === 'touch') hover(e); if (!target) return;
+    note();
+  });
+  function keys(e) {
+    if (e.key === 'Escape') { e.preventDefault(); cancel(); return; }
+    if (mode === 'point' && e.key === 'Alt' && !e.repeat && base) { e.preventDefault(); var up = chain(base); level = Math.min(level + 1, up.length - 1); show(up[level]); }
+  }
+
+  // ---- the note: the field under the element; Return copies, Esc cancels ----
+  function note() {
+    mode = 'note'; var f = frameOf(target);
+    tag.classList.remove('on');
+    var left = Math.min(Math.max(12, f.x), W() - field.offsetWidth - 12), top = f.y + f.h + 8;
+    if (top + 34 > H() - 6) top = f.y - 38;
+    if (top < 6) top = Math.min(H() - 36, f.y + 8);
+    field.style.left = left + 'px'; field.style.top = top + 'px'; field.classList.add('on');
+    input.value = ''; input.focus({ preventScroll: true }); setStep(2, 'Say what should change, then Return.');
+  }
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { e.preventDefault(); cancel(); }
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (!input.value.trim()) { field.classList.remove('shake'); void field.offsetWidth; field.classList.add('shake'); return; }
+      capture(input.value.trim());
+    }
+  });
+  function end() {           // back to the ball, which picks its state from where the cursor is
+    document.removeEventListener('keydown', keys); field.classList.remove('on'); hide(); stage.classList.remove('pointing', 'cross'); input.blur();
+    tool = null; mode = 'ball'; ball.classList.remove('gone');
+    look(bs); scheduleDock(); cursorMoved(pointerHere());
+  }
+  function cancel() { end(); setStep(1, HELLO); }
+
+  // ---- the payload, as MarkdownBuilder writes it: the note first for a reference, last for a fix ----
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function build(el, text, when) {
+    var i = info(el), wd = i.win.dataset, kind = wd.mode;
+    var f = (i.isWin ? wd.f : el.dataset.f).split(',').map(Number);
+    var d = when || new Date(), id = when ? 'k7q2' : Math.random().toString(36).slice(2, 6);
+    var stamp = d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '-' + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
+    var at = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    var head = i.role + (i.label ? ' "' + i.label + '"' : '') + (i.ident ? ' · id=' + i.ident : '');
+    if (i.web) { if (i.domId) head += ' · #' + i.domId; if (i.classes.length) head += ' · .' + i.classes.slice(0, 6).join('.') + (i.classes.length > 6 ? ' (+' + (i.classes.length - 6) + ' more)' : ''); }
+    var hasHandle = !!(i.ident || (i.web && (i.domId || i.classes.length)));
+    if (!hasHandle) head += ' · no identifier';
+    var advice = null;
+    if (!i.ident && !i.web) advice = 'No identifier. Grep the label text; add .accessibilityIdentifier("…") to this view so the next capture is exact.';
+    else if (!i.ident && !i.domId) advice = hasHandle ? 'No id attribute. Grep the class names or the label text; give the element an id so the next capture is exact.'
+                                                      : 'No id or class. Grep the label text; give the element an id so the next capture is exact.';
+    var src = ['Image: ~/Pictures/Locant/locant-' + wd.file + '-' + stamp + '-' + id + '.png', 'App: ' + wd.app + ' (' + wd.bundle + ') · Window: ' + wd.label,
+               'Captured: ' + at + ' · Image region: ' + num(f[2] + 80) + '×' + num(f[3] + 80) + ' pt @2x (element + 40 pt)'];
+    if (wd.url) src.push('URL: ' + wd.url);
+    if (wd.project) src.push('Project: ' + wd.project, ADVICE);
+    var elem = ['### Target element', head];
+    if (advice) elem.push(advice);
+    if (i.value != null) elem.push('Value: "' + i.value + '"');
+    elem.push('Frame: x=' + num(f[0]) + ' y=' + num(f[1]) + ' w=' + num(f[2]) + ' h=' + num(f[3]), 'Path: ' + (i.isWin ? wd.path : el.dataset.path));
+    var noteBlock = '### Note\n' + text;
+    var blocks = kind === 'reference' ? [noteBlock, src.join('\n'), elem.join('\n')] : [src.join('\n'), elem.join('\n'), noteBlock];
+    return '## Locant capture (' + kind + ')\n' + blocks.join('\n\n') + '\n';
+  }
+
+  // ---- what your agent receives: the picture Locant saves, the note, the element's name, and where it is ----
+  // from the element's place in its screenshot, not the layout: on a phone the window may be behind another tab
+  var IMG_PT = { web: 760, calc: 230, phone: 236 };       // each screenshot's width in points
+  function drawCrop(el) {
+    var win = el.closest('.win'), img = win.querySelector('img');
+    if (!img.complete || !img.naturalWidth) { img.addEventListener('load', function () { drawCrop(el); }, { once: true }); return; }
+    var nw = img.naturalWidth, nh = img.naturalHeight, padPx = 40 * nw / IMG_PT[win.dataset.scene];   // element + 40 pt
+    var x = 0, y = 0, w = nw, h = nh;
+    if (el !== win) { var st = el.style; x = parseFloat(st.left) / 100 * nw; y = parseFloat(st.top) / 100 * nh; w = parseFloat(st.width) / 100 * nw; h = parseFloat(st.height) / 100 * nh; }
+    var x0 = clamp(x - padPx, 0, nw), y0 = clamp(y - padPx, 0, nh), x1 = clamp(x + w + padPx, 0, nw), y1 = clamp(y + h + padPx, 0, nh);
+    var cw = Math.max(1, Math.round(x1 - x0)), ch = Math.max(1, Math.round(y1 - y0)), sc = Math.min(1, 900 / Math.max(cw, ch));
+    crop.width = Math.round(cw * sc); crop.height = Math.round(ch * sc);
+    try { crop.getContext('2d').drawImage(img, x0, y0, cw, ch, 0, 0, crop.width, crop.height); } catch (err) {}
+  }
+  function present(el, text, when) {
+    var i = info(el), wd = i.win.dataset;
+    fNote.textContent = text;
+    fEl.textContent = readoutText(el);
+    fWhy.textContent = i.ident ? 'Its name in the code. Your agent searches for it and opens the right file.'
+                     : i.handle ? 'The page’s own handle for it. Your agent searches the code for it.'
+                     : 'It has no name in the code, so the paste says how to find it by its label.';
+    fWhere.textContent = WHERE[wd.scene] || wd.app;
+    if (wd.project) { fBuilt.hidden = false; fBuilt.textContent = 'Built from ' + wd.project + ', so your agent edits that copy.'; } else fBuilt.hidden = true;
+    raw.textContent = build(el, text, when);
+    drawCrop(el);
+  }
+  function flashToast(text, el) {
+    var f = frameOf(el); toast.textContent = text;
+    toast.style.left = Math.max(10, Math.min(f.x, W() - toast.offsetWidth - 10)) + 'px'; toast.style.top = Math.max(10, f.y - 34) + 'px';
+    toast.classList.add('on'); setTimeout(function () { toast.classList.remove('on'); }, 1200);
+  }
+  function capture(text) {
+    var el = target;
+    present(el, text);
+    try { navigator.clipboard && navigator.clipboard.writeText(raw.textContent); } catch (err) {}
+    var i = info(el); flashToast(i.handle ? 'Copied · ' + i.handle : 'Copied', el);
+    end(); setStep(3, 'Copied. Paste it in your agent; this is what it gets.');
+    card.classList.remove('new'); void card.offsetWidth; card.classList.add('new');
+    if (window.innerWidth <= 720) result.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // ---- the rungs, here: Snap and Cut take the window under the cursor, Text copies its words, Color reads the pixel ----
+  var TOOL_SAY = { snap: 'Snap: click a window. On your Mac you can drag a region too.', text: 'Text: click a window and its words go to the clipboard.',
+                   color: 'Color: click to copy the color under the cursor.', cut: 'Cut: click a window to keep its subject on a transparent background.' };
+  function startTool(name) {
+    mode = 'tool'; tool = name; pointedAt = Date.now(); clearTimeout(dockTimer);
+    stage.classList.add(name === 'snap' || name === 'cut' ? 'cross' : 'pointing'); say.textContent = TOOL_SAY[name];
+    document.addEventListener('keydown', keys);
+  }
+  var pixels = new Map();
+  function sample(img, x, y) {
+    if (!img || !img.naturalWidth) return null;
+    var cv = pixels.get(img);
+    if (!cv) {
+      cv = document.createElement('canvas'); cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+      try { cv.getContext('2d', { willReadFrequently: true }).drawImage(img, 0, 0); } catch (err) { return null; }
+      pixels.set(img, cv);
+    }
+    var r = img.getBoundingClientRect(), px, py;
+    if (img === wall) {
+      var s = Math.max(r.width / img.naturalWidth, r.height / img.naturalHeight);
+      px = (x - r.left - (r.width - img.naturalWidth * s) / 2) / s; py = (y - r.top - (r.height - img.naturalHeight * s) / 2) / s;
+    } else { px = (x - r.left) / r.width * img.naturalWidth; py = (y - r.top) / r.height * img.naturalHeight; }
+    var d;
+    try { d = cv.getContext('2d').getImageData(clamp(px | 0, 0, cv.width - 1), clamp(py | 0, 0, cv.height - 1), 1, 1).data; } catch (err) { return null; }
+    if (d[3] < 128) return null;
+    return '#' + [d[0], d[1], d[2]].map(function (v) { return (v < 16 ? '0' : '') + v.toString(16).toUpperCase(); }).join('');
+  }
+  function colorAt(e) {
+    var el = document.elementFromPoint(e.clientX, e.clientY), win = el && el.closest && el.closest('.win');
+    if (win) {
+      var img = win.querySelector('img'), r = img.getBoundingClientRect();
+      if (e.clientX >= r.left && e.clientX < r.right && e.clientY >= r.top && e.clientY < r.bottom) { var hx = sample(img, e.clientX, e.clientY); if (hx) return hx; }
+      else if (win.classList.contains('web')) return '#2A2A2D';
+      else if (win.classList.contains('phone')) return '#1C1C1E';
+    }
+    return sample(wall, e.clientX, e.clientY);
+  }
+  function hoverTool(e) {
+    if (tool === 'color') {
+      var hx = colorAt(e), p = rel(e.clientX, e.clientY); if (!hx) return;
+      target = { hex: hx }; box.classList.remove('on');
+      tag.innerHTML = '<i class="sw" style="background:' + hx + '"></i><span class="mono">' + hx + '</span>'; tag.classList.add('on');
+      tag.style.left = Math.min(p.x + 16, W() - tag.offsetWidth - 10) + 'px'; tag.style.top = Math.min(p.y + 18, H() - 34) + 'px';
+      return;
+    }
+    var el = document.elementFromPoint(e.clientX, e.clientY), win = el && el.closest && el.closest('.win');
+    if (!win) { hide(); return; }
+    show(win, '<span>window</span><span>·</span><span class="mono">' + esc(win.dataset.app) + '</span>');
+  }
+  function runTool() {
+    var text, line, label;
+    if (tool === 'color') { text = target.hex; label = text + ' copied'; line = text + ' is on the clipboard.'; flashToast(label, tag); }
+    else {
+      var win = target;
+      if (tool === 'text') { text = win.dataset.text; label = 'Text copied'; line = text.split('\n').length + ' lines from ' + win.dataset.app + ', on the clipboard.'; }
+      else if (tool === 'snap') { win.classList.remove('flash'); void win.offsetWidth; win.classList.add('flash'); label = 'Snapped'; line = 'Snapped: a PNG of the window, saved and on the clipboard.'; }
+      else { label = 'Cut'; line = 'Cut: the subject on a transparent background, as a PNG.'; }
+      flashToast(label, win);
+    }
+    if (text) { try { navigator.clipboard && navigator.clipboard.writeText(text); } catch (err) {} }
+    end(); say.textContent = line;
+  }
+
+  // before the first capture, the sample: the Product Ideas orb in Oryne, with the note Malik typed
+  var sampleEl = stage.querySelector('[data-k="p-product-ideas"]');
+  present(sampleEl, 'make this orb bigger, with satellite nodes like Light And Color', new Date(2026, 9, 13, 15, 30, 12));
+  window.addEventListener('load', function () { drawCrop(sampleEl); fit(); });
+})();
+
+// Scroll: each block rises in once as it enters the viewport. Without JS nothing is hidden.
+(function () {
+  if (!('IntersectionObserver' in window) || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var els = document.querySelectorAll('section .sect-head, .steps, .scenes, .stage, .result, .tile, .method, .action, .ba, .split .sect-head, .grid2 .item, .with');
+  els.forEach(function (el) { el.classList.add('reveal'); });
+  document.querySelectorAll('.tiles, .actions, .grid2').forEach(function (g) { Array.prototype.forEach.call(g.children, function (ch, i) { ch.style.transitionDelay = (i * 70) + 'ms'; }); });
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (en) { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } });
+  }, { rootMargin: '0px 0px -8% 0px', threshold: 0.1 });
+  els.forEach(function (el) { io.observe(el); });
+})();
+</script>
