@@ -521,11 +521,13 @@ struct HotkeyRecorder: View {
 }
 
 /// R51, R95: the apps that count as yours beyond the ones Locant finds, one row each with Remove
-/// trailing, like Grant… and Choose… elsewhere; a second group adds one by picking an .app on this
-/// Mac or by typing a bundle id.
+/// trailing, like Grant… and Choose… elsewhere; one row adds an app, by picking an .app on this
+/// Mac or by typing a bundle id in a small alert.
 struct MyAppsSettings: View {
     @Environment(AppState.self) private var state
     @State private var typed = ""
+    /// The bundle id alert is open.
+    @State private var enteringBundleId = false
 
     var body: some View {
         @Bindable var preferences = state.preferences
@@ -541,20 +543,25 @@ struct MyAppsSettings: View {
             }
             Section {
                 LabeledContent("Add an app") {
-                    Button("Choose…") { addFromPanel(preferences) }
-                }
-                LabeledContent("Add a bundle ID") {
                     HStack(spacing: 8) {
-                        TextField("", text: $typed, prompt: Text("com.example.app"))
-                            .textFieldStyle(.roundedBorder)
-                            .onSubmit { addTyped(preferences) }
-                        Button("Add") { addTyped(preferences) }
-                            .disabled(typed.trimmingCharacters(in: .whitespaces).isEmpty)
+                        Button("Bundle ID…") {
+                            typed = ""
+                            enteringBundleId = true
+                        }
+                        Button("Choose…") { addFromPanel(preferences) }
                     }
                 }
             }
         }
         .formStyle(.grouped)
+        // R95: typing an id is the rare case, so its field lives in an alert, not in the tab.
+        .alert("Add a Bundle ID", isPresented: $enteringBundleId) {
+            TextField("com.example.app", text: $typed)
+            Button("Add") { addTyped(preferences) }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("For an app that runs only in the Simulator.")
+        }
     }
 
     private func addFromPanel(_ preferences: Preferences) {
