@@ -8,7 +8,7 @@ Run it on a Mac that is not the author's and say what happened. The [tester form
 
 ## Issues
 
-- **Something broke**: use the bug form. Paste the block from Settings › General › Copy Diagnostics; it answers version, macOS, chip, displays, and permissions at once. Say which app you pointed at and what Locant gave you.
+- **Something broke**: use the bug form. Paste the block from Settings › General › Diagnostics (Copy); it answers version, macOS, chip, displays, and permissions at once. Say which app you pointed at and what Locant gave you.
 - **An app it reads badly**: the app form. The payload, with anything private removed, is the most useful thing you can attach.
 - **An idea**: open a plain issue. Read [`docs/PRD.md`](docs/PRD.md) §4 first; the non-goals are firm (no cloud, no annotation editor, no window-level capture, no autonomous agent).
 

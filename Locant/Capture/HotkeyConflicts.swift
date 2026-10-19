@@ -12,8 +12,9 @@ enum HotkeyConflict: Equatable, Sendable {
 
     var message: String {
         switch self {
-        case .locant(let action): "Already used for \(action.capitalized)."
-        case .system: "Also a macOS shortcut. Locant takes it first; change either one if you need both."
+        // R93: the capture hotkey shares Point's row, so a clash with it names Point.
+        case .locant(let action): "Already used for \(action == "capture" ? "Point" : action.capitalized)."
+        case .system: "Also a macOS shortcut; Locant takes it first."
         }
     }
 }

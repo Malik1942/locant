@@ -34,7 +34,7 @@ struct LocantApp: App {
             SettingsView()
                 .environment(delegate.state)
         }
-        .windowResizability(.contentMinSize)
+        .windowResizability(.contentSize)
         .commands {
             // ⌘H in a UIElement app would hide every window, ball included, with no Dock icon to
             // bring them back. In Settings it puts the window away instead; Settings… reopens it.
@@ -53,8 +53,9 @@ struct LocantApp: App {
     }
 }
 
-/// R10: Capture, Open capture folder, Settings…, Quit; v0.4 Show before & after (R44). Iterations
-/// are collected by themselves since v0.6 R52, so "See what changed" left the menu.
+/// R10: Point (was Capture), Open capture folder, Settings…, Quit; v0.4 Show before & after (R44).
+/// Iterations are collected by themselves since v0.6 R52, so "See what changed" left the menu.
+/// R97: the help page is not here; it is rarely opened, and Settings › General has it.
 private struct StatusMenu: View {
     @Environment(AppState.self) private var state
     @Environment(\.openSettings) private var openSettings
@@ -62,10 +63,10 @@ private struct StatusMenu: View {
     var body: some View {
         // Hotkeys show as the menu's own key equivalents, grey and right-aligned like ⌘, and ⌘Q.
         // A double-tap has no key equivalent, so it stays in the title only when it is all Point has.
-        Button(captureTitle) {
+        Button(pointTitle) {
             state.beginCapture()
         }
-        .keyboardShortcut(captureShortcut)
+        .keyboardShortcut(pointShortcut)
         Button("Show before & after") { state.showBeforeAfter() }
         Divider()
         Button("Snap") { state.beginAction(.snap) }
@@ -93,14 +94,14 @@ private struct StatusMenu: View {
     }
 
     /// The capture hotkey when it is a chord, else Point's action hotkey (⌃⌥1 by default).
-    private var captureShortcut: KeyboardShortcut? {
+    private var pointShortcut: KeyboardShortcut? {
         state.preferences.hotkey.keyboardShortcut ?? state.preferences.actionHotkeys["point"]?.keyboardShortcut
     }
 
-    /// "Capture", or "Capture (⌃⌃)" when the only hotkey is a double-tap.
-    private var captureTitle: String {
-        guard captureShortcut == nil else { return "Capture" }
-        return "Capture (\(state.preferences.hotkey.symbol))"
+    /// "Point", or "Point (⌃⌃)" when the only hotkey is a double-tap.
+    private var pointTitle: String {
+        guard pointShortcut == nil else { return "Point" }
+        return "Point (\(state.preferences.hotkey.symbol))"
     }
 
     private func shortcut(_ action: String) -> KeyboardShortcut? {

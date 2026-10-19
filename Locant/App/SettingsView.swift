@@ -2,9 +2,12 @@ import AppKit
 import SwiftUI
 
 /// v0.3 R19: the one place Locant is a window. PRD §6.3 "Settings": grouped forms, system
-/// controls at default sizes, footnotes under rows, nothing custom. Resizable from 480×360;
-/// every tab is a grouped Form that reflows with the width.
+/// controls at default sizes, nothing custom. R101: one compact width, and each tab as tall as
+/// its rows, the way an Apple app's settings window is.
 struct SettingsView: View {
+    /// R101: wide enough for Point's two hotkeys beside its title, and no wider.
+    static let width: CGFloat = 480
+
     @Environment(AppState.self) private var state
 
     var body: some View {
@@ -30,58 +33,81 @@ struct SettingsView: View {
                 .tabItem { Label("Agents", systemImage: "terminal") }
                 .tag(SettingsTab.agents)
         }
-        .frame(minWidth: 480, idealWidth: 520, maxWidth: .infinity, minHeight: 360, idealHeight: 560, maxHeight: .infinity)
-        .background(SettingsWindowConfigurator())
+        .frame(width: Self.width)
+        .frame(minHeight: 120, idealHeight: 420, maxHeight: .infinity)
+        .background(SettingsWindowConfigurator(tab: state.settingsTab))
     }
 }
 
 /// The `Settings` scene builds its window without a minimize button. This reaches the window
-/// once the view is in it and adds one; the scene itself remembers the frame. It also grows a
-/// restored window that is shorter than the tab it opens on, so every row shows without scrolling.
+/// once the view is in it and adds one; the scene itself remembers where the window was. R101:
+/// it also fits the window's height to the open tab's rows, when the window opens and on each
+/// tab change, keeping the top edge in place, so no tab scrolls or ends in empty space.
 private struct SettingsWindowConfigurator: NSViewRepresentable {
+    let tab: SettingsTab
+
     func makeNSView(context: Context) -> ConfiguratorView { ConfiguratorView() }
-    func updateNSView(_ view: ConfiguratorView, context: Context) {}
+
+    func updateNSView(_ view: ConfiguratorView, context: Context) {
+        view.show(tab)
+    }
 
     final class ConfiguratorView: NSView {
         private var configured: NSWindow?
+        private var tab: SettingsTab?
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
             guard let window, window !== configured else { return }
             configured = window
-            window.styleMask.insert([.miniaturizable, .resizable])
-            // The form lays out over a few runloop turns after the frame is restored; check more
-            // than once, growing only, so the first short measurement is not the last word.
+            window.styleMask.insert(.miniaturizable)
+            window.styleMask.remove(.resizable)
+            fitSoon(animate: false)
+        }
+
+        func show(_ tab: SettingsTab) {
+            guard tab != self.tab else { return }
+            let first = self.tab == nil
+            self.tab = tab
+            if !first { fitSoon(animate: true) }
+        }
+
+        /// The form lays out over a few runloop turns after a tab appears; measure more than once,
+        /// so the first, unfinished measurement is not the last word.
+        private func fitSoon(animate: Bool) {
             for delay in [0, 150, 400] {
-                DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(delay)) { [weak window] in
-                    guard let window else { return }
-                    Self.growToFitContent(window)
+                DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(delay)) { [weak self] in
+                    guard let window = self?.window else { return }
+                    Self.fitToContent(window, animate: animate)
                 }
             }
         }
 
-        /// Adds the height the open tab's form needs beyond what the window shows, keeping the top
-        /// edge in place and the window on its screen. Never shrinks.
-        private static func growToFitContent(_ window: NSWindow) {
+        /// Makes the window as tall as the open tab's form, keeping the top edge in place and the
+        /// window on its screen; a tab taller than the screen scrolls.
+        private static func fitToContent(_ window: NSWindow, animate: Bool) {
             guard let content = window.contentView else { return }
+            let wanted = formHeight(in: content)
             // The scroll view runs under the toolbar; what the form can use is the layout rect.
-            let shortfall = formHeight(in: content) - window.contentLayoutRect.height
-            guard shortfall > 0 else { return }
+            let delta = wanted - window.contentLayoutRect.height
+            guard wanted > 0, abs(delta) >= 1 else { return }
             var frame = window.frame
-            frame.size.height += shortfall
-            frame.origin.y -= shortfall
+            frame.size.height += delta
+            frame.origin.y -= delta
             if let screen = window.screen ?? NSScreen.main {
                 let bounds = screen.visibleFrame
                 frame.size.height = min(frame.height, bounds.height)
                 frame.origin.y = max(frame.origin.y, bounds.minY)
             }
-            window.setFrame(frame, display: true, animate: false)
+            window.setFrame(frame, display: true, animate: animate)
         }
 
         /// The height the open tab's grouped Form wants. The document view is stretched to fill the
         /// clip, so it is measured from its sections: the last one's far edge plus the inset the
-        /// first one has from the near edge, which the Form mirrors at the bottom.
+        /// first one has from the near edge, which the Form mirrors at the bottom. Hidden views are
+        /// the other tabs.
         private static func formHeight(in view: NSView) -> CGFloat {
+            guard !view.isHidden else { return 0 }
             if let scroll = view as? NSScrollView, let document = scroll.documentView {
                 let sections = document.subviews.first?.subviews ?? []
                 if let far = sections.map(\.frame.maxY).max(), let near = sections.map(\.frame.minY).min() {
@@ -94,43 +120,20 @@ private struct SettingsWindowConfigurator: NSViewRepresentable {
     }
 }
 
-private struct Footnote: View {
-    let text: String
-    var body: some View {
-        Text(text)
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-    }
-}
-
-/// A permission as System Settings would show it: the state at a glance, and a way to grant it when missing.
+/// R92: a missing permission, the way System Settings flags one: the orange mark and a way to grant
+/// it. A granted permission has no row.
 private struct PermissionRow: View {
     let title: String
-    let detail: String
-    let granted: Bool
     let grant: () -> Void
 
-    /// Apple's macOS system green as the light appearance draws it (#28CD41). The dark appearance
-    /// lightens its green by design, and on a 13 pt tick that read as pale and washed out
-    /// (Malik, Sep 14 2026), so the light value is pinned in both appearances. Measured in the dark
-    /// grouped Form: `.green` renders P3 #68CE67, this renders #63CA56, same lightness, more chroma.
-    fileprivate static let grantedGreen = Color(red: 0x28 / 255.0, green: 0xCD / 255.0, blue: 0x41 / 255.0)
-
     var body: some View {
-        LabeledContent {
+        LabeledContent(title) {
             HStack(spacing: 8) {
-                Image(systemName: granted ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                Image(systemName: "exclamationmark.circle.fill")
                     .symbolRenderingMode(.monochrome)
-                    .foregroundStyle(granted ? Self.grantedGreen : .orange)
-                Text(granted ? "Granted" : "Not granted")
-                    .foregroundStyle(.secondary)
-                if !granted {
-                    Button("Grant…", action: grant)
-                }
+                    .foregroundStyle(.orange)
+                Button("Grant…", action: grant)
             }
-        } label: {
-            Text(title)
-            Text(detail)
         }
     }
 }
@@ -154,74 +157,50 @@ struct GeneralSettings: View {
     /// The two grants Locant needs, re-read while the window is open so a change in System Settings shows at once.
     @State private var accessibilityGranted = AccessibilityReader.isTrusted(prompt: false)
     @State private var screenRecordingGranted = ScreenCapture.hasPermission()
-    /// Check Now… in flight; the button waits for the answer.
+    /// Check Now in flight; the button waits for the answer.
     @State private var checking = false
-    /// Copy Diagnostics reads "Copied" for two seconds after the click.
+    /// Copy reads "Copied" for two seconds after the click.
     @State private var copiedDiagnostics = false
 
     var body: some View {
         @Bindable var preferences = state.preferences
         Form {
-            Section {
-                PermissionRow(
-                    title: "Accessibility",
-                    detail: "Reads what is under your cursor and listens for the hotkey.",
-                    granted: accessibilityGranted
-                ) {
-                    _ = AccessibilityReader.isTrusted(prompt: true)
-                    openPrivacyPane("Privacy_Accessibility")
-                }
-                PermissionRow(
-                    title: "Screen Recording",
-                    detail: "Captures the pixels of the element.",
-                    granted: screenRecordingGranted
-                ) {
-                    _ = ScreenCapture.requestPermission()
-                    openPrivacyPane("Privacy_ScreenCapture")
-                }
-                if !accessibilityGranted || !screenRecordingGranted {
-                    Footnote(text: "macOS ties each grant to the app's signature. After an update, or if a switch is on but Locant still cannot capture, remove Locant from the list and add /Applications/Locant.app again.")
+            // R92: a permission shows only while it is missing.
+            if !accessibilityGranted || !screenRecordingGranted {
+                Section {
+                    if !accessibilityGranted {
+                        PermissionRow(title: "Accessibility") {
+                            _ = AccessibilityReader.isTrusted(prompt: true)
+                            openPrivacyPane("Privacy_Accessibility")
+                        }
+                    }
+                    if !screenRecordingGranted {
+                        PermissionRow(title: "Screen Recording") {
+                            _ = ScreenCapture.requestPermission()
+                            openPrivacyPane("Privacy_ScreenCapture")
+                        }
+                    }
                 }
             }
             Section {
-                Toggle(isOn: $preferences.ballEnabled) {
-                    Text("Floating ball")
-                    Text("A quiet disc that wakes when you approach. Click it to point, hold for the ring. The hotkey works either way.")
-                }
-                .toggleStyle(.switch)
-                Toggle(isOn: $preferences.ballAutoHide) {
-                    Text("Auto-hide")
-                    Text("After 2 seconds without use, the ball tucks into the nearest screen edge with part of it showing. Move toward it to bring it back.")
-                }
-                .toggleStyle(.switch)
-                .disabled(!preferences.ballEnabled)
+                Toggle("Floating ball", isOn: $preferences.ballEnabled)
+                Toggle("Auto-hide", isOn: $preferences.ballAutoHide)
+                    .disabled(!preferences.ballEnabled)
             }
             Section {
-                Toggle(isOn: $preferences.trackpadTaps) {
-                    Text("Trackpad taps")
-                    Text("A light tap under your finger when the outline moves to a new element, when the ring opens and between its segments, and when a capture lands. Needs a Force Touch trackpad.")
-                }
-                .toggleStyle(.switch)
-                .onChange(of: preferences.trackpadTaps) { _, on in
-                    if on { state.previewTap() }
-                }
-                Toggle(isOn: $preferences.sounds) {
-                    Text("Sounds")
-                    Text("A soft sound when a capture reaches the clipboard, a lower one when nothing did. Follows Play user interface sound effects in Sound settings.")
-                }
-                .toggleStyle(.switch)
-                .onChange(of: preferences.sounds) { _, on in
-                    if on { state.previewSound() }
-                }
+                Toggle("Sounds", isOn: $preferences.sounds)
+                    .onChange(of: preferences.sounds) { _, on in
+                        if on { state.previewSound() }
+                    }
+                Toggle("Haptic feedback", isOn: $preferences.trackpadTaps)
+                    .onChange(of: preferences.trackpadTaps) { _, on in
+                        if on { state.previewTap() }
+                    }
             }
             Section {
-                Toggle(isOn: $preferences.checksForUpdates) {
-                    Text("Check for updates")
-                    Text("Once a day, Locant asks GitHub for the newest release. The request carries the version number and nothing about you or your captures.")
-                }
-                .toggleStyle(.switch)
-                LabeledContent {
-                    Button("Check Now…") {
+                Toggle("Check for updates automatically", isOn: $preferences.checksForUpdates)
+                LabeledContent("Version \(UpdateCheck.currentVersion?.description ?? "unknown")") {
+                    Button("Check Now") {
                         checking = true
                         Task {
                             await state.checkForUpdates(manual: true)
@@ -229,17 +208,10 @@ struct GeneralSettings: View {
                         }
                     }
                     .disabled(checking)
-                } label: {
-                    Text("Version \(UpdateCheck.currentVersion?.description ?? "unknown")")
-                    if let lastCheck = preferences.lastUpdateCheck {
-                        Text("Last checked \(lastCheck.formatted(.relative(presentation: .named))).")
-                    } else {
-                        Text("Not checked yet.")
-                    }
                 }
                 // v0.9 R71: one block for an issue, copied by hand and never sent.
-                LabeledContent {
-                    Button(copiedDiagnostics ? "Copied" : "Copy Diagnostics") {
+                LabeledContent("Diagnostics") {
+                    Button(copiedDiagnostics ? "Copied" : "Copy") {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(state.diagnosticsText(), forType: .string)
                         copiedDiagnostics = true
@@ -248,21 +220,16 @@ struct GeneralSettings: View {
                             copiedDiagnostics = false
                         }
                     }
-                } label: {
-                    Text("Diagnostics")
-                    Text("Version, macOS, displays, permissions, and settings as one block to paste into an issue. Nothing from your captures, and your user name is replaced by ~.")
                 }
             }
             Section {
-                LabeledContent {
-                    Button("Show…") { state.showHelp() }
-                } label: {
-                    Text("Locant Help")
-                    Text("The one-page guide shown on first launch: every action, its hotkey, and the gestures on the overlay.")
+                LabeledContent("Locant Help") {
+                    Button("Show") { state.showHelp() }
                 }
             }
         }
         .formStyle(.grouped)
+        .toggleStyle(.switch)
         .task {
             while !Task.isCancelled {
                 refreshPermissions()
@@ -283,7 +250,8 @@ struct GeneralSettings: View {
     }
 }
 
-/// R51: the capture hotkey and the five action hotkeys, with their clashes, on one tab.
+/// R51, R93: one row per action, in menu and ring order. Point's row also carries the capture
+/// hotkey, so both keys that start Point sit together; each clash shows under its row.
 struct HotkeySettings: View {
     @Environment(AppState.self) private var state
     /// R29: a warning under each hotkey row, by action name ("capture" for the capture hotkey).
@@ -293,36 +261,32 @@ struct HotkeySettings: View {
         @Bindable var preferences = state.preferences
         Form {
             Section {
-                // System Settings row: title and description in the label, the control trailing.
-                LabeledContent {
-                    HotkeyRecorder(
-                        hotkey: Binding(get: { preferences.hotkey }, set: { preferences.hotkey = $0 ?? .default }),
-                        fallback: .default,
-                        rejects: { rejection(for: $0, action: "capture") },
-                        onBegin: { state.pauseHotkey() }, onEnd: { state.resumeHotkey() }
-                    )
-                } label: {
-                    Text("Capture hotkey")
-                    Text("Press a key with modifiers, or double-tap one modifier. Double-tap Command is used by Codex; double-tap Option by Claude Desktop.")
-                    if let warning = conflicts["capture"] { ConflictNote(text: warning) }
-                }
-            }
-            Section {
                 ForEach(Preferences.hotkeyActions, id: \.self) { action in
+                    // System Settings row: the title leading, the recorders trailing.
                     LabeledContent {
-                        HotkeyRecorder(
-                            hotkey: Binding(get: { preferences.actionHotkeys[action] }, set: { preferences.setActionHotkey($0, for: action) }),
-                            fallback: Preferences.defaultActionHotkey(action),
-                            clearable: true,
-                            rejects: { rejection(for: $0, action: action) },
-                            onBegin: { state.pauseHotkey() }, onEnd: { state.resumeHotkey() }
-                        )
+                        HStack(spacing: 8) {
+                            if action == "point" {
+                                HotkeyRecorder(
+                                    hotkey: Binding(get: { preferences.hotkey }, set: { preferences.hotkey = $0 ?? .default }),
+                                    fallback: .default,
+                                    rejects: { rejection(for: $0, action: "capture") },
+                                    onBegin: { state.pauseHotkey() }, onEnd: { state.resumeHotkey() }
+                                )
+                            }
+                            HotkeyRecorder(
+                                hotkey: Binding(get: { preferences.actionHotkeys[action] }, set: { preferences.setActionHotkey($0, for: action) }),
+                                fallback: Preferences.defaultActionHotkey(action),
+                                clearable: true,
+                                rejects: { rejection(for: $0, action: action) },
+                                onBegin: { state.pauseHotkey() }, onEnd: { state.resumeHotkey() }
+                            )
+                        }
                     } label: {
                         Text(action.capitalized)
+                        if action == "point", let warning = conflicts["capture"] { ConflictNote(text: warning) }
                         if let warning = conflicts[action] { ConflictNote(text: warning) }
                     }
                 }
-                Footnote(text: "Control-Option and the action's number, in menu order; the ring shows each number. Point also answers to the capture hotkey above. Snap, Text, Color, and Cut are on the ball too: press and hold it.")
             }
         }
         .formStyle(.grouped)
@@ -348,7 +312,8 @@ struct HotkeySettings: View {
     }
 }
 
-/// R51: where captures go and how they are kept, iterations (R52), the selection handles, and the Color format.
+/// R51, R94: where captures go and how long they stay, the selection handles and recapturing, and
+/// the Color format.
 struct CaptureSettings: View {
     @Environment(AppState.self) private var state
 
@@ -356,55 +321,42 @@ struct CaptureSettings: View {
         @Bindable var preferences = state.preferences
         Form {
             Section {
-                LabeledContent("Capture folder") {
-                    HStack {
-                        TextField("", text: .constant(preferences.captureFolder))
-                            .textFieldStyle(.roundedBorder)
-                            .disabled(true)
+                LabeledContent("Save to") {
+                    HStack(spacing: 8) {
+                        Text((preferences.captureFolder as NSString).abbreviatingWithTildeInPath)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
                         Button("Choose…") { chooseFolder(preferences) }
                     }
                 }
-                Picker("Organize captures", selection: $preferences.organization) {
+                Picker("Organize", selection: $preferences.organization) {
                     ForEach(CaptureOrganization.allCases, id: \.self) { option in
                         Text(option.title).tag(option)
                     }
                 }
-                .pickerStyle(.menu)
-                Picker("Keep images", selection: $preferences.retentionDays) {
+                Picker("Keep captures", selection: $preferences.retentionDays) {
                     ForEach(Preferences.retentionChoices, id: \.self) { days in
                         Text(days == 0 ? "Forever" : "\(days) days").tag(days)
                     }
                 }
-                .pickerStyle(.menu)
-                Footnote(text: "Each capture writes a PNG and a JSON sidecar here. Finder tags are always added: Locant, the app, fix or reference, and the project when known. Older images go to the Trash; captures an agent marked resolved stay.")
             }
             Section {
-                Toggle(isOn: $preferences.collectsIterations) {
-                    Text("Collect iterations")
-                    Text("After you point at an element in an app you build, each time that app launches or comes to the front within a day, Locant captures the element again and keeps the git diff, when it looks different. See them with Show before & after in the menu bar.")
-                }
-                .toggleStyle(.switch)
-            }
-            Section {
-                Toggle(isOn: $preferences.adjustSelection) {
-                    Text("Adjust selection before capturing")
-                    Text("After you drag a region for Snap, Text, or Cut, handles let you fine-tune it. Press Return to capture, Esc to cancel.")
-                }
-                .toggleStyle(.switch)
+                Toggle("Adjust selection before capturing", isOn: $preferences.adjustSelection)
+                Toggle("Recapture when your app changes", isOn: $preferences.collectsIterations)
             }
             Section {
                 Picker("Color format", selection: $preferences.colorFormat) {
                     ForEach(ColorFormat.allCases, id: \.self) { Text($0.title).tag($0) }
                 }
-                .pickerStyle(.menu)
                 Picker("Color space", selection: $preferences.colorSpace) {
                     ForEach(ColorSpaceChoice.allCases, id: \.self) { Text($0.title).tag($0) }
                 }
-                .pickerStyle(.menu)
-                Footnote(text: "The Color action copies the pixel under the cursor in this format.")
             }
         }
         .formStyle(.grouped)
+        .pickerStyle(.menu)
+        .toggleStyle(.switch)
     }
 
     private func chooseFolder(_ preferences: Preferences) {
@@ -421,7 +373,9 @@ struct CaptureSettings: View {
     }
 }
 
-/// Records the next key press or modifier double-tap as the hotkey. Esc cancels.
+/// Records the next key press or modifier double-tap as the hotkey. Esc cancels. R93: at rest only
+/// Reset shows, and only when the key is not the default; Clear shows while recording, and ⌫ or ⌦
+/// alone clears too.
 struct HotkeyRecorder: View {
     @Binding var hotkey: Hotkey?
     /// What "Reset" restores.
@@ -447,28 +401,52 @@ struct HotkeyRecorder: View {
         49: "Space", 36: "↩", 48: "⇥", 51: "⌫", 117: "⌦", 123: "←", 124: "→", 125: "↓", 126: "↑",
         115: "↖", 119: "↘", 116: "⇞", 121: "⇟",
     ]
+    /// ⌫ and ⌦: alone, they clear (R93).
+    private static let deleteKeys: Set<UInt16> = [51, 117]
+
+    /// Whether the action may be left without a hotkey; implied when there is no fallback.
+    private var canClear: Bool { clearable || fallback == nil }
 
     var body: some View {
         // The width sits on the label so the bordered button itself is the fixed-width control;
         // a frame on the button would leave invisible space around a short title.
         HStack(spacing: 8) {
-            if !recording {
-                if let fallback, hotkey != fallback {
-                    Button("Reset") { hotkey = fallback }
+            if recording {
+                if hotkey != nil, canClear {
+                    Button("Clear") {
+                        hotkey = nil
+                        stop()
+                    }
                 }
-                if hotkey != nil, clearable || fallback == nil {
-                    Button("Clear") { hotkey = nil }
-                }
+            } else if let fallback, hotkey != fallback {
+                Button("Reset") { hotkey = fallback }
             }
             Button {
                 recording ? stop() : begin()
             } label: {
                 Text(recording ? (hint ?? "Press keys…") : (hotkey?.title ?? "None"))
                     .lineLimit(1)
-                    .frame(minWidth: 150)
+                    .frame(minWidth: 120)
             }
         }
         .fixedSize()
+    }
+
+    /// What a key pressed while recording does.
+    enum Press: Equatable {
+        case cancel, clear, needsModifier, ignore
+        case record(Hotkey)
+    }
+
+    /// Esc cancels; ⌫ or ⌦ alone clears when the hotkey may be left empty (R93); any other key needs
+    /// a modifier unless it is a function key. Pure, so the tests press keys without a monitor.
+    static func press(keyCode: UInt16, modifiers: KeyModifiers, characters: String?, canClear: Bool) -> Press {
+        if keyCode == 53 { return .cancel }
+        if modifiers.isEmpty, canClear, deleteKeys.contains(keyCode) { return .clear }
+        let name = functionKeys[keyCode] ?? specialKeys[keyCode] ?? (characters ?? "").uppercased()
+        guard !name.isEmpty else { return .ignore }
+        if modifiers.isEmpty, functionKeys[keyCode] == nil { return .needsModifier }
+        return .record(.chord(keyCode: keyCode, modifiers: modifiers, key: name))
     }
 
     private func begin() {
@@ -497,28 +475,24 @@ struct HotkeyRecorder: View {
     private func handle(type: NSEvent.EventType, keyCode: UInt16, flags: NSEvent.ModifierFlags, characters: String?, timestamp: TimeInterval) {
         switch type {
         case .keyDown:
-            if keyCode == 53 { stop(); return } // Esc
-            let modifiers = KeyModifiers(flags)
-            let name: String
-            if let fn = Self.functionKeys[keyCode] {
-                name = fn
-            } else if let special = Self.specialKeys[keyCode] {
-                name = special
-            } else {
-                name = (characters ?? "").uppercased()
-            }
-            guard !name.isEmpty else { return }
-            if modifiers.isEmpty, Self.functionKeys[keyCode] == nil {
+            switch Self.press(keyCode: keyCode, modifiers: KeyModifiers(flags), characters: characters, canClear: canClear) {
+            case .cancel:
+                stop()
+            case .clear:
+                hotkey = nil
+                stop()
+            case .needsModifier:
                 hint = "Add ⌘, ⌥, ⌃ or ⇧"
-                return
+            case .record(let chord):
+                if let reason = rejects(chord) {
+                    hint = reason
+                    return
+                }
+                hotkey = chord
+                stop()
+            case .ignore:
+                break
             }
-            let chord = Hotkey.chord(keyCode: keyCode, modifiers: modifiers, key: name)
-            if let reason = rejects(chord) {
-                hint = reason
-                return
-            }
-            hotkey = chord
-            stop()
         case .flagsChanged:
             let modifiers = KeyModifiers(flags)
             let down = !modifiers.isEmpty
@@ -551,48 +525,48 @@ struct HotkeyRecorder: View {
     }
 }
 
-/// R51: the apps that count as yours, in the grouped idiom of the other tabs. One row per app with
-/// its icon, name, and bundle id and Remove trailing, like Grant… and Choose… elsewhere; a second
-/// group adds one by picking an .app on this Mac or by typing a bundle id.
+/// R51, R95: the apps that count as yours beyond the ones Locant finds, one row each with Remove
+/// trailing, like Grant… and Choose… elsewhere; one row adds an app, by picking an .app on this
+/// Mac or by typing a bundle id in a small alert.
 struct MyAppsSettings: View {
     @Environment(AppState.self) private var state
     @State private var typed = ""
+    /// The bundle id alert is open.
+    @State private var enteringBundleId = false
 
     var body: some View {
         @Bindable var preferences = state.preferences
         Form {
             Section {
                 if preferences.myApps.isEmpty {
-                    Text("No apps added")
+                    Text("Locant finds apps you build on its own. Add any it misses.")
                         .foregroundStyle(.secondary)
                 }
                 ForEach(preferences.myApps, id: \.self) { bundleId in
                     MyAppRow(bundleId: bundleId) { remove(bundleId, from: preferences) }
                 }
-                Footnote(text: "Locant already treats apps you build (Simulator, Xcode builds, your signing identity) as yours. Add anything it misses.")
             }
             Section {
-                LabeledContent {
-                    Button("Choose…") { addFromPanel(preferences) }
-                } label: {
-                    Text("Add an app")
-                    Text("Pick an app on this Mac; its bundle id is added.")
-                }
-                LabeledContent {
+                LabeledContent("Add an app") {
                     HStack(spacing: 8) {
-                        TextField("", text: $typed, prompt: Text("com.example.app"))
-                            .textFieldStyle(.roundedBorder)
-                            .onSubmit { addTyped(preferences) }
-                        Button("Add") { addTyped(preferences) }
-                            .disabled(typed.trimmingCharacters(in: .whitespaces).isEmpty)
+                        Button("Bundle ID…") {
+                            typed = ""
+                            enteringBundleId = true
+                        }
+                        Button("Choose…") { addFromPanel(preferences) }
                     }
-                } label: {
-                    Text("Bundle id")
-                    Text("For an app that is not on this Mac, such as one that runs only in the Simulator.")
                 }
             }
         }
         .formStyle(.grouped)
+        // R95: typing an id is the rare case, so its field lives in an alert, not in the tab.
+        .alert("Add a Bundle ID", isPresented: $enteringBundleId) {
+            TextField("com.example.app", text: $typed)
+            Button("Add") { addTyped(preferences) }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("For an app that runs only in the Simulator.")
+        }
     }
 
     private func addFromPanel(_ preferences: Preferences) {
@@ -625,8 +599,8 @@ struct MyAppsSettings: View {
     }
 }
 
-/// One app in My Apps: the icon and name when the app is on this Mac, the bundle id beneath;
-/// only the id, and a plain app icon, when it is not (a Simulator-only app, say).
+/// One app in My Apps: its icon and name, or its bundle id and a plain app icon when it is not on
+/// this Mac (a Simulator-only app, say).
 private struct MyAppRow: View {
     let bundleId: String
     let remove: () -> Void
@@ -636,16 +610,11 @@ private struct MyAppRow: View {
         LabeledContent {
             Button("Remove", action: remove)
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 Image(nsImage: installed?.icon ?? NSWorkspace.shared.icon(for: .applicationBundle))
                     .resizable()
-                    .frame(width: 32, height: 32)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(installed?.name ?? bundleId)
-                    Text(installed == nil ? "Not on this Mac; matched by bundle id." : bundleId)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
+                    .frame(width: 24, height: 24)
+                Text(installed?.name ?? bundleId)
             }
         }
     }
@@ -660,9 +629,9 @@ private struct MyAppRow: View {
     }
 }
 
-/// v0.7.1 R56: one row per agent, its state re-read while the window is open, Connect or
-/// Disconnect trailing, the way the permission rows read. The writes run off the main actor:
-/// the CLIs take a second.
+/// v0.7.1 R56, R96: paste first; then one row per agent, its state re-read while the window is
+/// open, Connect or Disconnect trailing; then the snippet for any other client. The writes run off
+/// the main actor: the CLIs take a second.
 struct AgentSettings: View {
     @State private var statuses: [Agent: AgentStatus] = [:]
     @State private var failures: [Agent: String] = [:]
@@ -677,14 +646,10 @@ struct AgentSettings: View {
         Form {
             // v0.8.1 R63, specs/handoff.md R84: paste is the handoff, so it comes first; MCP below is how an agent looks back.
             Section {
-                Toggle(isOn: $preferences.pastesIntoAgent) {
-                    Text("Paste into your agent")
-                    Text("After Return, Locant pastes the capture into the agent you used last: the text, then the image. Locant never sends it; you do.")
-                }
-                .toggleStyle(.switch)
-                Footnote(text: "Off, the capture waits on the clipboard: paste it into the conversation you want. In Cursor, Codex, and Grok Bot, Locant adds the image after your paste.")
+                Toggle("Paste into your agent", isOn: $preferences.pastesIntoAgent)
+                    .toggleStyle(.switch)
             }
-            Section {
+            Section("MCP") {
                 ForEach(Agent.allCases) { agent in
                     AgentRow(
                         agent: agent,
@@ -696,11 +661,10 @@ struct AgentSettings: View {
                         disconnect: { act(agent, connect: false) }
                     )
                 }
-                Footnote(text: "Connect adds one server named locant to the agent's own configuration. It runs \(executable) --mcp when the agent starts, and gives it four tools: the latest capture, a list, one capture by id, and resolve. Nothing runs until then.")
             }
             Section {
-                LabeledContent {
-                    Button(copied ? "Copied" : "Copy") {
+                LabeledContent("Other agents") {
+                    Button(copied ? "Copied" : "Copy Config") {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(AgentConfig.jsonSnippet(executable: executable), forType: .string)
                         copied = true
@@ -709,9 +673,6 @@ struct AgentSettings: View {
                             copied = false
                         }
                     }
-                } label: {
-                    Text("Any other agent")
-                    Text("A JSON snippet for an MCP client that runs stdio servers: Gemini CLI, Windsurf, Zed, Claude Desktop.")
                 }
             }
         }
@@ -749,6 +710,12 @@ struct AgentSettings: View {
 }
 
 private struct AgentRow: View {
+    /// Apple's macOS system green as the light appearance draws it (#28CD41). The dark appearance
+    /// lightens its green by design, and on a 13 pt tick that read as pale and washed out
+    /// (Malik, Sep 14 2026), so the light value is pinned in both appearances. Measured in the dark
+    /// grouped Form: `.green` renders P3 #68CE67, this renders #63CA56, same lightness, more chroma.
+    private static let connectedGreen = Color(red: 0x28 / 255.0, green: 0xCD / 255.0, blue: 0x41 / 255.0)
+
     let agent: Agent
     let status: AgentStatus?
     let executable: String
@@ -759,7 +726,8 @@ private struct AgentRow: View {
 
     var body: some View {
         // The state is one row of plain views, rebuilt as a whole on each change: a disabled
-        // container left the text invisible after the buttons swapped (Sep 15, 2026).
+        // container left the text invisible after the buttons swapped (Sep 15, 2026). R96: not
+        // connected is not a problem, so it is Connect alone.
         LabeledContent {
             HStack(spacing: 8) {
                 if busy {
@@ -768,17 +736,22 @@ private struct AgentRow: View {
                     Text("Working…")
                         .foregroundStyle(.secondary)
                 } else if let status {
-                    Image(systemName: connected(status) ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-                        .symbolRenderingMode(.monochrome)
-                        .foregroundStyle(connected(status) ? PermissionRow.grantedGreen : .orange)
-                    Text(stateText(status))
-                        .foregroundStyle(.secondary)
                     switch status {
                     case .notConnected:
                         Button("Connect", action: connect)
                     case .connected(let found) where found == executable:
+                        Image(systemName: "checkmark.circle.fill")
+                            .symbolRenderingMode(.monochrome)
+                            .foregroundStyle(Self.connectedGreen)
+                        Text("Connected")
+                            .foregroundStyle(.secondary)
                         Button("Disconnect", action: disconnect)
                     case .connected:
+                        Image(systemName: "exclamationmark.circle.fill")
+                            .symbolRenderingMode(.monochrome)
+                            .foregroundStyle(.orange)
+                        Text("Connected to another copy")
+                            .foregroundStyle(.secondary)
                         Button("Reconnect", action: connect)
                         Button("Disconnect", action: disconnect)
                     }
@@ -787,20 +760,7 @@ private struct AgentRow: View {
             .id(busy)
         } label: {
             Text(agent.title)
-            Text(agent.detail)
             if let failure { ConflictNote(text: failure) }
-        }
-    }
-
-    private func connected(_ status: AgentStatus) -> Bool {
-        if case .connected(let found) = status { return found == executable }
-        return false
-    }
-
-    private func stateText(_ status: AgentStatus) -> String {
-        switch status {
-        case .notConnected: "Not connected"
-        case .connected(let found): found == executable ? "Connected" : "Connected to another copy"
         }
     }
 }
