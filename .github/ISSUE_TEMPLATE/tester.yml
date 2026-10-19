@@ -11,7 +11,7 @@ body:
     id: diagnostics
     attributes:
       label: Diagnostics
-      description: Settings › General › Copy Diagnostics, then paste. It carries the version, macOS, chip, displays, and permissions, and replaces your user name with ~.
+      description: Settings › General › Diagnostics › Copy (Copy Diagnostics in 0.9.2 and earlier), then paste. It carries the version, macOS, chip, displays, and permissions, and replaces your user name with ~.
       render: markdown
     validations:
       required: true

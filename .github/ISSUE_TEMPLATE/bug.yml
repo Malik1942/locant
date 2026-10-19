@@ -22,7 +22,7 @@ body:
     id: diagnostics
     attributes:
       label: Diagnostics
-      description: Settings › General › Copy Diagnostics, then paste. It carries the Locant version, macOS, chip, displays, permissions, and settings, with your user name replaced by ~. Before 0.9, write the version (menu bar icon, then Settings) and your macOS version and chip here.
+      description: Settings › General › Diagnostics › Copy (Copy Diagnostics in 0.9.2 and earlier), then paste. It carries the Locant version, macOS, chip, displays, permissions, and settings, with your user name replaced by ~. Before 0.9, write the version (menu bar icon, then Settings) and your macOS version and chip here.
       render: markdown
     validations:
       required: true
