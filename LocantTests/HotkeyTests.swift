@@ -137,5 +137,7 @@ final class HotkeyTests: XCTestCase {
         XCTAssertEqual(HotkeyConflicts.check(snap, for: "snap", in: p), [])
         XCTAssertEqual(HotkeyConflicts.check(.doubleTap(.control), for: "point", in: p).first, .locant(action: "capture"))
         XCTAssertEqual(HotkeyConflict.locant(action: "snap").message, "Already used for Snap.")
+        XCTAssertEqual(HotkeyConflict.locant(action: "capture").message, "Already used for Point.")
+        XCTAssertEqual(HotkeyConflict.system.message, "Also a macOS shortcut; Locant takes it first.")
     }
 }
