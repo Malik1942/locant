@@ -2,9 +2,12 @@ import AppKit
 import SwiftUI
 
 /// v0.3 R19: the one place Locant is a window. PRD §6.3 "Settings": grouped forms, system
-/// controls at default sizes, footnotes under rows, nothing custom. Resizable from 480×360;
-/// every tab is a grouped Form that reflows with the width.
+/// controls at default sizes, nothing custom. R101: one compact width, and each tab as tall as
+/// its rows, the way an Apple app's settings window is.
 struct SettingsView: View {
+    /// R101: wide enough for Point's two hotkeys beside its title, and no wider.
+    static let width: CGFloat = 480
+
     @Environment(AppState.self) private var state
 
     var body: some View {
@@ -30,58 +33,81 @@ struct SettingsView: View {
                 .tabItem { Label("Agents", systemImage: "terminal") }
                 .tag(SettingsTab.agents)
         }
-        .frame(minWidth: 480, idealWidth: 520, maxWidth: .infinity, minHeight: 360, idealHeight: 560, maxHeight: .infinity)
-        .background(SettingsWindowConfigurator())
+        .frame(width: Self.width)
+        .frame(minHeight: 120, idealHeight: 420, maxHeight: .infinity)
+        .background(SettingsWindowConfigurator(tab: state.settingsTab))
     }
 }
 
 /// The `Settings` scene builds its window without a minimize button. This reaches the window
-/// once the view is in it and adds one; the scene itself remembers the frame. It also grows a
-/// restored window that is shorter than the tab it opens on, so every row shows without scrolling.
+/// once the view is in it and adds one; the scene itself remembers where the window was. R101:
+/// it also fits the window's height to the open tab's rows, when the window opens and on each
+/// tab change, keeping the top edge in place, so no tab scrolls or ends in empty space.
 private struct SettingsWindowConfigurator: NSViewRepresentable {
+    let tab: SettingsTab
+
     func makeNSView(context: Context) -> ConfiguratorView { ConfiguratorView() }
-    func updateNSView(_ view: ConfiguratorView, context: Context) {}
+
+    func updateNSView(_ view: ConfiguratorView, context: Context) {
+        view.show(tab)
+    }
 
     final class ConfiguratorView: NSView {
         private var configured: NSWindow?
+        private var tab: SettingsTab?
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
             guard let window, window !== configured else { return }
             configured = window
-            window.styleMask.insert([.miniaturizable, .resizable])
-            // The form lays out over a few runloop turns after the frame is restored; check more
-            // than once, growing only, so the first short measurement is not the last word.
+            window.styleMask.insert(.miniaturizable)
+            window.styleMask.remove(.resizable)
+            fitSoon(animate: false)
+        }
+
+        func show(_ tab: SettingsTab) {
+            guard tab != self.tab else { return }
+            let first = self.tab == nil
+            self.tab = tab
+            if !first { fitSoon(animate: true) }
+        }
+
+        /// The form lays out over a few runloop turns after a tab appears; measure more than once,
+        /// so the first, unfinished measurement is not the last word.
+        private func fitSoon(animate: Bool) {
             for delay in [0, 150, 400] {
-                DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(delay)) { [weak window] in
-                    guard let window else { return }
-                    Self.growToFitContent(window)
+                DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(delay)) { [weak self] in
+                    guard let window = self?.window else { return }
+                    Self.fitToContent(window, animate: animate)
                 }
             }
         }
 
-        /// Adds the height the open tab's form needs beyond what the window shows, keeping the top
-        /// edge in place and the window on its screen. Never shrinks.
-        private static func growToFitContent(_ window: NSWindow) {
+        /// Makes the window as tall as the open tab's form, keeping the top edge in place and the
+        /// window on its screen; a tab taller than the screen scrolls.
+        private static func fitToContent(_ window: NSWindow, animate: Bool) {
             guard let content = window.contentView else { return }
+            let wanted = formHeight(in: content)
             // The scroll view runs under the toolbar; what the form can use is the layout rect.
-            let shortfall = formHeight(in: content) - window.contentLayoutRect.height
-            guard shortfall > 0 else { return }
+            let delta = wanted - window.contentLayoutRect.height
+            guard wanted > 0, abs(delta) >= 1 else { return }
             var frame = window.frame
-            frame.size.height += shortfall
-            frame.origin.y -= shortfall
+            frame.size.height += delta
+            frame.origin.y -= delta
             if let screen = window.screen ?? NSScreen.main {
                 let bounds = screen.visibleFrame
                 frame.size.height = min(frame.height, bounds.height)
                 frame.origin.y = max(frame.origin.y, bounds.minY)
             }
-            window.setFrame(frame, display: true, animate: false)
+            window.setFrame(frame, display: true, animate: animate)
         }
 
         /// The height the open tab's grouped Form wants. The document view is stretched to fill the
         /// clip, so it is measured from its sections: the last one's far edge plus the inset the
-        /// first one has from the near edge, which the Form mirrors at the bottom.
+        /// first one has from the near edge, which the Form mirrors at the bottom. Hidden views are
+        /// the other tabs.
         private static func formHeight(in view: NSView) -> CGFloat {
+            guard !view.isHidden else { return 0 }
             if let scroll = view as? NSScrollView, let document = scroll.documentView {
                 let sections = document.subviews.first?.subviews ?? []
                 if let far = sections.map(\.frame.maxY).max(), let near = sections.map(\.frame.minY).min() {

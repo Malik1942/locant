@@ -34,7 +34,7 @@ struct LocantApp: App {
             SettingsView()
                 .environment(delegate.state)
         }
-        .windowResizability(.contentMinSize)
+        .windowResizability(.contentSize)
         .commands {
             // ⌘H in a UIElement app would hide every window, ball included, with no Dock icon to
             // bring them back. In Settings it puts the window away instead; Settings… reopens it.
