@@ -503,9 +503,9 @@ struct HotkeyRecorder: View {
     }
 }
 
-/// R51: the apps that count as yours, in the grouped idiom of the other tabs. One row per app with
-/// its icon, name, and bundle id and Remove trailing, like Grant… and Choose… elsewhere; a second
-/// group adds one by picking an .app on this Mac or by typing a bundle id.
+/// R51, R95: the apps that count as yours beyond the ones Locant finds, one row each with Remove
+/// trailing, like Grant… and Choose… elsewhere; a second group adds one by picking an .app on this
+/// Mac or by typing a bundle id.
 struct MyAppsSettings: View {
     @Environment(AppState.self) private var state
     @State private var typed = ""
@@ -515,22 +515,18 @@ struct MyAppsSettings: View {
         Form {
             Section {
                 if preferences.myApps.isEmpty {
-                    Text("No apps added")
+                    Text("Locant finds apps you build on its own. Add any it misses.")
                         .foregroundStyle(.secondary)
                 }
                 ForEach(preferences.myApps, id: \.self) { bundleId in
                     MyAppRow(bundleId: bundleId) { remove(bundleId, from: preferences) }
                 }
-                Footnote(text: "Locant already treats apps you build (Simulator, Xcode builds, your signing identity) as yours. Add anything it misses.")
             }
             Section {
-                LabeledContent {
+                LabeledContent("Add an app") {
                     Button("Choose…") { addFromPanel(preferences) }
-                } label: {
-                    Text("Add an app")
-                    Text("Pick an app on this Mac; its bundle id is added.")
                 }
-                LabeledContent {
+                LabeledContent("Add a bundle ID") {
                     HStack(spacing: 8) {
                         TextField("", text: $typed, prompt: Text("com.example.app"))
                             .textFieldStyle(.roundedBorder)
@@ -538,9 +534,6 @@ struct MyAppsSettings: View {
                         Button("Add") { addTyped(preferences) }
                             .disabled(typed.trimmingCharacters(in: .whitespaces).isEmpty)
                     }
-                } label: {
-                    Text("Bundle id")
-                    Text("For an app that is not on this Mac, such as one that runs only in the Simulator.")
                 }
             }
         }
@@ -577,8 +570,8 @@ struct MyAppsSettings: View {
     }
 }
 
-/// One app in My Apps: the icon and name when the app is on this Mac, the bundle id beneath;
-/// only the id, and a plain app icon, when it is not (a Simulator-only app, say).
+/// One app in My Apps: its icon and name, or its bundle id and a plain app icon when it is not on
+/// this Mac (a Simulator-only app, say).
 private struct MyAppRow: View {
     let bundleId: String
     let remove: () -> Void
@@ -588,16 +581,11 @@ private struct MyAppRow: View {
         LabeledContent {
             Button("Remove", action: remove)
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 Image(nsImage: installed?.icon ?? NSWorkspace.shared.icon(for: .applicationBundle))
                     .resizable()
-                    .frame(width: 32, height: 32)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(installed?.name ?? bundleId)
-                    Text(installed == nil ? "Not on this Mac; matched by bundle id." : bundleId)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
+                    .frame(width: 24, height: 24)
+                Text(installed?.name ?? bundleId)
             }
         }
     }
