@@ -222,6 +222,11 @@ struct GeneralSettings: View {
                     }
                 }
             }
+            Section {
+                LabeledContent("Locant Help") {
+                    Button("Show") { state.showHelp() }
+                }
+            }
         }
         .formStyle(.grouped)
         .toggleStyle(.switch)

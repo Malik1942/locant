@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 /// v0.5 R43, R98: the one page that shows the whole product at once, a short line per row. Opens
-/// once after the permission alerts, and any time from Locant Help in the menu bar. A standard
+/// once after the permission alerts, and any time from Settings › General. A standard
 /// window in the Settings idiom (grouped rows, system type, no art): read it, close it, nothing to
 /// click through.
 struct HelpView: View {
@@ -57,7 +57,7 @@ struct HelpView: View {
             .formStyle(.grouped)
             Divider()
             HStack {
-                Text("Open this again from the menu bar.")
+                Text("Open this again from Settings › General.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                 Spacer()

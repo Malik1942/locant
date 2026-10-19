@@ -53,8 +53,9 @@ struct LocantApp: App {
     }
 }
 
-/// R97: the five actions, then what they leave behind, then Settings and Help, then Quit. v0.4 Show
-/// Before & After (R44); iterations are collected by themselves since v0.6 R52.
+/// R10: Point (was Capture), Open capture folder, Settings…, Quit; v0.4 Show before & after (R44).
+/// Iterations are collected by themselves since v0.6 R52, so "See what changed" left the menu.
+/// R97: the help page is not here; it is rarely opened, and Settings › General has it.
 private struct StatusMenu: View {
     @Environment(AppState.self) private var state
     @Environment(\.openSettings) private var openSettings
@@ -66,6 +67,8 @@ private struct StatusMenu: View {
             state.beginCapture()
         }
         .keyboardShortcut(pointShortcut)
+        Button("Show before & after") { state.showBeforeAfter() }
+        Divider()
         Button("Snap") { state.beginAction(.snap) }
             .keyboardShortcut(shortcut("snap"))
         Button("Text") { state.beginAction(.text) }
@@ -75,17 +78,14 @@ private struct StatusMenu: View {
         Button("Cut") { state.beginAction(.cut) }
             .keyboardShortcut(shortcut("cut"))
         Divider()
-        Button("Show Before & After") { state.showBeforeAfter() }
-        Button("Open Capture Folder") {
+        Button("Open capture folder") {
             state.openCaptureFolder()
         }
-        Divider()
         Button("Settings…") {
             NSApp.activate()
             openSettings()
         }
         .keyboardShortcut(",")
-        Button("Locant Help") { state.showHelp() }
         Divider()
         Button("Quit Locant") {
             NSApp.terminate(nil)

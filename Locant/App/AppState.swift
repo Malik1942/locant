@@ -569,7 +569,7 @@ final class AppState {
         feedback?.tap(.generic)
     }
 
-    /// Locant Help in the menu bar (R97): the same page, any time.
+    /// Settings › General "Locant Help": the same page, any time.
     func showHelp() {
         help.show(state: self)
     }
