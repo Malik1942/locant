@@ -82,6 +82,6 @@ No preference, model, or schema change.
 
 ## 4. Tests
 
-- `HotkeyTests`: a clash with the capture hotkey reads "Already used for Point."; the macOS clash reads R93's sentence.
+- `HotkeyTests`: a clash with the capture hotkey reads "Already used for Point."; the macOS clash reads R93's sentence. The recorder's key handling moves into a pure `HotkeyRecorder.press`, tested in the same file: Esc cancels; ⌫ and ⌦ alone clear an action's key and ask for a modifier on the capture hotkey; with modifiers they are a chord; a bare key needs a modifier and a function key does not.
 - Every existing test passes; the build is green.
 - By hand, in both appearances: each Settings tab at its default size and at the 480 pt minimum width, with no row on two lines and Point's two recorders on one row; recording an action's key, Clear while recording, ⌫ clearing, Esc cancelling, Reset after a change; the permission group with a grant missing; the menu in its new order; the help page from Locant Help; Check Now's alert.
