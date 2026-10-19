@@ -1,6 +1,6 @@
 import Foundation
 
-/// v0.9 R70: the block Settings › General › Copy Diagnostics puts on the clipboard, for pasting
+/// v0.9 R70: the block Settings › General › Diagnostics puts on the clipboard, for pasting
 /// into an issue. Pure: `AppState` gathers the `Values`, this renders them. Nothing about the
 /// user beyond the home folder path, shortened to `~`; nothing from any capture.
 enum Diagnostics {
