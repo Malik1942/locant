@@ -421,7 +421,9 @@ struct CaptureSettings: View {
     }
 }
 
-/// Records the next key press or modifier double-tap as the hotkey. Esc cancels.
+/// Records the next key press or modifier double-tap as the hotkey. Esc cancels. R93: at rest only
+/// Reset shows, and only when the key is not the default; Clear shows while recording, and ⌫ or ⌦
+/// alone clears too.
 struct HotkeyRecorder: View {
     @Binding var hotkey: Hotkey?
     /// What "Reset" restores.
@@ -447,28 +449,52 @@ struct HotkeyRecorder: View {
         49: "Space", 36: "↩", 48: "⇥", 51: "⌫", 117: "⌦", 123: "←", 124: "→", 125: "↓", 126: "↑",
         115: "↖", 119: "↘", 116: "⇞", 121: "⇟",
     ]
+    /// ⌫ and ⌦: alone, they clear (R93).
+    private static let deleteKeys: Set<UInt16> = [51, 117]
+
+    /// Whether the action may be left without a hotkey; implied when there is no fallback.
+    private var canClear: Bool { clearable || fallback == nil }
 
     var body: some View {
         // The width sits on the label so the bordered button itself is the fixed-width control;
         // a frame on the button would leave invisible space around a short title.
         HStack(spacing: 8) {
-            if !recording {
-                if let fallback, hotkey != fallback {
-                    Button("Reset") { hotkey = fallback }
+            if recording {
+                if hotkey != nil, canClear {
+                    Button("Clear") {
+                        hotkey = nil
+                        stop()
+                    }
                 }
-                if hotkey != nil, clearable || fallback == nil {
-                    Button("Clear") { hotkey = nil }
-                }
+            } else if let fallback, hotkey != fallback {
+                Button("Reset") { hotkey = fallback }
             }
             Button {
                 recording ? stop() : begin()
             } label: {
                 Text(recording ? (hint ?? "Press keys…") : (hotkey?.title ?? "None"))
                     .lineLimit(1)
-                    .frame(minWidth: 150)
+                    .frame(minWidth: 120)
             }
         }
         .fixedSize()
+    }
+
+    /// What a key pressed while recording does.
+    enum Press: Equatable {
+        case cancel, clear, needsModifier, ignore
+        case record(Hotkey)
+    }
+
+    /// Esc cancels; ⌫ or ⌦ alone clears when the hotkey may be left empty (R93); any other key needs
+    /// a modifier unless it is a function key. Pure, so the tests press keys without a monitor.
+    static func press(keyCode: UInt16, modifiers: KeyModifiers, characters: String?, canClear: Bool) -> Press {
+        if keyCode == 53 { return .cancel }
+        if modifiers.isEmpty, canClear, deleteKeys.contains(keyCode) { return .clear }
+        let name = functionKeys[keyCode] ?? specialKeys[keyCode] ?? (characters ?? "").uppercased()
+        guard !name.isEmpty else { return .ignore }
+        if modifiers.isEmpty, functionKeys[keyCode] == nil { return .needsModifier }
+        return .record(.chord(keyCode: keyCode, modifiers: modifiers, key: name))
     }
 
     private func begin() {
@@ -497,28 +523,24 @@ struct HotkeyRecorder: View {
     private func handle(type: NSEvent.EventType, keyCode: UInt16, flags: NSEvent.ModifierFlags, characters: String?, timestamp: TimeInterval) {
         switch type {
         case .keyDown:
-            if keyCode == 53 { stop(); return } // Esc
-            let modifiers = KeyModifiers(flags)
-            let name: String
-            if let fn = Self.functionKeys[keyCode] {
-                name = fn
-            } else if let special = Self.specialKeys[keyCode] {
-                name = special
-            } else {
-                name = (characters ?? "").uppercased()
-            }
-            guard !name.isEmpty else { return }
-            if modifiers.isEmpty, Self.functionKeys[keyCode] == nil {
+            switch Self.press(keyCode: keyCode, modifiers: KeyModifiers(flags), characters: characters, canClear: canClear) {
+            case .cancel:
+                stop()
+            case .clear:
+                hotkey = nil
+                stop()
+            case .needsModifier:
                 hint = "Add ⌘, ⌥, ⌃ or ⇧"
-                return
+            case .record(let chord):
+                if let reason = rejects(chord) {
+                    hint = reason
+                    return
+                }
+                hotkey = chord
+                stop()
+            case .ignore:
+                break
             }
-            let chord = Hotkey.chord(keyCode: keyCode, modifiers: modifiers, key: name)
-            if let reason = rejects(chord) {
-                hint = reason
-                return
-            }
-            hotkey = chord
-            stop()
         case .flagsChanged:
             let modifiers = KeyModifiers(flags)
             let down = !modifiers.isEmpty
