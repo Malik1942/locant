@@ -94,15 +94,6 @@ private struct SettingsWindowConfigurator: NSViewRepresentable {
     }
 }
 
-private struct Footnote: View {
-    let text: String
-    var body: some View {
-        Text(text)
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-    }
-}
-
 /// R92: a missing permission, the way System Settings flags one: the orange mark and a way to grant
 /// it. A granted permission has no row.
 private struct PermissionRow: View {
@@ -600,9 +591,9 @@ private struct MyAppRow: View {
     }
 }
 
-/// v0.7.1 R56: one row per agent, its state re-read while the window is open, Connect or
-/// Disconnect trailing, the way the permission rows read. The writes run off the main actor:
-/// the CLIs take a second.
+/// v0.7.1 R56, R96: paste first; then one row per agent, its state re-read while the window is
+/// open, Connect or Disconnect trailing; then the snippet for any other client. The writes run off
+/// the main actor: the CLIs take a second.
 struct AgentSettings: View {
     @State private var statuses: [Agent: AgentStatus] = [:]
     @State private var failures: [Agent: String] = [:]
@@ -617,14 +608,10 @@ struct AgentSettings: View {
         Form {
             // v0.8.1 R63, specs/handoff.md R84: paste is the handoff, so it comes first; MCP below is how an agent looks back.
             Section {
-                Toggle(isOn: $preferences.pastesIntoAgent) {
-                    Text("Paste into your agent")
-                    Text("After Return, Locant pastes the capture into the agent you used last: the text, then the image. Locant never sends it; you do.")
-                }
-                .toggleStyle(.switch)
-                Footnote(text: "Off, the capture waits on the clipboard: paste it into the conversation you want. In Cursor, Codex, and Grok Bot, Locant adds the image after your paste.")
+                Toggle("Paste into your agent", isOn: $preferences.pastesIntoAgent)
+                    .toggleStyle(.switch)
             }
-            Section {
+            Section("MCP") {
                 ForEach(Agent.allCases) { agent in
                     AgentRow(
                         agent: agent,
@@ -636,11 +623,10 @@ struct AgentSettings: View {
                         disconnect: { act(agent, connect: false) }
                     )
                 }
-                Footnote(text: "Connect adds one server named locant to the agent's own configuration. It runs \(executable) --mcp when the agent starts, and gives it four tools: the latest capture, a list, one capture by id, and resolve. Nothing runs until then.")
             }
             Section {
-                LabeledContent {
-                    Button(copied ? "Copied" : "Copy") {
+                LabeledContent("Other agents") {
+                    Button(copied ? "Copied" : "Copy Config") {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(AgentConfig.jsonSnippet(executable: executable), forType: .string)
                         copied = true
@@ -649,9 +635,6 @@ struct AgentSettings: View {
                             copied = false
                         }
                     }
-                } label: {
-                    Text("Any other agent")
-                    Text("A JSON snippet for an MCP client that runs stdio servers: Gemini CLI, Windsurf, Zed, Claude Desktop.")
                 }
             }
         }
@@ -705,7 +688,8 @@ private struct AgentRow: View {
 
     var body: some View {
         // The state is one row of plain views, rebuilt as a whole on each change: a disabled
-        // container left the text invisible after the buttons swapped (Sep 15, 2026).
+        // container left the text invisible after the buttons swapped (Sep 15, 2026). R96: not
+        // connected is not a problem, so it is Connect alone.
         LabeledContent {
             HStack(spacing: 8) {
                 if busy {
@@ -714,17 +698,22 @@ private struct AgentRow: View {
                     Text("Working…")
                         .foregroundStyle(.secondary)
                 } else if let status {
-                    Image(systemName: connected(status) ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-                        .symbolRenderingMode(.monochrome)
-                        .foregroundStyle(connected(status) ? Self.connectedGreen : .orange)
-                    Text(stateText(status))
-                        .foregroundStyle(.secondary)
                     switch status {
                     case .notConnected:
                         Button("Connect", action: connect)
                     case .connected(let found) where found == executable:
+                        Image(systemName: "checkmark.circle.fill")
+                            .symbolRenderingMode(.monochrome)
+                            .foregroundStyle(Self.connectedGreen)
+                        Text("Connected")
+                            .foregroundStyle(.secondary)
                         Button("Disconnect", action: disconnect)
                     case .connected:
+                        Image(systemName: "exclamationmark.circle.fill")
+                            .symbolRenderingMode(.monochrome)
+                            .foregroundStyle(.orange)
+                        Text("Connected to another copy")
+                            .foregroundStyle(.secondary)
                         Button("Reconnect", action: connect)
                         Button("Disconnect", action: disconnect)
                     }
@@ -733,20 +722,7 @@ private struct AgentRow: View {
             .id(busy)
         } label: {
             Text(agent.title)
-            Text(agent.detail)
             if let failure { ConflictNote(text: failure) }
-        }
-    }
-
-    private func connected(_ status: AgentStatus) -> Bool {
-        if case .connected(let found) = status { return found == executable }
-        return false
-    }
-
-    private func stateText(_ status: AgentStatus) -> String {
-        switch status {
-        case .notConnected: "Not connected"
-        case .connected(let found): found == executable ? "Connected" : "Connected to another copy"
         }
     }
 }
