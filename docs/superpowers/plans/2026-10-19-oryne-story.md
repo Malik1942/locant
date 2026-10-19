@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - Read only, never written: `/Users/malik/Documents/inspire-ocean` (only `git archive`, `git log`, `git rev-parse`, `git merge-base`), Malik's simulator `0EBF66EE-3E7D-48F9-9D44-E7B1A58DACF1`, `~/Pictures/Locant`, the chats in `~/.claude/projects/-Users-malik-Documents-inspire-ocean--claude-worktrees-oryne-product-opportunities-a913cb/`.
-- Working files only in `~/Desktop/oryne-story/` (written `W` below). Create folders by testing with `[ -e path ]` first and then plain `mkdir` (APFS is case-insensitive).
+- Working files only in `~/Desktop/oryne-story/` (written `W` below), except build products and DerivedData, which live in `~/Library/Caches/oryne-story/` (code signing fails under `~/Desktop`). Create folders by testing with `[ -e path ]` first and then plain `mkdir` (APFS is case-insensitive).
 - Locant repo changes only: `site/oryne/index.html`, `site/oryne/assets/*.webp`, one line in `site/index.html`, and this plan. Commit messages in the form `area: what changed`.
 - **The Locant repo is public: pushing publishes.** No push and no PR before Malik says yes at the Task 10 checkpoint. Malik merges.
 - **Never sign the story simulator into iCloud.** Its store is CloudKit-backed; an old build syncing could write into Malik's real Ocean.
@@ -39,7 +39,7 @@ Working folder `~/Desktop/oryne-story/` (outside every repo, like `~/Desktop/loc
 |---|---|
 | `bin/make_facts.py` | Builds `facts.json` from sidecars, chats, git and `notes.json`; exits 1 on any problem |
 | `bin/chat_after.py` | Prints the chat from the message that pasted a capture |
-| `bin/build.sh` | Builds one Oryne commit into `builds/<hash>/Oryne.app` |
+| `bin/build.sh` | Builds one Oryne commit into `~/Library/Caches/oryne-story/builds/<hash>/Oryne.app` |
 | `bin/sim.sh` | The "Oryne story" simulator: create, snapshot data, install, restore, launch, open, shot, delete |
 | `bin/shotlist.py` | Lists the (build, screen) screenshots the page needs |
 | `bin/locate.py` | Finds a before crop in a screenshot (multi-scale normalized cross-correlation) |
@@ -51,7 +51,8 @@ Working folder `~/Desktop/oryne-story/` (outside every repo, like `~/Desktop/loc
 | `tests/test_*.py` | unittest for make_facts, locate, crops, render_page |
 | `notes.json` | Hand-written per row: screen, label, translation, chat lines, stories |
 | `facts.json`, `rects.json` | Generated facts; located rectangles |
-| `builds/`, `src/`, `dd/`, `data/`, `shots/`, `out/`, `render/` | Build products, sources, DerivedData, the data copy, screenshots, web images, page renders |
+| `src/`, `data/`, `shots/`, `out/`, `render/` | Archived sources, the data copy, screenshots, web images, page renders |
+| `~/Library/Caches/oryne-story/{builds,dd}` | Build products and DerivedData, outside `~/Desktop`: code signing fails there ("resource fork, Finder information, or similar detritus not allowed") |
 
 Locant repo (this worktree):
 
@@ -413,19 +414,21 @@ Expected: `18 rows, 0 problems` and `missing []`.
 - Create: `W/bin/build.sh`
 
 **Interfaces:**
-- Produces: `W/builds/<hash>/Oryne.app` for `f271e77 dbdc73f f73eb28 8de92c3 9355f69 04b9cc2 b2dd87f 7285f2b 74455d5 b15f960 d854071`.
+- Produces: `~/Library/Caches/oryne-story/builds/<hash>/Oryne.app` for `f271e77 dbdc73f f73eb28 8de92c3 9355f69 04b9cc2 b2dd87f 7285f2b 74455d5 b15f960 d854071`.
 
 - [ ] **Step 1: Write `W/bin/build.sh`** and `chmod +x W/bin/*.sh`
 
 ```zsh
 #!/bin/zsh
-# Build one Oryne commit for the simulator into builds/<hash>/Oryne.app. Reads the repo, never writes to it.
+# Build one Oryne commit for the simulator into ~/Library/Caches/oryne-story/builds/<hash>/Oryne.app. Reads the repo, never writes to it.
+# Products and DerivedData stay outside ~/Desktop: code signing rejects the extended attributes files pick up there.
 # The custom DerivedData path keeps these builds away from the one Locant reads for its Project line.
 set -euo pipefail
 h=$1
 W=~/Desktop/oryne-story
 R=/Users/malik/Documents/inspire-ocean
-out=$W/builds/$h
+B=~/Library/Caches/oryne-story
+out=$B/builds/$h
 if [ -e $out/Oryne.app ]; then echo "have $out/Oryne.app"; exit 0; fi
 src=$W/src/$h
 rm -rf $src
@@ -434,18 +437,18 @@ git -C $R archive "$h" | tar -x -C $src
 (cd $src && xcodegen generate --quiet)
 run() {
   xcodebuild -project $src/Oryne.xcodeproj -scheme Oryne -configuration Debug \
-    -destination 'generic/platform=iOS Simulator' -derivedDataPath $W/dd build -quiet
+    -destination 'generic/platform=iOS Simulator' -derivedDataPath $B/dd build -quiet
 }
 run || run   # Xcode 27 sometimes fails once with "disk I/O error" on a fresh build.db
 mkdir -p $out
-cp -R $W/dd/Build/Products/Debug-iphonesimulator/Oryne.app $out/
+cp -R $B/dd/Build/Products/Debug-iphonesimulator/Oryne.app $out/
 echo "built $h -> $out/Oryne.app"
 ```
 
 - [ ] **Step 2: Build one and check it**
 
-Run: `~/Desktop/oryne-story/bin/build.sh d854071 && plutil -extract CFBundleIdentifier raw ~/Desktop/oryne-story/builds/d854071/Oryne.app/Info.plist`
-Expected: `built d854071 -> …` then `com.inspireocean.app`. If the product has another name, `ls ~/Desktop/oryne-story/dd/Build/Products/Debug-iphonesimulator/` and fix the `cp` line.
+Run: `~/Desktop/oryne-story/bin/build.sh d854071 && plutil -extract CFBundleIdentifier raw ~/Library/Caches/oryne-story/builds/d854071/Oryne.app/Info.plist`
+Expected: `built d854071 -> …` then `com.inspireocean.app`. If the product has another name, `ls ~/Library/Caches/oryne-story/dd/Build/Products/Debug-iphonesimulator/` and fix the `cp` line.
 
 - [ ] **Step 3: Build the rest** (run in the background; about 3–5 minutes each)
 
@@ -460,7 +463,7 @@ Expected: 10 `built …` lines, no `FAILED`.
 - Create: `W/bin/sim.sh`
 
 **Interfaces:**
-- Consumes: `W/builds/<hash>/Oryne.app`.
+- Consumes: `~/Library/Caches/oryne-story/builds/<hash>/Oryne.app`.
 - Produces: commands `sim.sh create|snapshot|install <hash>|restore|launch <ocean|library|ask>|open <url>|shot <hash> <screen>|delete`; `W/udid`; `W/data/` (the store, its support folder, two preference plists).
 
 - [ ] **Step 1: Write `W/bin/sim.sh`**
@@ -498,7 +501,7 @@ snapshot)
   sqlite3 $W/data/InspireOcean.store "select count(*), sum(ZISEXAMPLE) from ZNODE";;
 install)
   xcrun simctl terminate $(udid) $BUNDLE 2>/dev/null || true
-  xcrun simctl install $(udid) $W/builds/$2/Oryne.app
+  xcrun simctl install $(udid) ~/Library/Caches/oryne-story/builds/$2/Oryne.app
   "$0" restore
   echo "installed $2";;
 restore)
