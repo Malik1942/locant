@@ -185,7 +185,7 @@ the hotkey.
 - **A daily update check**, and nothing else on the network.
 
 <p align="center">
-  <img src="site/assets/settings-light.png" width="620" alt="The Locant Settings window, General tab: permissions, the floating ball, updates, and the help page.">
+  <img src="site/assets/settings-light.png" width="592" alt="The Locant Settings window, General tab: the floating ball, sounds and haptic feedback, updates, and Locant Help.">
   <br><sub>Settings (⌘,): General, Hotkeys, Captures, My Apps, Agents. Every default works on first launch.</sub>
 </p>
 
