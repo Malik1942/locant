@@ -103,34 +103,20 @@ private struct Footnote: View {
     }
 }
 
-/// A permission as System Settings would show it: the state at a glance, and a way to grant it when missing.
+/// R92: a missing permission, the way System Settings flags one: the orange mark and a way to grant
+/// it. A granted permission has no row.
 private struct PermissionRow: View {
     let title: String
-    let detail: String
-    let granted: Bool
     let grant: () -> Void
 
-    /// Apple's macOS system green as the light appearance draws it (#28CD41). The dark appearance
-    /// lightens its green by design, and on a 13 pt tick that read as pale and washed out
-    /// (Malik, Sep 14 2026), so the light value is pinned in both appearances. Measured in the dark
-    /// grouped Form: `.green` renders P3 #68CE67, this renders #63CA56, same lightness, more chroma.
-    fileprivate static let grantedGreen = Color(red: 0x28 / 255.0, green: 0xCD / 255.0, blue: 0x41 / 255.0)
-
     var body: some View {
-        LabeledContent {
+        LabeledContent(title) {
             HStack(spacing: 8) {
-                Image(systemName: granted ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                Image(systemName: "exclamationmark.circle.fill")
                     .symbolRenderingMode(.monochrome)
-                    .foregroundStyle(granted ? Self.grantedGreen : .orange)
-                Text(granted ? "Granted" : "Not granted")
-                    .foregroundStyle(.secondary)
-                if !granted {
-                    Button("Grant…", action: grant)
-                }
+                    .foregroundStyle(.orange)
+                Button("Grant…", action: grant)
             }
-        } label: {
-            Text(title)
-            Text(detail)
         }
     }
 }
@@ -154,74 +140,50 @@ struct GeneralSettings: View {
     /// The two grants Locant needs, re-read while the window is open so a change in System Settings shows at once.
     @State private var accessibilityGranted = AccessibilityReader.isTrusted(prompt: false)
     @State private var screenRecordingGranted = ScreenCapture.hasPermission()
-    /// Check Now… in flight; the button waits for the answer.
+    /// Check Now in flight; the button waits for the answer.
     @State private var checking = false
-    /// Copy Diagnostics reads "Copied" for two seconds after the click.
+    /// Copy reads "Copied" for two seconds after the click.
     @State private var copiedDiagnostics = false
 
     var body: some View {
         @Bindable var preferences = state.preferences
         Form {
-            Section {
-                PermissionRow(
-                    title: "Accessibility",
-                    detail: "Reads what is under your cursor and listens for the hotkey.",
-                    granted: accessibilityGranted
-                ) {
-                    _ = AccessibilityReader.isTrusted(prompt: true)
-                    openPrivacyPane("Privacy_Accessibility")
-                }
-                PermissionRow(
-                    title: "Screen Recording",
-                    detail: "Captures the pixels of the element.",
-                    granted: screenRecordingGranted
-                ) {
-                    _ = ScreenCapture.requestPermission()
-                    openPrivacyPane("Privacy_ScreenCapture")
-                }
-                if !accessibilityGranted || !screenRecordingGranted {
-                    Footnote(text: "macOS ties each grant to the app's signature. After an update, or if a switch is on but Locant still cannot capture, remove Locant from the list and add /Applications/Locant.app again.")
+            // R92: a permission shows only while it is missing.
+            if !accessibilityGranted || !screenRecordingGranted {
+                Section {
+                    if !accessibilityGranted {
+                        PermissionRow(title: "Accessibility") {
+                            _ = AccessibilityReader.isTrusted(prompt: true)
+                            openPrivacyPane("Privacy_Accessibility")
+                        }
+                    }
+                    if !screenRecordingGranted {
+                        PermissionRow(title: "Screen Recording") {
+                            _ = ScreenCapture.requestPermission()
+                            openPrivacyPane("Privacy_ScreenCapture")
+                        }
+                    }
                 }
             }
             Section {
-                Toggle(isOn: $preferences.ballEnabled) {
-                    Text("Floating ball")
-                    Text("A quiet disc that wakes when you approach. Click it to point, hold for the ring. The hotkey works either way.")
-                }
-                .toggleStyle(.switch)
-                Toggle(isOn: $preferences.ballAutoHide) {
-                    Text("Auto-hide")
-                    Text("After 2 seconds without use, the ball tucks into the nearest screen edge with part of it showing. Move toward it to bring it back.")
-                }
-                .toggleStyle(.switch)
-                .disabled(!preferences.ballEnabled)
+                Toggle("Floating ball", isOn: $preferences.ballEnabled)
+                Toggle("Auto-hide", isOn: $preferences.ballAutoHide)
+                    .disabled(!preferences.ballEnabled)
             }
             Section {
-                Toggle(isOn: $preferences.trackpadTaps) {
-                    Text("Trackpad taps")
-                    Text("A light tap under your finger when the outline moves to a new element, when the ring opens and between its segments, and when a capture lands. Needs a Force Touch trackpad.")
-                }
-                .toggleStyle(.switch)
-                .onChange(of: preferences.trackpadTaps) { _, on in
-                    if on { state.previewTap() }
-                }
-                Toggle(isOn: $preferences.sounds) {
-                    Text("Sounds")
-                    Text("A soft sound when a capture reaches the clipboard, a lower one when nothing did. Follows Play user interface sound effects in Sound settings.")
-                }
-                .toggleStyle(.switch)
-                .onChange(of: preferences.sounds) { _, on in
-                    if on { state.previewSound() }
-                }
+                Toggle("Sounds", isOn: $preferences.sounds)
+                    .onChange(of: preferences.sounds) { _, on in
+                        if on { state.previewSound() }
+                    }
+                Toggle("Haptic feedback", isOn: $preferences.trackpadTaps)
+                    .onChange(of: preferences.trackpadTaps) { _, on in
+                        if on { state.previewTap() }
+                    }
             }
             Section {
-                Toggle(isOn: $preferences.checksForUpdates) {
-                    Text("Check for updates")
-                    Text("Once a day, Locant asks GitHub for the newest release. The request carries the version number and nothing about you or your captures.")
-                }
-                .toggleStyle(.switch)
-                LabeledContent {
-                    Button("Check Now…") {
+                Toggle("Check for updates automatically", isOn: $preferences.checksForUpdates)
+                LabeledContent("Version \(UpdateCheck.currentVersion?.description ?? "unknown")") {
+                    Button("Check Now") {
                         checking = true
                         Task {
                             await state.checkForUpdates(manual: true)
@@ -229,17 +191,10 @@ struct GeneralSettings: View {
                         }
                     }
                     .disabled(checking)
-                } label: {
-                    Text("Version \(UpdateCheck.currentVersion?.description ?? "unknown")")
-                    if let lastCheck = preferences.lastUpdateCheck {
-                        Text("Last checked \(lastCheck.formatted(.relative(presentation: .named))).")
-                    } else {
-                        Text("Not checked yet.")
-                    }
                 }
                 // v0.9 R71: one block for an issue, copied by hand and never sent.
-                LabeledContent {
-                    Button(copiedDiagnostics ? "Copied" : "Copy Diagnostics") {
+                LabeledContent("Diagnostics") {
+                    Button(copiedDiagnostics ? "Copied" : "Copy") {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(state.diagnosticsText(), forType: .string)
                         copiedDiagnostics = true
@@ -248,21 +203,11 @@ struct GeneralSettings: View {
                             copiedDiagnostics = false
                         }
                     }
-                } label: {
-                    Text("Diagnostics")
-                    Text("Version, macOS, displays, permissions, and settings as one block to paste into an issue. Nothing from your captures, and your user name is replaced by ~.")
-                }
-            }
-            Section {
-                LabeledContent {
-                    Button("Show…") { state.showHelp() }
-                } label: {
-                    Text("Locant Help")
-                    Text("The one-page guide shown on first launch: every action, its hotkey, and the gestures on the overlay.")
                 }
             }
         }
         .formStyle(.grouped)
+        .toggleStyle(.switch)
         .task {
             while !Task.isCancelled {
                 refreshPermissions()
@@ -768,6 +713,12 @@ struct AgentSettings: View {
 }
 
 private struct AgentRow: View {
+    /// Apple's macOS system green as the light appearance draws it (#28CD41). The dark appearance
+    /// lightens its green by design, and on a 13 pt tick that read as pale and washed out
+    /// (Malik, Sep 14 2026), so the light value is pinned in both appearances. Measured in the dark
+    /// grouped Form: `.green` renders P3 #68CE67, this renders #63CA56, same lightness, more chroma.
+    private static let connectedGreen = Color(red: 0x28 / 255.0, green: 0xCD / 255.0, blue: 0x41 / 255.0)
+
     let agent: Agent
     let status: AgentStatus?
     let executable: String
@@ -789,7 +740,7 @@ private struct AgentRow: View {
                 } else if let status {
                     Image(systemName: connected(status) ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
                         .symbolRenderingMode(.monochrome)
-                        .foregroundStyle(connected(status) ? PermissionRow.grantedGreen : .orange)
+                        .foregroundStyle(connected(status) ? Self.connectedGreen : .orange)
                     Text(stateText(status))
                         .foregroundStyle(.secondary)
                     switch status {
