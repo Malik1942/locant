@@ -385,7 +385,7 @@ Element data quality depends on the target app's accessibility implementation. S
 | **v0.3** | P1.5 to P1.13: Snap, Text, Color, Cut, drag, lifecycle, floating ball with ring, URL scheme, Settings | "It replaced my screenshot tool." |
 | **v0.4** | P2.1 to P2.5: verify, before/after, iterations | "And I see what changed." |
 
-Public launch (site, X, LinkedIn, download count) after v0.2. Palantir submission uses v0.1 as the 3-hour artifact and whatever tag exists at submission time as the download. Video narrative: "The first three hours got me to v0.1. I liked it enough to keep going."
+Public launch (site, X, LinkedIn, download count) after v0.2.
 
 ---
 
