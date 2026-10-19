@@ -555,7 +555,7 @@
     </div>
     <div class="steps" id="steps" aria-live="polite">
       <span class="s on"><b>1</b>Point</span><span class="s"><b>2</b>Note</span><span class="s"><b>3</b>Paste</span>
-      <span class="say" id="say">Click the ball on the right edge. Hold it for more tools.</span>
+      <span class="say" id="say"></span>
     </div>
     <div class="scenes" role="tablist" aria-label="Screens">
       <button type="button" role="tab" aria-selected="true" data-scene="phone">iPhone app</button><button type="button" role="tab" aria-selected="false" data-scene="web">Website</button><button type="button" role="tab" aria-selected="false" data-scene="calc">Mac app</button>
@@ -819,8 +819,7 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
   var ADVICE = 'The app on screen was built from this folder. If you are working in a different checkout of this repo (another worktree or clone), your copy is not the code on screen: change it in this folder, or ask which copy to change.';
   var V = touch ? 'Tap' : 'Click';
   ball.querySelector('.tip').textContent = V + ' to point';
-  var HELLO = V + ' the ball on the right edge. Hold it for more tools.';     // the first time, where it appeared
-  var AGAIN = V + ' the ball to point. Hold it for more tools.';             // later, wherever it rests
+  var AGAIN = V + ' the ball to point. Hold it for more tools.';   // after a first use; until then the label beside the ball says it
 
   // mode: what the demo is doing. bs: the ball's own state, as FloatingBall.State.
   var mode = 'ball', bs = 'hidden';
@@ -967,7 +966,6 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
     var seen = new IntersectionObserver(function (en) { if (en[0].isIntersecting) { seen.disconnect(); setTimeout(reveal, 250); } }, { threshold: 0.55 });
     seen.observe(stage);
   } else reveal();
-  setStep(1, HELLO);
 
   // phones: one window at a time
   tabs.forEach(function (b) {
@@ -1029,7 +1027,6 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
     if (mode === 'ring') { ringEnd(); return; }
     ghost.classList.remove('on');
     if (!pr.moved) { point(); return; }
-    if (say.textContent === HELLO) setStep(1, AGAIN);   // it is no longer where it first appeared
     // FloatingBall.dragEnded and Throw.release
     pr.samples.push({ t: e.timeStamp, x: rel(e.clientX, e.clientY).x, y: rel(e.clientX, e.clientY).y });
     var v = velocity(pr.samples), c = { x: shown.x, y: shown.y };
