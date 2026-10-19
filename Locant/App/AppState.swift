@@ -159,7 +159,8 @@ final class AppState {
         return hints
     }
 
-    /// v0.3 R20: the ball follows the Settings toggle; first launch places it at the lower right.
+    /// v0.3 R20: the ball follows the Settings toggle; first launch places it on the right edge, an
+    /// eighth of the way down (specs/ball-findable.md R102).
     private func updateBall() {
         if preferences.ballEnabled {
             guard ball == nil else { return }

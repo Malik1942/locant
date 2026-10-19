@@ -154,11 +154,17 @@ final class FloatingBall {
     }
 
     static func firstLaunchOrigin() -> CGPoint {
-        let frame = NSScreen.main?.visibleFrame ?? NSScreen.screens.first?.visibleFrame ?? .zero
-        return CGPoint(
-            x: frame.maxX - Tokens.firstLaunchInset - Tokens.diameter - Tokens.pad,
-            y: frame.minY + Tokens.firstLaunchInset - Tokens.pad
-        )
+        firstLaunchOrigin(visibleFrame: NSScreen.main?.visibleFrame ?? NSScreen.screens.first?.visibleFrame ?? .zero)
+    }
+
+    /// specs/ball-findable.md R102: whole, 24 pt in from the right edge, its center an eighth of the
+    /// way down, below the menu bar's icons and notification banners. The idle tuck then takes it
+    /// into the right edge at that height.
+    static func firstLaunchOrigin(visibleFrame frame: CGRect) -> CGPoint {
+        origin(forCenter: CGPoint(
+            x: frame.maxX - Tokens.firstLaunchInset - Tokens.diameter / 2,
+            y: frame.maxY - frame.height / 8
+        ))
     }
 
     func show(firstLaunch: Bool) {
