@@ -53,8 +53,8 @@ struct LocantApp: App {
     }
 }
 
-/// R10: Capture, Open capture folder, Settings…, Quit; v0.4 Show before & after (R44). Iterations
-/// are collected by themselves since v0.6 R52, so "See what changed" left the menu.
+/// R97: the five actions, then what they leave behind, then Settings and Help, then Quit. v0.4 Show
+/// Before & After (R44); iterations are collected by themselves since v0.6 R52.
 private struct StatusMenu: View {
     @Environment(AppState.self) private var state
     @Environment(\.openSettings) private var openSettings
@@ -62,12 +62,10 @@ private struct StatusMenu: View {
     var body: some View {
         // Hotkeys show as the menu's own key equivalents, grey and right-aligned like ⌘, and ⌘Q.
         // A double-tap has no key equivalent, so it stays in the title only when it is all Point has.
-        Button(captureTitle) {
+        Button(pointTitle) {
             state.beginCapture()
         }
-        .keyboardShortcut(captureShortcut)
-        Button("Show before & after") { state.showBeforeAfter() }
-        Divider()
+        .keyboardShortcut(pointShortcut)
         Button("Snap") { state.beginAction(.snap) }
             .keyboardShortcut(shortcut("snap"))
         Button("Text") { state.beginAction(.text) }
@@ -77,14 +75,17 @@ private struct StatusMenu: View {
         Button("Cut") { state.beginAction(.cut) }
             .keyboardShortcut(shortcut("cut"))
         Divider()
-        Button("Open capture folder") {
+        Button("Show Before & After") { state.showBeforeAfter() }
+        Button("Open Capture Folder") {
             state.openCaptureFolder()
         }
+        Divider()
         Button("Settings…") {
             NSApp.activate()
             openSettings()
         }
         .keyboardShortcut(",")
+        Button("Locant Help") { state.showHelp() }
         Divider()
         Button("Quit Locant") {
             NSApp.terminate(nil)
@@ -93,14 +94,14 @@ private struct StatusMenu: View {
     }
 
     /// The capture hotkey when it is a chord, else Point's action hotkey (⌃⌥1 by default).
-    private var captureShortcut: KeyboardShortcut? {
+    private var pointShortcut: KeyboardShortcut? {
         state.preferences.hotkey.keyboardShortcut ?? state.preferences.actionHotkeys["point"]?.keyboardShortcut
     }
 
-    /// "Capture", or "Capture (⌃⌃)" when the only hotkey is a double-tap.
-    private var captureTitle: String {
-        guard captureShortcut == nil else { return "Capture" }
-        return "Capture (\(state.preferences.hotkey.symbol))"
+    /// "Point", or "Point (⌃⌃)" when the only hotkey is a double-tap.
+    private var pointTitle: String {
+        guard pointShortcut == nil else { return "Point" }
+        return "Point (\(state.preferences.hotkey.symbol))"
     }
 
     private func shortcut(_ action: String) -> KeyboardShortcut? {
