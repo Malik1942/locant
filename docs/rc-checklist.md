@@ -6,7 +6,7 @@ specs/v0.9.md R75. Fifteen steps, in order, about twenty minutes. Each says what
 |---|---|---|
 | 1 | Download `Locant.dmg`, drag Locant to Applications, open it. Try it once with Wi-Fi off. | It opens with no "unidentified developer" or "cannot be verified" dialog, online or offline. A pointing hand appears in the menu bar; no Dock icon. |
 | 2 | Click Continue on the two permission sentences; grant Accessibility, then Screen Recording. | System Settings opens on the right list each time. After Screen Recording, Locant offers to relaunch; after that, Settings › General shows no permission rows. |
-| 3 | Close the help page that opened. | Locant Help in the menu bar brings it back. |
+| 3 | Close the help page that opened. | Settings › General › Locant Help › Show brings it back. |
 | 4 | Double-tap ⌃ (Control) over a native app: Finder, Mail, System Settings. Hover, then click a button. | The screen dims, the outline follows the cursor, the label reads `role · identifier` or a label. A note field appears; type a word, press Return. A short note sounds, and `## Locant capture` is on the clipboard (paste into TextEdit). A PNG and a JSON are in `~/Pictures/Locant`. |
 | 5 | If you have Xcode: run any app in the iOS Simulator, point at a button in it. | The label shows the identifier when the app declares one; the payload's `App:` line names the simulated app, and the mode is fix. |
 | 6 | Point at a button on a web page in Chrome, Safari, or an Electron app (VS Code, Slack). | The label carries the DOM id or class; the payload records the page URL. The first hover over Electron may take half a second. |

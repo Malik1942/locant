@@ -4,7 +4,7 @@ Every release is a signed, notarized `Locant.dmg` on [GitHub Releases](https://g
 
 ## Unreleased
 
-- **Settings say less.** Every row is a title and a control: the descriptions and footnotes are gone, the permissions show only when one is missing, and an agent that is not connected shows just Connect. Point's two hotkeys share one row, and Clear appears only while you record a key (⌫ clears too). Renamed: Trackpad taps is Haptic feedback, Collect iterations is Recapture when your app changes, Keep images is Keep captures. In the menu bar, Capture is Point and Locant Help opens the help page, now one short line per row.
+- **Settings say less.** Every row is a title and a control: the descriptions and footnotes are gone, the permissions show only when one is missing, and an agent that is not connected shows just Connect. Point's two hotkeys share one row, and Clear appears only while you record a key (⌫ clears too). Renamed: Trackpad taps is Haptic feedback, Collect iterations is Recapture when your app changes, Keep images is Keep captures. The window is one compact width, and each tab is as tall as its rows. My Apps adds an app with Choose… or, for a Simulator-only app, a bundle ID in a small alert. In the menu bar, Capture is now Point. The help page is one short line per row.
 
 ## 0.9.2 (2026-10-01)
 
