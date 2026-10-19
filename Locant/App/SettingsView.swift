@@ -283,7 +283,8 @@ struct GeneralSettings: View {
     }
 }
 
-/// R51: the capture hotkey and the five action hotkeys, with their clashes, on one tab.
+/// R51, R93: one row per action, in menu and ring order. Point's row also carries the capture
+/// hotkey, so both keys that start Point sit together; each clash shows under its row.
 struct HotkeySettings: View {
     @Environment(AppState.self) private var state
     /// R29: a warning under each hotkey row, by action name ("capture" for the capture hotkey).
@@ -293,36 +294,32 @@ struct HotkeySettings: View {
         @Bindable var preferences = state.preferences
         Form {
             Section {
-                // System Settings row: title and description in the label, the control trailing.
-                LabeledContent {
-                    HotkeyRecorder(
-                        hotkey: Binding(get: { preferences.hotkey }, set: { preferences.hotkey = $0 ?? .default }),
-                        fallback: .default,
-                        rejects: { rejection(for: $0, action: "capture") },
-                        onBegin: { state.pauseHotkey() }, onEnd: { state.resumeHotkey() }
-                    )
-                } label: {
-                    Text("Capture hotkey")
-                    Text("Press a key with modifiers, or double-tap one modifier. Double-tap Command is used by Codex; double-tap Option by Claude Desktop.")
-                    if let warning = conflicts["capture"] { ConflictNote(text: warning) }
-                }
-            }
-            Section {
                 ForEach(Preferences.hotkeyActions, id: \.self) { action in
+                    // System Settings row: the title leading, the recorders trailing.
                     LabeledContent {
-                        HotkeyRecorder(
-                            hotkey: Binding(get: { preferences.actionHotkeys[action] }, set: { preferences.setActionHotkey($0, for: action) }),
-                            fallback: Preferences.defaultActionHotkey(action),
-                            clearable: true,
-                            rejects: { rejection(for: $0, action: action) },
-                            onBegin: { state.pauseHotkey() }, onEnd: { state.resumeHotkey() }
-                        )
+                        HStack(spacing: 8) {
+                            if action == "point" {
+                                HotkeyRecorder(
+                                    hotkey: Binding(get: { preferences.hotkey }, set: { preferences.hotkey = $0 ?? .default }),
+                                    fallback: .default,
+                                    rejects: { rejection(for: $0, action: "capture") },
+                                    onBegin: { state.pauseHotkey() }, onEnd: { state.resumeHotkey() }
+                                )
+                            }
+                            HotkeyRecorder(
+                                hotkey: Binding(get: { preferences.actionHotkeys[action] }, set: { preferences.setActionHotkey($0, for: action) }),
+                                fallback: Preferences.defaultActionHotkey(action),
+                                clearable: true,
+                                rejects: { rejection(for: $0, action: action) },
+                                onBegin: { state.pauseHotkey() }, onEnd: { state.resumeHotkey() }
+                            )
+                        }
                     } label: {
                         Text(action.capitalized)
+                        if action == "point", let warning = conflicts["capture"] { ConflictNote(text: warning) }
                         if let warning = conflicts[action] { ConflictNote(text: warning) }
                     }
                 }
-                Footnote(text: "Control-Option and the action's number, in menu order; the ring shows each number. Point also answers to the capture hotkey above. Snap, Text, Color, and Cut are on the ball too: press and hold it.")
             }
         }
         .formStyle(.grouped)
