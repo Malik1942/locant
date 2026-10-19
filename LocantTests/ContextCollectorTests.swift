@@ -6,22 +6,30 @@ import XCTest
 final class ContextCollectorTests: XCTestCase {
     private let iPhone = SimulatorApps.Device(udid: "0EBF66EE-3E7D-48F9-9D44-E7B1A58DACF1", name: "iPhone 17 Pro")
     private let iPad = SimulatorApps.Device(udid: "5EDCDCC1-50FF-42FF-A34F-8004735D9FBF", name: "iPad Pro 13-inch (M5)")
+    private let oryne = SimulatorApps.RunningApp(
+        bundleId: "com.inspireocean.app",
+        bundlePath: "/Users/me/Library/Developer/CoreSimulator/Devices/0EBF66EE-3E7D-48F9-9D44-E7B1A58DACF1/data/Containers/Bundle/Application/6B736A38/Oryne.app"
+    )
 
     /// Xcode 27: Device Hub shows a booted simulator, its window titled "device – OS"; the app is the
-    /// newest one on that device.
+    /// newest one on that device, and its running copy is the build on screen
+    /// (specs/simulator-project-root.md R105).
     func testDeviceHubWindowShowingABootedSimulator() {
         var asked: [String?] = []
-        let info = ContextCollector.simulatorInfo(bundleId: "com.apple.dt.Devices", windowTitle: "iPhone 17 Pro – iOS 26.5",
-                                                  booted: { [iPhone, iPad] }, simulatedApp: { asked.append($0); return "com.inspireocean.app" })
-        XCTAssertEqual(info, SimulatorInfo(device: "iPhone 17 Pro", appBundleId: "com.inspireocean.app"))
+        let shown = ContextCollector.simulatorInfo(bundleId: "com.apple.dt.Devices", windowTitle: "iPhone 17 Pro – iOS 26.5",
+                                                   booted: { [iPhone, iPad] }, simulatedApp: { asked.append($0); return oryne })
+        XCTAssertEqual(shown?.info, SimulatorInfo(device: "iPhone 17 Pro", appBundleId: "com.inspireocean.app"))
+        XCTAssertEqual(shown?.bundlePath, oryne.bundlePath)
         XCTAssertEqual(asked, [iPhone.udid])
     }
 
     func testDeviceHubTakesTheAppFromTheDeviceItShows() {
         var asked: [String?] = []
-        let info = ContextCollector.simulatorInfo(bundleId: "com.apple.dt.Devices", windowTitle: "iPad Pro 13-inch (M5) – iPadOS 26.5",
-                                                  booted: { [iPhone, iPad] }, simulatedApp: { asked.append($0); return nil })
-        XCTAssertEqual(info, SimulatorInfo(device: "iPad Pro 13-inch (M5)", appBundleId: nil))
+        let shown = ContextCollector.simulatorInfo(bundleId: "com.apple.dt.Devices", windowTitle: "iPad Pro 13-inch (M5) – iPadOS 26.5",
+                                                   booted: { [iPhone, iPad] }, simulatedApp: { asked.append($0); return nil })
+        XCTAssertEqual(shown?.info, SimulatorInfo(device: "iPad Pro 13-inch (M5)", appBundleId: nil))
+        XCTAssertNotNil(shown)
+        XCTAssertNil(shown?.bundlePath)
         XCTAssertEqual(asked, [iPad.udid])
     }
 
@@ -29,9 +37,9 @@ final class ContextCollectorTests: XCTestCase {
     func testDeviceHubShowingAnythingElseIsNotTheSimulator() {
         var scanned = false
         for title in ["Malik’s iPhone – iOS 27.0", "iPhone 17 – iOS 26.5", "iPhone 17 Pro Max – iOS 26.5", "Device Hub", nil] {
-            let info = ContextCollector.simulatorInfo(bundleId: "com.apple.dt.Devices", windowTitle: title,
-                                                      booted: { [iPhone] }, simulatedApp: { _ in scanned = true; return "com.inspireocean.app" })
-            XCTAssertNil(info, title ?? "no title")
+            let shown = ContextCollector.simulatorInfo(bundleId: "com.apple.dt.Devices", windowTitle: title,
+                                                       booted: { [iPhone] }, simulatedApp: { _ in scanned = true; return oryne })
+            XCTAssertNil(shown, title ?? "no title")
         }
         XCTAssertFalse(scanned)
     }
@@ -39,18 +47,19 @@ final class ContextCollectorTests: XCTestCase {
     /// Xcode 26 and earlier: Simulator.app shows nothing but simulators, so it needs no device set.
     func testSimulatorAppWindowIsTheSimulator() {
         var asked: [String?] = []
-        let info = ContextCollector.simulatorInfo(bundleId: "com.apple.iphonesimulator", windowTitle: "iPhone 17 Pro",
-                                                  booted: { XCTFail("Simulator.app needs no device set"); return [] },
-                                                  simulatedApp: { asked.append($0); return nil })
-        XCTAssertEqual(info, SimulatorInfo(device: "iPhone 17 Pro", appBundleId: nil))
+        let shown = ContextCollector.simulatorInfo(bundleId: "com.apple.iphonesimulator", windowTitle: "iPhone 17 Pro",
+                                                   booted: { XCTFail("Simulator.app needs no device set"); return [] },
+                                                   simulatedApp: { asked.append($0); return oryne })
+        XCTAssertEqual(shown?.info, SimulatorInfo(device: "iPhone 17 Pro", appBundleId: "com.inspireocean.app"))
+        XCTAssertEqual(shown?.bundlePath, oryne.bundlePath)
         XCTAssertEqual(asked, [nil], "the newest app on any device, as before")
     }
 
     func testOtherAppsShowNoSimulatorAndReadNothing() {
         var read = false
-        let info = ContextCollector.simulatorInfo(bundleId: "com.apple.Safari", windowTitle: "iPhone 17 Pro – iOS 26.5",
-                                                  booted: { read = true; return [] }, simulatedApp: { _ in read = true; return "com.inspireocean.app" })
-        XCTAssertNil(info)
+        let shown = ContextCollector.simulatorInfo(bundleId: "com.apple.Safari", windowTitle: "iPhone 17 Pro – iOS 26.5",
+                                                   booted: { read = true; return [] }, simulatedApp: { _ in read = true; return oryne })
+        XCTAssertNil(shown)
         XCTAssertFalse(read)
     }
 
