@@ -290,7 +290,8 @@ struct HotkeySettings: View {
     }
 }
 
-/// R51: where captures go and how they are kept, iterations (R52), the selection handles, and the Color format.
+/// R51, R94: where captures go and how long they stay, the selection handles and recapturing, and
+/// the Color format.
 struct CaptureSettings: View {
     @Environment(AppState.self) private var state
 
@@ -298,55 +299,42 @@ struct CaptureSettings: View {
         @Bindable var preferences = state.preferences
         Form {
             Section {
-                LabeledContent("Capture folder") {
-                    HStack {
-                        TextField("", text: .constant(preferences.captureFolder))
-                            .textFieldStyle(.roundedBorder)
-                            .disabled(true)
+                LabeledContent("Save to") {
+                    HStack(spacing: 8) {
+                        Text((preferences.captureFolder as NSString).abbreviatingWithTildeInPath)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
                         Button("Choose…") { chooseFolder(preferences) }
                     }
                 }
-                Picker("Organize captures", selection: $preferences.organization) {
+                Picker("Organize", selection: $preferences.organization) {
                     ForEach(CaptureOrganization.allCases, id: \.self) { option in
                         Text(option.title).tag(option)
                     }
                 }
-                .pickerStyle(.menu)
-                Picker("Keep images", selection: $preferences.retentionDays) {
+                Picker("Keep captures", selection: $preferences.retentionDays) {
                     ForEach(Preferences.retentionChoices, id: \.self) { days in
                         Text(days == 0 ? "Forever" : "\(days) days").tag(days)
                     }
                 }
-                .pickerStyle(.menu)
-                Footnote(text: "Each capture writes a PNG and a JSON sidecar here. Finder tags are always added: Locant, the app, fix or reference, and the project when known. Older images go to the Trash; captures an agent marked resolved stay.")
             }
             Section {
-                Toggle(isOn: $preferences.collectsIterations) {
-                    Text("Collect iterations")
-                    Text("After you point at an element in an app you build, each time that app launches or comes to the front within a day, Locant captures the element again and keeps the git diff, when it looks different. See them with Show before & after in the menu bar.")
-                }
-                .toggleStyle(.switch)
-            }
-            Section {
-                Toggle(isOn: $preferences.adjustSelection) {
-                    Text("Adjust selection before capturing")
-                    Text("After you drag a region for Snap, Text, or Cut, handles let you fine-tune it. Press Return to capture, Esc to cancel.")
-                }
-                .toggleStyle(.switch)
+                Toggle("Adjust selection before capturing", isOn: $preferences.adjustSelection)
+                Toggle("Recapture when your app changes", isOn: $preferences.collectsIterations)
             }
             Section {
                 Picker("Color format", selection: $preferences.colorFormat) {
                     ForEach(ColorFormat.allCases, id: \.self) { Text($0.title).tag($0) }
                 }
-                .pickerStyle(.menu)
                 Picker("Color space", selection: $preferences.colorSpace) {
                     ForEach(ColorSpaceChoice.allCases, id: \.self) { Text($0.title).tag($0) }
                 }
-                .pickerStyle(.menu)
-                Footnote(text: "The Color action copies the pixel under the cursor in this format.")
             }
         }
         .formStyle(.grouped)
+        .pickerStyle(.menu)
+        .toggleStyle(.switch)
     }
 
     private func chooseFolder(_ preferences: Preferences) {
