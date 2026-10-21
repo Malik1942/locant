@@ -13,6 +13,8 @@ struct CroppedImage: Sendable {
 
 enum ScreenCaptureFailure: Error {
     case noDisplay
+    /// specs/capture-recovery.md R109: ScreenCaptureKit lists no displays while the Mac has some.
+    case serviceStuck
     case cropOutsideImage
     case pngEncodingFailed
 }
@@ -26,9 +28,31 @@ enum ScreenCapture {
     @discardableResult
     static func requestPermission() -> Bool { CGRequestScreenCaptureAccess() }
 
+    /// R109: replayd, the process behind ScreenCaptureKit, can go stale (seen after a sleep and a
+    /// monitor reconnect) and list windows but no displays, though the Mac has some.
+    static func isServiceStuck(captureDisplays: Int, activeDisplays: Int) -> Bool {
+        captureDisplays == 0 && activeDisplays > 0
+    }
+
+    /// CoreGraphics' count of active displays; needs no permission.
+    static func activeDisplayCount() -> Int {
+        var count: UInt32 = 0
+        guard CGGetActiveDisplayList(0, nil, &count) == .success else { return 0 }
+        return Int(count)
+    }
+
+    /// Every capture asks here first, so an empty display list always says why.
+    private static func shareableContent() async throws -> SCShareableContent {
+        let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+        guard content.displays.isEmpty else { return content }
+        throw isServiceStuck(captureDisplays: 0, activeDisplays: activeDisplayCount())
+            ? ScreenCaptureFailure.serviceStuck
+            : ScreenCaptureFailure.noDisplay
+    }
+
     /// The whole display containing `point`, own windows excluded, with its frame and scale.
     static func displayImage(containing point: CGPoint) async throws -> (image: CGImage, frame: CGRect, scale: CGFloat) {
-        let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+        let content = try await shareableContent()
         guard let display = content.displays.first(where: { $0.frame.contains(point) }) ?? content.displays.first else {
             throw ScreenCaptureFailure.noDisplay
         }
@@ -48,7 +72,7 @@ enum ScreenCapture {
 
     /// Captures `rect` (global screen points) from the display that contains its center.
     static func crop(_ rect: CGRect) async throws -> CroppedImage {
-        let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+        let content = try await shareableContent()
         let center = CGPoint(x: rect.midX, y: rect.midY)
         guard let display = content.displays.first(where: { $0.frame.contains(center) }) ?? content.displays.first else {
             throw ScreenCaptureFailure.noDisplay

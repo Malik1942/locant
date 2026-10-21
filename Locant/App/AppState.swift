@@ -1032,7 +1032,7 @@ final class AppState {
                     reset()
                 }
             } catch {
-                fail(.captureFailed(error), nearRect: crop)
+                fail(.capturing(error), nearRect: crop)
             }
         }
     }
@@ -1115,7 +1115,7 @@ final class AppState {
                     showAgentHintIfNeeded()
                 }
             } catch {
-                fail(.captureFailed(error), nearRect: anchor)
+                fail(.capturing(error), nearRect: anchor)
             }
         }
     }
@@ -1166,7 +1166,7 @@ final class AppState {
         switch error {
         case .noAccessibilityPermission: openSettingsOnce(pane: "Privacy_Accessibility")
         case .noScreenRecordingPermission: openSettingsOnce(pane: "Privacy_ScreenCapture")
-        case .noElementUnderCursor, .captureFailed: break
+        case .noElementUnderCursor, .captureFailed, .captureServiceStuck: break
         }
     }
 
