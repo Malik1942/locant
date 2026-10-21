@@ -30,4 +30,17 @@ final class CaptureRecoveryTests: XCTestCase {
     func testStuckServiceMessage() {
         XCTAssertEqual(CaptureError.captureServiceStuck.message, "macOS screen capture stopped responding")
     }
+
+    // R112: recovered once ScreenCaptureKit lists a display again.
+    func testOutcomeAfterTheRecheck() {
+        XCTAssertEqual(CaptureRecovery.outcome(displaysAfter: 1), .recovered)
+        XCTAssertEqual(CaptureRecovery.outcome(displaysAfter: 3), .recovered)
+        XCTAssertEqual(CaptureRecovery.outcome(displaysAfter: 0), .restartMac)
+    }
+
+    // R114: without the launch argument, nothing is simulated.
+    @MainActor
+    func testSimulationIsOffWithoutTheLaunchArgument() {
+        XCTAssertFalse(StuckSimulation.isActive)
+    }
 }

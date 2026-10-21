@@ -43,11 +43,19 @@ enum ScreenCapture {
 
     /// Every capture asks here first, so an empty display list always says why.
     private static func shareableContent() async throws -> SCShareableContent {
+        #if DEBUG
+        if await StuckSimulation.isActive { throw ScreenCaptureFailure.serviceStuck }
+        #endif
         let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
         guard content.displays.isEmpty else { return content }
         throw isServiceStuck(captureDisplays: 0, activeDisplays: activeDisplayCount())
             ? ScreenCaptureFailure.serviceStuck
             : ScreenCaptureFailure.noDisplay
+    }
+
+    /// R112: how many displays ScreenCaptureKit lists now; 0 when it lists none or fails.
+    static func capturableDisplayCount() async -> Int {
+        (try? await shareableContent().displays.count) ?? 0
     }
 
     /// The whole display containing `point`, own windows excluded, with its frame and scale.
@@ -107,3 +115,24 @@ enum ScreenCapture {
         return CroppedImage(png: png, widthPt: visible.width, heightPt: visible.height, scale: Double(scale), crop: visible)
     }
 }
+
+#if DEBUG
+/// specs/capture-recovery.md R114: `-simulateStuckCapture once|always` makes every capture throw
+/// `.serviceStuck` without asking ScreenCaptureKit. `once` ends at the first restart (R112);
+/// `always` lasts until quit. Debug builds only.
+@MainActor
+enum StuckSimulation {
+    private static let mode = UserDefaults.standard.string(forKey: "simulateStuckCapture")
+    private static var restarted = false
+
+    static var isActive: Bool {
+        switch mode {
+        case "always": true
+        case "once": !restarted
+        default: false
+        }
+    }
+
+    static func noteRestart() { restarted = true }
+}
+#endif
