@@ -31,9 +31,15 @@
 - **Side padding is the site's 20 px**, not the spec's 16 px, so the two pages share edges.
 - **Locant's Project line is not trusted for which build was on screen.** For 9 of the 18 captures it names the Watch worktree, whose branch does not have the redesign; the images (for example `q9d4`'s serif "Drifted in") show the redesign build. Locator builds therefore come from `feat/site-new-app` by time, not from the sidecar's `gitCommit`.
 
+## Checkpoint answers (Oct 21, 2026)
+
+- Malik took all twelve defaults: row 10 cropped to 91% via `keep_w`; the payload kept verbatim; the thoughts published; six close-ups; the hero's Tide screen on top; the copy, the voice-note line and the home link kept; row 7's gloss dropped; `og.jpg` at 1200×630.
+- The working folder moved to `~/Library/Caches/oryne-story/work`.
+- After the final review, three honesty changes: the setup says most captures were pointed and a few were asked for in plain text or with Snap; the hero's fine print says the difference is everything committed between the two screens, typed requests included; and the payload section drops "I didn't have to say which button I meant" and adds that the Project line named the wrong worktree on nine other captures (PR #66). The home link now reads "See it on a real tweak pass".
+
 ## File Structure
 
-Working folder `~/Library/Caches/oryne-story/work/` (outside every repo, like `~/Desktop/locant-film/`):
+Working folder `~/Library/Caches/oryne-story/work/` (outside every repo):
 
 | Path | Responsibility |
 |---|---|

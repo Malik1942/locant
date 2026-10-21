@@ -1,6 +1,6 @@
 # Oryne story page: design
 
-**Date:** 2026-10-19 · **Branch:** `am/locant-oryne-redesign-story-f88439` · **Status:** design approved in chat on 2026-10-19. This spec waits for Malik's review. No images are built and no page is written before that.
+**Date:** 2026-10-19 · **Branch:** `am/locant-oryne-redesign-story-f88439` · **Status:** design approved in chat on 2026-10-19 and built; Malik's answers at the Oct 21 checkpoint are recorded in the plan.
 
 ## Goal
 
