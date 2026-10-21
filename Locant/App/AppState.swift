@@ -890,6 +890,7 @@ final class AppState {
             let display = SelectionOverlay.displayFrameCG(containing: point)
             let rect = Geometry.cropRect(element: element?.frame.cgRect, clickPoint: point, window: window?.bounds, display: display)
             cropTask = Task { try await ScreenCapture.crop(rect) }
+            watchForStuckCapture()
 
             overlay.setHighlight(element?.frame.cgRect, readout: .describing(element), around: point)
             showNoteField(anchoredTo: element?.frame.cgRect, around: point)
@@ -915,6 +916,7 @@ final class AppState {
         let rects = Geometry.cropRects(for: frames, display: display, displayFor: SelectionOverlay.displayFrameCG(containing:))
         cropTask = Task { try await ScreenCapture.crop(rects[0]) }
         extraCropTasks = rects.dropFirst().map { rect in Task { try await ScreenCapture.crop(rect) } }
+        watchForStuckCapture()
 
         overlay.setPinned(frames)
         overlay.setHighlight(last.frame.cgRect, readout: .describing(last), around: point)
@@ -966,6 +968,7 @@ final class AppState {
             let display = SelectionOverlay.displayFrameCG(containing: clickPoint)
             let crop = Geometry.cropRect(element: rect, clickPoint: clickPoint, window: nil, display: display, padding: 0)
             cropTask = Task { try await ScreenCapture.crop(crop) }
+            watchForStuckCapture()
 
             overlay.showMarks(elements.map { $0.frame.cgRect })
             showNoteField(anchoredTo: rect, around: clickPoint)
@@ -1158,15 +1161,77 @@ final class AppState {
 
     // MARK: Failure (R9)
 
+    /// specs/capture-recovery.md R110: Point's crops run at the click. A stuck capture service stops
+    /// the session then, before the note is typed, instead of at Enter. Other failures still wait
+    /// for Enter (R9); a session that ended or moved on is left alone.
+    private func watchForStuckCapture() {
+        let tasks = [cropTask].compactMap { $0 } + extraCropTasks
+        guard let first = tasks.first else { return }
+        let anchor = SelectionOverlay.fallbackRect(around: clickPoint)
+        Task {
+            for task in tasks {
+                guard case .failure(let error) = await task.result,
+                      case .captureServiceStuck = CaptureError.capturing(error) else { continue }
+                guard phase == .noting, cropTask == first else { return }
+                fail(.captureServiceStuck, nearRect: anchor)
+                return
+            }
+        }
+    }
+
     private func fail(_ error: CaptureError, nearRect anchor: CGRect?) {
+        // specs/capture-recovery.md R113: what to begin again after a restart, read before reset clears it.
+        let failedAction = action
+        let sourcePID = context?.frontPID
         reset()
         let rect = anchor ?? Self.mainScreenCenterCG()
+        if case .captureServiceStuck = error {
+            feedback?.play(.missed) // v0.8.1 R60
+            offerCaptureRestart(retrying: failedAction, sourcePID: sourcePID, near: rect)
+            return
+        }
         toast.show(HudText.plain(error.message), near: rect)
         feedback?.play(.missed) // v0.8.1 R60
         switch error {
         case .noAccessibilityPermission: openSettingsOnce(pane: "Privacy_Accessibility")
         case .noScreenRecordingPermission: openSettingsOnce(pane: "Privacy_ScreenCapture")
         case .noElementUnderCursor, .captureFailed, .captureServiceStuck: break
+        }
+    }
+
+    /// R111–R113: the alert, the restart, and the same action again once displays are back.
+    private func offerCaptureRestart(retrying failed: Action, sourcePID: pid_t?, near rect: CGRect) {
+        let alert = NSAlert()
+        alert.messageText = "macOS screen capture stopped responding"
+        alert.informativeText = "Locant can restart it. Any screen recording or sharing in progress will stop."
+        alert.addButton(withTitle: "Restart Screen Capture")
+        alert.addButton(withTitle: "Not Now")
+        NSApp.activate()
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        // Up past the 3 s re-check (R112); taken down as soon as it ends.
+        toast.show(HudText.plain("Restarting screen capture…"), near: rect, life: 5)
+        Task {
+            let outcome = await CaptureRecovery.restart()
+            toast.hide()
+            guard outcome == .recovered else {
+                inform("Screen capture still isn't responding", detail: "Restart your Mac to fix it.")
+                return
+            }
+            await returnFocus(to: sourcePID)
+            toast.show(HudText.plain("Screen capture restarted"), near: rect)
+            beginAction(failed)
+        }
+    }
+
+    /// R113: `ContextCollector.collect` takes the frontmost app as the source, which after the alert
+    /// is Locant. Hand focus back to the app the capture began over and wait up to a second for it.
+    private func returnFocus(to pid: pid_t?) async {
+        guard let pid, pid != ownPID, let app = NSRunningApplication(processIdentifier: pid) else { return }
+        _ = app.activate(options: [])
+        var waited = 0
+        while NSWorkspace.shared.frontmostApplication?.processIdentifier != pid, waited < 20 {
+            try? await Task.sleep(for: .milliseconds(50))
+            waited += 1
         }
     }
 
