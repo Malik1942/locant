@@ -4,7 +4,7 @@
 
 **Goal:** Build `locant.malikzhang.com/oryne/`, a page that tells the Oct 18, 2026 tweak pass on Oryne (22:18 to 23:57) capture by capture, from Locant's own files, the Claude Code chats, and git.
 
-**Architecture:** Every fact lives in one generated file, `~/Desktop/oryne-story/facts.json`, built from the sources and checked against them. Images come from Locant's capture PNGs (befores) and from 11 historical Oryne builds run on a throwaway simulator that holds a copy of Malik's data (afters). A small script fills the page's timeline and close-ups from `facts.json`; the rest of the page is hand-written static HTML in the site's style.
+**Architecture:** Every fact lives in one generated file, `~/Library/Caches/oryne-story/work/facts.json`, built from the sources and checked against them. Images come from Locant's capture PNGs (befores) and from 11 historical Oryne builds run on a throwaway simulator that holds a copy of Malik's data (afters). A small script fills the page's timeline and close-ups from `facts.json`; the rest of the page is hand-written static HTML in the site's style.
 
 **Tech Stack:** Static HTML/CSS (no build step, as the site), Python 3 with numpy and Pillow (already in the user site-packages), zsh, `xcrun simctl`, XcodeGen, `xcodebuild`, Node 26 + headless Chrome over CDP for render checks.
 
@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - Read only, never written: `/Users/malik/Documents/inspire-ocean` (only `git archive`, `git log`, `git rev-parse`, `git merge-base`), Malik's simulator `0EBF66EE-3E7D-48F9-9D44-E7B1A58DACF1`, `~/Pictures/Locant`, the chats in `~/.claude/projects/-Users-malik-Documents-inspire-ocean--claude-worktrees-oryne-product-opportunities-a913cb/`.
-- Working files only in `~/Desktop/oryne-story/` (written `W` below), except build products and DerivedData, which live in `~/Library/Caches/oryne-story/` (code signing fails under `~/Desktop`). Create folders by testing with `[ -e path ]` first and then plain `mkdir` (APFS is case-insensitive).
+- Working files only in `~/Library/Caches/oryne-story/work/` (written `W` below); build products and DerivedData in `~/Library/Caches/oryne-story/{builds,dd}`. Nothing under `~/Desktop`: it is iCloud-synced, code signing fails there, and iCloud offloads files inside `.git` (moved Oct 21, 2026). Create folders by testing with `[ -e path ]` first and then plain `mkdir` (APFS is case-insensitive).
 - Locant repo changes only: `site/oryne/index.html`, `site/oryne/assets/*.webp`, one line in `site/index.html`, and this plan. Commit messages in the form `area: what changed`.
 - **The Locant repo is public: pushing publishes.** No push and no PR before Malik says yes at the Task 10 checkpoint. Malik merges.
 - **Never sign the story simulator into iCloud.** Its store is CloudKit-backed; an old build syncing could write into Malik's real Ocean.
@@ -33,7 +33,7 @@
 
 ## File Structure
 
-Working folder `~/Desktop/oryne-story/` (outside every repo, like `~/Desktop/locant-film/`):
+Working folder `~/Library/Caches/oryne-story/work/` (outside every repo, like `~/Desktop/locant-film/`):
 
 | Path | Responsibility |
 |---|---|
@@ -75,7 +75,7 @@ Locant repo (this worktree):
 - [ ] **Step 1: Create the working folder**
 
 ```bash
-[ -e ~/Desktop/oryne-story ] && echo EXISTS || mkdir ~/Desktop/oryne-story && cd ~/Desktop/oryne-story && mkdir bin tests builds src shots out render && echo made
+[ -e ~/Library/Caches/oryne-story/work ] && echo EXISTS || mkdir ~/Library/Caches/oryne-story/work && cd ~/Library/Caches/oryne-story/work && mkdir bin tests builds src shots out render && echo made
 ```
 Expected: `made`. If it prints `EXISTS`, stop and ask Malik.
 
@@ -122,7 +122,7 @@ if __name__ == "__main__":
 
 - [ ] **Step 3: Run it to see it fail**
 
-Run: `cd ~/Desktop/oryne-story && python3 -m unittest tests/test_make_facts.py`
+Run: `cd ~/Library/Caches/oryne-story/work && python3 -m unittest tests/test_make_facts.py`
 Expected: `ModuleNotFoundError: No module named 'make_facts'`
 
 - [ ] **Step 4: Write `W/bin/make_facts.py`**
@@ -136,7 +136,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 PT = ZoneInfo("America/Los_Angeles")
-W = os.path.expanduser("~/Desktop/oryne-story")
+W = os.path.expanduser("~/Library/Caches/oryne-story/work")
 CAPS = os.path.expanduser("~/Pictures/Locant")
 CHATS = os.path.expanduser(
     "~/.claude/projects/-Users-malik-Documents-inspire-ocean--claude-worktrees-oryne-product-opportunities-a913cb")
@@ -256,7 +256,7 @@ if __name__ == "__main__":
 
 - [ ] **Step 5: Run the tests**
 
-Run: `cd ~/Desktop/oryne-story && python3 -m unittest tests/test_make_facts.py`
+Run: `cd ~/Library/Caches/oryne-story/work && python3 -m unittest tests/test_make_facts.py`
 Expected: `Ran 3 tests … OK`
 
 - [ ] **Step 6: Write the first `W/notes.json`** (the featured rows' screens and labels, the spec's draft translations; Task 2 completes it)
@@ -282,7 +282,7 @@ Expected: `Ran 3 tests … OK`
 
 - [ ] **Step 7: Generate facts.json and compare with the spec**
 
-Run: `cd ~/Desktop/oryne-story && python3 bin/make_facts.py; python3 -c "import json; [print(r['n'], r['pointed'], r['pasted'], ' '.join(a['hash']+' '+a['time'] for a in r['answers'])) for r in json.load(open('facts.json'))['rows']]"`
+Run: `cd ~/Library/Caches/oryne-story/work && python3 bin/make_facts.py; python3 -c "import json; [print(r['n'], r['pointed'], r['pasted'], ' '.join(a['hash']+' '+a['time'] for a in r['answers'])) for r in json.load(open('facts.json'))['rows']]"`
 
 Expected: exit 1 with exactly three problems (`row 1/7/18: answer not confirmed against the chat yet`), then these lines, which must match the spec's facts table:
 ```
@@ -374,12 +374,12 @@ main()
 
 - [ ] **Step 2: Confirm rows 1, 7, 18**
 
-Run each: `cd ~/Desktop/oryne-story && python3 bin/chat_after.py 20261018-221831-9xck 10`, then `… 20261018-230510-w4n4 10`, then `… 20261018-234349-fqpv 10`.
+Run each: `cd ~/Library/Caches/oryne-story/work && python3 bin/chat_after.py 20261018-221831-9xck 10`, then `… 20261018-230510-w4n4 10`, then `… 20261018-234349-fqpv 10`.
 For each, find the assistant message that says it made the change, and the first commit after it. Check with `git -C /Users/malik/Documents/inspire-ocean log --format='%h %cd %s' --date=format:%H:%M feat/site-new-app --since='2026-10-18 22:00' --until='2026-10-19 00:00'`. Edit `ROWS` in `bin/make_facts.py` if the answer differs from the spec's candidate, then remove the row from `CONFIRM`. If rows 7 or 18 have a chat line saying what Malik wanted, put it in `notes.json` as `"chat_note"` (verbatim, with the time as `"chat_note_time"`).
 
 - [ ] **Step 3: Decide the left-out captures**
 
-Run: `cd ~/Desktop/oryne-story && python3 bin/chat_after.py "Sort and filter" 6; python3 bin/chat_after.py "nav bar" 6`
+Run: `cd ~/Library/Caches/oryne-story/work && python3 bin/chat_after.py "Sort and filter" 6; python3 bin/chat_after.py "nav bar" 6`
 If neither shows Malik pasting `20261019-001144-3839`, `20261019-001147-0ifo` or `20261019-015127-f9j7` into a chat before 23:57, they stay out (the spec's default). Write the result in one line in your report.
 
 - [ ] **Step 4: Name each row's screen and label**
@@ -403,7 +403,7 @@ For rows 4, 8, 12, 14, 15, 17 run `python3 bin/chat_after.py <capture id> 8` and
 
 - [ ] **Step 6: Regenerate and check**
 
-Run: `cd ~/Desktop/oryne-story && python3 bin/make_facts.py && python3 -c "import json; rows=json.load(open('facts.json'))['rows']; missing=[r['n'] for r in rows if not r.get('screen') or not r.get('label')]; print('missing', missing)"`
+Run: `cd ~/Library/Caches/oryne-story/work && python3 bin/make_facts.py && python3 -c "import json; rows=json.load(open('facts.json'))['rows']; missing=[r['n'] for r in rows if not r.get('screen') or not r.get('label')]; print('missing', missing)"`
 Expected: `18 rows, 0 problems` and `missing []`.
 
 ---
@@ -425,7 +425,7 @@ Expected: `18 rows, 0 problems` and `missing []`.
 # The custom DerivedData path keeps these builds away from the one Locant reads for its Project line.
 set -euo pipefail
 h=$1
-W=~/Desktop/oryne-story
+W=~/Library/Caches/oryne-story/work
 R=/Users/malik/Documents/inspire-ocean
 B=~/Library/Caches/oryne-story
 out=$B/builds/$h
@@ -447,12 +447,12 @@ echo "built $h -> $out/Oryne.app"
 
 - [ ] **Step 2: Build one and check it**
 
-Run: `~/Desktop/oryne-story/bin/build.sh d854071 && plutil -extract CFBundleIdentifier raw ~/Library/Caches/oryne-story/builds/d854071/Oryne.app/Info.plist`
+Run: `~/Library/Caches/oryne-story/work/bin/build.sh d854071 && plutil -extract CFBundleIdentifier raw ~/Library/Caches/oryne-story/builds/d854071/Oryne.app/Info.plist`
 Expected: `built d854071 -> …` then `com.inspireocean.app`. If the product has another name, `ls ~/Library/Caches/oryne-story/dd/Build/Products/Debug-iphonesimulator/` and fix the `cp` line.
 
 - [ ] **Step 3: Build the rest** (run in the background; about 3–5 minutes each)
 
-Run: `for h in f271e77 dbdc73f f73eb28 8de92c3 9355f69 04b9cc2 b2dd87f 7285f2b 74455d5 b15f960; do ~/Desktop/oryne-story/bin/build.sh $h || echo "FAILED $h"; done`
+Run: `for h in f271e77 dbdc73f f73eb28 8de92c3 9355f69 04b9cc2 b2dd87f 7285f2b 74455d5 b15f960; do ~/Library/Caches/oryne-story/work/bin/build.sh $h || echo "FAILED $h"; done`
 Expected: 10 `built …` lines, no `FAILED`.
 
 ---
@@ -473,7 +473,7 @@ Expected: 10 `built …` lines, no `FAILED`.
 # The "Oryne story" simulator: a new iPhone 17 Pro holding a copy of Malik's data.
 # NEVER sign it into iCloud: the store is CloudKit-backed.
 set -euo pipefail
-W=~/Desktop/oryne-story
+W=~/Library/Caches/oryne-story/work
 SRC_DEV=0EBF66EE-3E7D-48F9-9D44-E7B1A58DACF1   # Malik's iPhone 17 Pro: read only
 BUNDLE=com.inspireocean.app
 GROUP=group.com.inspireocean.shared
@@ -538,18 +538,18 @@ esac
 
 - [ ] **Step 2: Create the simulator and copy the data**
 
-Run: `cd ~/Desktop/oryne-story && chmod +x bin/*.sh && bin/sim.sh create && bin/sim.sh snapshot`
+Run: `cd ~/Library/Caches/oryne-story/work && chmod +x bin/*.sh && bin/sim.sh create && bin/sim.sh snapshot`
 Expected: `created <UDID>` then `15|0` (15 thoughts, none of them examples). A different count is fine if Malik added thoughts since Oct 19; a non-zero second number means example data, so stop and report.
 
 - [ ] **Step 3: First install and the data check**
 
-Run: `cd ~/Desktop/oryne-story && bin/sim.sh install d854071 && bin/sim.sh launch library`
-Then, in a separate call (the round trip gives the app time to load; agent shells block `sleep`): `cd ~/Desktop/oryne-story && bin/sim.sh count && bin/sim.sh shot check library`
+Run: `cd ~/Library/Caches/oryne-story/work && bin/sim.sh install d854071 && bin/sim.sh launch library`
+Then, in a separate call (the round trip gives the app time to load; agent shells block `sleep`): `cd ~/Library/Caches/oryne-story/work && bin/sim.sh count && bin/sim.sh shot check library`
 Expected: `installed d854071`, a launch line, then the same `N|0` as Step 2 (the app did not seed examples) and a PNG path. View `shots/check/library.png` with the Read tool: the Library shows Malik's thoughts (for example "Screenshot with context"), no onboarding. If onboarding shows or the Library is empty, stop and report: the store or the preferences are not where `sim.sh restore` puts them.
 
 - [ ] **Step 4: Confirm no iCloud account**
 
-Never open Settings › Apple Account on this simulator. Run: `xcrun simctl spawn $(cat ~/Desktop/oryne-story/udid) defaults read MobileMeAccounts 2>&1 | head -3`
+Never open Settings › Apple Account on this simulator. Run: `xcrun simctl spawn $(cat ~/Library/Caches/oryne-story/work/udid) defaults read MobileMeAccounts 2>&1 | head -3`
 Expected: an error saying the domain does not exist, or an empty `Accounts` list.
 
 ---
@@ -571,7 +571,7 @@ Expected: an error saying the domain does not exist, or an empty `Accounts` list
 import json, os
 from collections import defaultdict
 
-W = os.path.expanduser("~/Desktop/oryne-story")
+W = os.path.expanduser("~/Library/Caches/oryne-story/work")
 HERO_SCREEN = "tide-top"   # the hero's screen until Malik picks another at the checkpoint
 NOW = "d854071"
 rows = json.load(open(os.path.join(W, "facts.json"), encoding="utf-8"))["rows"]
@@ -591,7 +591,7 @@ for h in sorted(need):
 
 - [ ] **Step 2: List what to take**
 
-Run: `cd ~/Desktop/oryne-story && python3 bin/shotlist.py`
+Run: `cd ~/Library/Caches/oryne-story/work && python3 bin/shotlist.py`
 Expected: 11 lines, one per build, every one with missing screens.
 
 - [ ] **Step 3: Take them, one build at a time**
@@ -600,7 +600,7 @@ For each build line: `bin/sim.sh install <hash>`, then for each screen follow it
 
 - [ ] **Step 4: Check none are missing**
 
-Run: `cd ~/Desktop/oryne-story && python3 bin/shotlist.py`
+Run: `cd ~/Library/Caches/oryne-story/work && python3 bin/shotlist.py`
 Expected: every line ends `| missing: none`.
 
 ---
@@ -667,7 +667,7 @@ if __name__ == "__main__":
 
 - [ ] **Step 2: Run them to see them fail**
 
-Run: `cd ~/Desktop/oryne-story && python3 -m unittest tests/test_locate.py`
+Run: `cd ~/Library/Caches/oryne-story/work && python3 -m unittest tests/test_locate.py`
 Expected: `ModuleNotFoundError: No module named 'locate'`
 
 - [ ] **Step 3: Write `W/bin/locate.py`**
@@ -682,7 +682,7 @@ import json, os, sys
 import numpy as np
 from PIL import Image
 
-W = os.path.expanduser("~/Desktop/oryne-story")
+W = os.path.expanduser("~/Library/Caches/oryne-story/work")
 PAD = 400  # screenshot pixels of black around the screen: a crop may include bezel or another window
 
 
@@ -764,17 +764,17 @@ if __name__ == "__main__":
 
 - [ ] **Step 4: Run the tests**
 
-Run: `cd ~/Desktop/oryne-story && python3 -m unittest tests/test_locate.py`
+Run: `cd ~/Library/Caches/oryne-story/work && python3 -m unittest tests/test_locate.py`
 Expected: `Ran 3 tests … OK`
 
 - [ ] **Step 5: Calibrate k on two rows**
 
-Run: `cd ~/Desktop/oryne-story && python3 bin/locate.py --calibrate 4 15`
+Run: `cd ~/Library/Caches/oryne-story/work && python3 bin/locate.py --calibrate 4 15`
 Expected: both with `score` ≥ 0.6 and `k` values within 0.01 of each other (a bezel measurement suggests about 0.845). Write their mean into `rects.json` as `"_k": <mean>` (edit the file).
 
 - [ ] **Step 6: Locate every row**
 
-Run: `cd ~/Desktop/oryne-story && python3 bin/locate.py $(seq 1 18)`
+Run: `cd ~/Library/Caches/oryne-story/work && python3 bin/locate.py $(seq 1 18)`
 Expected: 18 lines. For any `score` below 0.6: view the before PNG and the row's locator screenshot. If the screenshot shows the wrong scroll position or screen, retake it (Task 5 Step 3) and rerun that row. If the screen is right but the element changed too much, try the previous build in `locator` (edit `ROWS` in `make_facts.py`, rerun it, take the shot, rerun `locate.py <n>`). Report any row still below 0.6.
 
 ---
@@ -814,7 +814,7 @@ if __name__ == "__main__":
 
 - [ ] **Step 2: Run them to see them fail**
 
-Run: `cd ~/Desktop/oryne-story && python3 -m unittest tests/test_crops.py`
+Run: `cd ~/Library/Caches/oryne-story/work && python3 -m unittest tests/test_crops.py`
 Expected: `ModuleNotFoundError: No module named 'crops'`
 
 - [ ] **Step 3: Write `W/bin/crops.py`**
@@ -826,7 +826,7 @@ afters cropped from the same screen rectangle, the hero pair, all WebP at most 2
 import json, os
 from PIL import Image
 
-W = os.path.expanduser("~/Desktop/oryne-story")
+W = os.path.expanduser("~/Library/Caches/oryne-story/work")
 SW, SH = 1206, 2622          # iPhone 17 Pro screenshot pixels
 NOW, HERO_BEFORE = "d854071", "f271e77"
 HERO_SCREEN = "tide-top"     # until Malik picks another at the checkpoint
@@ -887,12 +887,12 @@ if __name__ == "__main__":
 
 - [ ] **Step 4: Run the tests**
 
-Run: `cd ~/Desktop/oryne-story && python3 -m unittest tests/test_crops.py`
+Run: `cd ~/Library/Caches/oryne-story/work && python3 -m unittest tests/test_crops.py`
 Expected: `Ran 2 tests … OK`
 
 - [ ] **Step 5: Export**
 
-Run: `cd ~/Desktop/oryne-story && python3 bin/crops.py`
+Run: `cd ~/Library/Caches/oryne-story/work && python3 bin/crops.py`
 Expected: `45 images, N MB` with N ≤ 5.00 (18 befores, 18 nows, 7 afters, 1 lit, 2 hero). If over 5 MB, lower the 720 width to 600 for `now-*` and rerun.
 
 - [ ] **Step 6: Look at every pair**
@@ -906,7 +906,7 @@ View `out/before-<n>.webp` beside `out/now-<n>.webp` (and `after-<n>`) with the 
 """sheet.html: every image the page will publish, row by row, for Malik's privacy and content review."""
 import html, json, os
 
-W = os.path.expanduser("~/Desktop/oryne-story")
+W = os.path.expanduser("~/Library/Caches/oryne-story/work")
 rows = json.load(open(os.path.join(W, "facts.json"), encoding="utf-8"))["rows"]
 cells = ['<h2>Hero</h2><div class="r"><img src="out/hero-before.webp"><img src="out/hero-after.webp"></div>']
 for r in rows:
@@ -926,7 +926,7 @@ open(os.path.join(W, "sheet.html"), "w", encoding="utf-8").write(page)
 print(os.path.join(W, "sheet.html"))
 ```
 
-Run: `cd ~/Desktop/oryne-story && python3 bin/sheet.py`
+Run: `cd ~/Library/Caches/oryne-story/work && python3 bin/sheet.py`
 Expected: the path of `sheet.html`. Open it in the browser pane (`file://` URL) and check that every image loads.
 
 ---
@@ -944,7 +944,7 @@ Expected: the path of `sheet.html`. Open it in the browser pane (`file://` URL) 
 - [ ] **Step 1: Copy the images into the site**
 
 ```bash
-cd /Users/malik/Documents/Locant/.claude/worktrees/locant-oryne-redesign-story-f88439 && [ -e site/oryne ] && echo EXISTS || (mkdir site/oryne && mkdir site/oryne/assets && cp ~/Desktop/oryne-story/out/*.webp site/oryne/assets/ && ls site/oryne/assets | wc -l)
+cd /Users/malik/Documents/Locant/.claude/worktrees/locant-oryne-redesign-story-f88439 && [ -e site/oryne ] && echo EXISTS || (mkdir site/oryne && mkdir site/oryne/assets && cp ~/Library/Caches/oryne-story/work/out/*.webp site/oryne/assets/ && ls site/oryne/assets | wc -l)
 ```
 Expected: `45`.
 
@@ -1085,7 +1085,7 @@ Expected: `45`.
   </footer>
 </main>
 ```
-Then do what the comment in `<style>` says: copy those line ranges from `site/index.html` in place of the comment (verbatim, with the `--icon` change). Replace `PAYLOAD` with the payload Malik pasted at 23:38: run `cd ~/Desktop/oryne-story && python3 bin/chat_after.py 20261018-233759-v0xc 1 --full`, take the text between `<pasted_content …>` and `</pasted_content>`, HTML-escape it (`&`, `<`, `>`), keep it whole except the `### Sidecar` JSON block if one is there (replace that block with `…`), and paste it. Set the hero images' `height` to the real exported height (`python3 -c "from PIL import Image; print(Image.open('$HOME/Desktop/oryne-story/out/hero-before.webp').size)"`).
+Then do what the comment in `<style>` says: copy those line ranges from `site/index.html` in place of the comment (verbatim, with the `--icon` change). Replace `PAYLOAD` with the payload Malik pasted at 23:38: run `cd ~/Library/Caches/oryne-story/work && python3 bin/chat_after.py 20261018-233759-v0xc 1 --full`, take the text between `<pasted_content …>` and `</pasted_content>`, HTML-escape it (`&`, `<`, `>`), keep it whole except the `### Sidecar` JSON block if one is there (replace that block with `…`), and paste it. Set the hero images' `height` to the real exported height (`python3 -c "from PIL import Image; print(Image.open('$HOME/Library/Caches/oryne-story/work/out/hero-before.webp').size)"`).
 
 - [ ] **Step 3: Write the failing tests** — `W/tests/test_render_page.py`
 
@@ -1127,7 +1127,7 @@ if __name__ == "__main__":
 
 - [ ] **Step 4: Run them to see them fail**
 
-Run: `cd ~/Desktop/oryne-story && python3 -m unittest tests/test_render_page.py`
+Run: `cd ~/Library/Caches/oryne-story/work && python3 -m unittest tests/test_render_page.py`
 Expected: `ModuleNotFoundError: No module named 'render_page'`
 
 - [ ] **Step 5: Write `W/bin/render_page.py`**
@@ -1138,7 +1138,7 @@ Expected: `ModuleNotFoundError: No module named 'render_page'`
 import html, json, os, re, sys
 from PIL import Image
 
-W = os.path.expanduser("~/Desktop/oryne-story")
+W = os.path.expanduser("~/Library/Caches/oryne-story/work")
 TITLES = {"titles": "Card titles, lighter", "more": "A transcript you can open", "light": "Light, then no light",
           "currents": "A quieter link", "settings": "Does the Library need settings?", "send": "The send button"}
 ORDER = ["send", "light", "settings", "titles", "more", "currents"]
@@ -1223,7 +1223,7 @@ if __name__ == "__main__":
 
 - [ ] **Step 6: Run the tests, then fill the page**
 
-Run: `cd ~/Desktop/oryne-story && python3 -m unittest tests/test_render_page.py && python3 bin/render_page.py /Users/malik/Documents/Locant/.claude/worktrees/locant-oryne-redesign-story-f88439/site/oryne/index.html`
+Run: `cd ~/Library/Caches/oryne-story/work && python3 -m unittest tests/test_render_page.py && python3 bin/render_page.py /Users/malik/Documents/Locant/.claude/worktrees/locant-oryne-redesign-story-f88439/site/oryne/index.html`
 Expected: `Ran 3 tests … OK` then `filled …/site/oryne/index.html`. Running it twice gives the same file (the blocks are replaced, not appended).
 
 - [ ] **Step 7: Add the home page's link**
@@ -1262,7 +1262,7 @@ import json, os, re, sys
 from html.parser import HTMLParser
 
 SITE = sys.argv[1]
-W = os.path.expanduser("~/Desktop/oryne-story")
+W = os.path.expanduser("~/Library/Caches/oryne-story/work")
 page = open(os.path.join(SITE, "oryne", "index.html"), encoding="utf-8").read()
 rows = json.load(open(os.path.join(W, "facts.json"), encoding="utf-8"))["rows"]
 
@@ -1326,7 +1326,7 @@ sys.exit(1 if problems else 0)
 
 - [ ] **Step 2: Run it**
 
-Run: `cd ~/Desktop/oryne-story && python3 bin/check_page.py /Users/malik/Documents/Locant/.claude/worktrees/locant-oryne-redesign-story-f88439/site`
+Run: `cd ~/Library/Caches/oryne-story/work && python3 bin/check_page.py /Users/malik/Documents/Locant/.claude/worktrees/locant-oryne-redesign-story-f88439/site`
 Expected: `… images, … MB, 0 problems`. Fix the page for anything listed, rerun.
 
 - [ ] **Step 3: Write `W/bin/render.mjs`**
@@ -1385,7 +1385,7 @@ process.exit(failed ? 1 : 0);
 - [ ] **Step 4: Serve the site and render**
 
 Start the server in the background (Bash `run_in_background: true`): `python3 -m http.server 8742 --directory /Users/malik/Documents/Locant/.claude/worktrees/locant-oryne-redesign-story-f88439/site`
-Then run: `cd ~/Desktop/oryne-story && node bin/render.mjs http://localhost:8742/oryne/ render && node bin/render.mjs http://localhost:8742/ render-home 2>/dev/null; ls render`
+Then run: `cd ~/Library/Caches/oryne-story/work && node bin/render.mjs http://localhost:8742/oryne/ render && node bin/render.mjs http://localhost:8742/ render-home 2>/dev/null; ls render`
 (Create `render-home` first with `mkdir`; the second run only checks the home page still renders with its new line.)
 Expected: four `OK` lines for the story page; `render/` holds `page-1280-light.png`, `page-1280-dark.png`, `page-375-light.png`, `page-375-dark.png`. View all four with the Read tool: one column, both phones side by side even at 375, every pair readable, dark mode with no light boxes. Fix and rerun until all four pass and look right.
 
@@ -1406,7 +1406,7 @@ No push, no PR, no deploy in this task. Stop after Step 2 and wait for Malik's a
 
 - [ ] **Step 1: Send Malik the review set**
 
-Send with SendUserFile: `~/Desktop/oryne-story/sheet.html` (every image, row by row) and `~/Desktop/oryne-story/render/page-1280-dark.png`, `page-375-light.png`. Give the local URL `http://localhost:8742/oryne/` (the server from Task 9 must still be running).
+Send with SendUserFile: `~/Library/Caches/oryne-story/work/sheet.html` (every image, row by row) and `~/Library/Caches/oryne-story/work/render/page-1280-dark.png`, `page-375-light.png`. Give the local URL `http://localhost:8742/oryne/` (the server from Task 9 must still be running).
 
 - [ ] **Step 2: Ask, in one message, for his answers on:**
 
@@ -1446,4 +1446,4 @@ Then check the Vercel preview: `/oryne/` loads, images load, `/` shows the new l
 
 - [ ] **Step 4: Clean up**
 
-Run: `~/Desktop/oryne-story/bin/sim.sh delete` (deletes the story simulator and the data copy) and stop the local server. Keep `~/Desktop/oryne-story/` (its shots and builds feed the film later) unless Malik says otherwise.
+Run: `~/Library/Caches/oryne-story/work/bin/sim.sh delete` (deletes the story simulator and the data copy) and stop the local server. Keep `~/Library/Caches/oryne-story/work/` (its shots and builds feed the film later) unless Malik says otherwise.
