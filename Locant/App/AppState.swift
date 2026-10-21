@@ -88,6 +88,8 @@ final class AppState {
     @ObservationIgnored private(set) var recentColors: [ColorValue] = []
     @ObservationIgnored private var clickPoint: CGPoint = .zero
     @ObservationIgnored private var cropTask: Task<CroppedImage, any Error>?
+    /// R112: a restart is under way; another stuck failure waits for it.
+    @ObservationIgnored private var restartingCapture = false
     @ObservationIgnored private var openedSettingsPanes: Set<String> = []
     @ObservationIgnored private let ownPID = ProcessInfo.processInfo.processIdentifier
 
@@ -1201,6 +1203,10 @@ final class AppState {
 
     /// R111–R113: the alert, the restart, and the same action again once displays are back.
     private func offerCaptureRestart(retrying failed: Action, sourcePID: pid_t?, near rect: CGRect) {
+        if restartingCapture {
+            toast.show(HudText.plain("Restarting screen capture…"), near: rect, life: 5)
+            return
+        }
         let alert = NSAlert()
         alert.messageText = "macOS screen capture stopped responding"
         alert.informativeText = "Locant can restart it. Any screen recording or sharing in progress will stop."
@@ -1210,14 +1216,19 @@ final class AppState {
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         // Up past the 3 s re-check (R112); taken down as soon as it ends.
         toast.show(HudText.plain("Restarting screen capture…"), near: rect, life: 5)
+        restartingCapture = true
         Task {
             let outcome = await CaptureRecovery.restart()
+            restartingCapture = false
             toast.hide()
             guard outcome == .recovered else {
                 inform("Screen capture still isn't responding", detail: "Restart your Mac to fix it.")
                 return
             }
+            // A capture started during the wait wins; leave it alone.
+            guard phase == .idle else { return }
             await returnFocus(to: sourcePID)
+            guard phase == .idle else { return }
             toast.show(HudText.plain("Screen capture restarted"), near: rect)
             beginAction(failed)
         }
