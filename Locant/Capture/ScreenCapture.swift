@@ -117,12 +117,13 @@ enum ScreenCapture {
 }
 
 #if DEBUG
-/// specs/capture-recovery.md R114: `-simulateStuckCapture once|always` makes every capture throw
+/// R114: `-simulateStuckCapture once|always` makes every capture throw
 /// `.serviceStuck` without asking ScreenCaptureKit. `once` ends at the first restart (R112);
-/// `always` lasts until quit. Debug builds only.
+/// `always` lasts until quit. Debug builds only. Read from the launch arguments alone, so a
+/// persisted default can never turn it on.
 @MainActor
 enum StuckSimulation {
-    private static let mode = UserDefaults.standard.string(forKey: "simulateStuckCapture")
+    private static let mode = UserDefaults.standard.volatileDomain(forName: UserDefaults.argumentDomain)["simulateStuckCapture"] as? String
     private static var restarted = false
 
     static var isActive: Bool {

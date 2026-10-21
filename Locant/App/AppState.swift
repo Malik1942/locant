@@ -88,7 +88,7 @@ final class AppState {
     @ObservationIgnored private(set) var recentColors: [ColorValue] = []
     @ObservationIgnored private var clickPoint: CGPoint = .zero
     @ObservationIgnored private var cropTask: Task<CroppedImage, any Error>?
-    /// R112: a restart is under way; another stuck failure waits for it.
+    /// specs/capture-recovery.md R112: a restart is under way; a stuck failure meanwhile only shows the toast.
     @ObservationIgnored private var restartingCapture = false
     @ObservationIgnored private var openedSettingsPanes: Set<String> = []
     @ObservationIgnored private let ownPID = ProcessInfo.processInfo.processIdentifier
@@ -493,7 +493,7 @@ final class AppState {
 
     /// R25: the magnifier session. Click copies the pixel in the chosen format; Esc cancels.
     func beginColorPick() {
-        guard phase == .idle, colorSession == nil else { return }
+        guard phase == .idle, colorSession == nil, NSApp.modalWindow == nil else { return }
         guard ScreenCapture.hasPermission() else {
             fail(.noScreenRecordingPermission, nearRect: nil)
             return
@@ -525,7 +525,8 @@ final class AppState {
 
     /// R22: Snap, Text, and Cut open the same overlay in their mode.
     func beginAction(_ requested: Action) {
-        guard phase == .idle else { return }
+        // R111: no session opens over an alert; the hotkey tap still fires during runModal.
+        guard phase == .idle, NSApp.modalWindow == nil else { return }
         action = requested
         overlay.mode = requested.overlayMode
         overlay.adjustsRegion = preferences.adjustSelection
@@ -1037,7 +1038,7 @@ final class AppState {
                     reset()
                 }
             } catch {
-                fail(.capturing(error), nearRect: crop)
+                fail(.capturing(error), nearRect: crop, clipboardOnly: clipboardOnly)
             }
         }
     }
@@ -1163,7 +1164,7 @@ final class AppState {
 
     // MARK: Failure (R9)
 
-    /// specs/capture-recovery.md R110: Point's crops run at the click. A stuck capture service stops
+    /// R110: Point's crops run at the click. A stuck capture service stops
     /// the session then, before the note is typed, instead of at Enter. Other failures still wait
     /// for Enter (R9); a session that ended or moved on is left alone.
     private func watchForStuckCapture() {
@@ -1181,15 +1182,15 @@ final class AppState {
         }
     }
 
-    private func fail(_ error: CaptureError, nearRect anchor: CGRect?) {
-        // specs/capture-recovery.md R113: what to begin again after a restart, read before reset clears it.
+    private func fail(_ error: CaptureError, nearRect anchor: CGRect?, clipboardOnly: Bool = false) {
+        // R113: what to begin again after a restart, read before reset clears it.
         let failedAction = action
         let sourcePID = context?.frontPID
         reset()
         let rect = anchor ?? Self.mainScreenCenterCG()
         if case .captureServiceStuck = error {
             feedback?.play(.missed) // v0.8.1 R60
-            offerCaptureRestart(retrying: failedAction, sourcePID: sourcePID, near: rect)
+            offerCaptureRestart(retrying: failedAction, clipboardOnly: clipboardOnly, sourcePID: sourcePID, near: rect)
             return
         }
         toast.show(HudText.plain(error.message), near: rect)
@@ -1202,9 +1203,9 @@ final class AppState {
     }
 
     /// R111–R113: the alert, the restart, and the same action again once displays are back.
-    private func offerCaptureRestart(retrying failed: Action, sourcePID: pid_t?, near rect: CGRect) {
+    private func offerCaptureRestart(retrying failed: Action, clipboardOnly: Bool, sourcePID: pid_t?, near rect: CGRect) {
         if restartingCapture {
-            toast.show(HudText.plain("Restarting screen capture…"), near: rect, life: 5)
+            toast.show(HudText.plain("Restarting screen capture…"), near: rect, life: 15)
             return
         }
         let alert = NSAlert()
@@ -1212,16 +1213,19 @@ final class AppState {
         alert.informativeText = "Locant can restart it. Any screen recording or sharing in progress will stop."
         alert.addButton(withTitle: "Restart Screen Capture")
         alert.addButton(withTitle: "Not Now")
+        alert.buttons[1].keyEquivalent = "\u{1b}" // Esc chooses Not Now
         NSApp.activate()
         guard alert.runModal() == .alertFirstButtonReturn else { return }
-        // Up past the 3 s re-check (R112); taken down as soon as it ends.
-        toast.show(HudText.plain("Restarting screen capture…"), near: rect, life: 5)
+        // Outlives the 3 s re-check (R112); taken down as soon as the re-check ends.
+        toast.show(HudText.plain("Restarting screen capture…"), near: rect, life: 15)
         restartingCapture = true
         Task {
             let outcome = await CaptureRecovery.restart()
             restartingCapture = false
             toast.hide()
             guard outcome == .recovered else {
+                // A session started during the wait cannot succeed while there are no displays.
+                if colorSession != nil { endColorPick() } else if phase != .idle { cancel() }
                 inform("Screen capture still isn't responding", detail: "Restart your Mac to fix it.")
                 return
             }
@@ -1230,6 +1234,7 @@ final class AppState {
             await returnFocus(to: sourcePID)
             guard phase == .idle else { return }
             toast.show(HudText.plain("Screen capture restarted"), near: rect)
+            clipboardOnlyPreset = clipboardOnly
             beginAction(failed)
         }
     }

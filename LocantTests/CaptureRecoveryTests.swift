@@ -39,8 +39,10 @@ final class CaptureRecoveryTests: XCTestCase {
     }
 
     // R114: without the launch argument, nothing is simulated.
+    #if DEBUG
     @MainActor
     func testSimulationIsOffWithoutTheLaunchArgument() {
         XCTAssertFalse(StuckSimulation.isActive)
     }
+    #endif
 }
