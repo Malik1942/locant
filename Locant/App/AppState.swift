@@ -88,6 +88,8 @@ final class AppState {
     @ObservationIgnored private(set) var recentColors: [ColorValue] = []
     @ObservationIgnored private var clickPoint: CGPoint = .zero
     @ObservationIgnored private var cropTask: Task<CroppedImage, any Error>?
+    /// specs/capture-recovery.md R112: a restart is under way; a stuck failure meanwhile only shows the toast.
+    @ObservationIgnored private var restartingCapture = false
     @ObservationIgnored private var openedSettingsPanes: Set<String> = []
     @ObservationIgnored private let ownPID = ProcessInfo.processInfo.processIdentifier
 
@@ -491,7 +493,7 @@ final class AppState {
 
     /// R25: the magnifier session. Click copies the pixel in the chosen format; Esc cancels.
     func beginColorPick() {
-        guard phase == .idle, colorSession == nil else { return }
+        guard phase == .idle, colorSession == nil, NSApp.modalWindow == nil else { return }
         guard ScreenCapture.hasPermission() else {
             fail(.noScreenRecordingPermission, nearRect: nil)
             return
@@ -523,7 +525,8 @@ final class AppState {
 
     /// R22: Snap, Text, and Cut open the same overlay in their mode.
     func beginAction(_ requested: Action) {
-        guard phase == .idle else { return }
+        // R111: no session opens over an alert; the hotkey tap still fires during runModal.
+        guard phase == .idle, NSApp.modalWindow == nil else { return }
         action = requested
         overlay.mode = requested.overlayMode
         overlay.adjustsRegion = preferences.adjustSelection
@@ -890,6 +893,7 @@ final class AppState {
             let display = SelectionOverlay.displayFrameCG(containing: point)
             let rect = Geometry.cropRect(element: element?.frame.cgRect, clickPoint: point, window: window?.bounds, display: display)
             cropTask = Task { try await ScreenCapture.crop(rect) }
+            watchForStuckCapture()
 
             overlay.setHighlight(element?.frame.cgRect, readout: .describing(element), around: point)
             showNoteField(anchoredTo: element?.frame.cgRect, around: point)
@@ -915,6 +919,7 @@ final class AppState {
         let rects = Geometry.cropRects(for: frames, display: display, displayFor: SelectionOverlay.displayFrameCG(containing:))
         cropTask = Task { try await ScreenCapture.crop(rects[0]) }
         extraCropTasks = rects.dropFirst().map { rect in Task { try await ScreenCapture.crop(rect) } }
+        watchForStuckCapture()
 
         overlay.setPinned(frames)
         overlay.setHighlight(last.frame.cgRect, readout: .describing(last), around: point)
@@ -966,6 +971,7 @@ final class AppState {
             let display = SelectionOverlay.displayFrameCG(containing: clickPoint)
             let crop = Geometry.cropRect(element: rect, clickPoint: clickPoint, window: nil, display: display, padding: 0)
             cropTask = Task { try await ScreenCapture.crop(crop) }
+            watchForStuckCapture()
 
             overlay.showMarks(elements.map { $0.frame.cgRect })
             showNoteField(anchoredTo: rect, around: clickPoint)
@@ -1032,7 +1038,7 @@ final class AppState {
                     reset()
                 }
             } catch {
-                fail(.captureFailed(error), nearRect: crop)
+                fail(.capturing(error), nearRect: crop, clipboardOnly: clipboardOnly)
             }
         }
     }
@@ -1115,7 +1121,7 @@ final class AppState {
                     showAgentHintIfNeeded()
                 }
             } catch {
-                fail(.captureFailed(error), nearRect: anchor)
+                fail(.capturing(error), nearRect: anchor)
             }
         }
     }
@@ -1158,15 +1164,92 @@ final class AppState {
 
     // MARK: Failure (R9)
 
-    private func fail(_ error: CaptureError, nearRect anchor: CGRect?) {
+    /// R110: Point's crops run at the click. A stuck capture service stops
+    /// the session then, before the note is typed, instead of at Enter. Other failures still wait
+    /// for Enter (R9); a session that ended or moved on is left alone.
+    private func watchForStuckCapture() {
+        let tasks = [cropTask].compactMap { $0 } + extraCropTasks
+        guard let first = tasks.first else { return }
+        let anchor = SelectionOverlay.fallbackRect(around: clickPoint)
+        Task {
+            for task in tasks {
+                guard case .failure(let error) = await task.result,
+                      case .captureServiceStuck = CaptureError.capturing(error) else { continue }
+                guard phase == .noting, cropTask == first else { return }
+                fail(.captureServiceStuck, nearRect: anchor)
+                return
+            }
+        }
+    }
+
+    private func fail(_ error: CaptureError, nearRect anchor: CGRect?, clipboardOnly: Bool = false) {
+        // R113: what to begin again after a restart, read before reset clears it.
+        let failedAction = action
+        let sourcePID = context?.frontPID
         reset()
         let rect = anchor ?? Self.mainScreenCenterCG()
+        if case .captureServiceStuck = error {
+            feedback?.play(.missed) // v0.8.1 R60
+            offerCaptureRestart(retrying: failedAction, clipboardOnly: clipboardOnly, sourcePID: sourcePID, near: rect)
+            return
+        }
         toast.show(HudText.plain(error.message), near: rect)
         feedback?.play(.missed) // v0.8.1 R60
         switch error {
         case .noAccessibilityPermission: openSettingsOnce(pane: "Privacy_Accessibility")
         case .noScreenRecordingPermission: openSettingsOnce(pane: "Privacy_ScreenCapture")
-        case .noElementUnderCursor, .captureFailed: break
+        case .noElementUnderCursor, .captureFailed, .captureServiceStuck: break
+        }
+    }
+
+    /// R111–R113: the alert, the restart, and the same action again once displays are back.
+    private func offerCaptureRestart(retrying failed: Action, clipboardOnly: Bool, sourcePID: pid_t?, near rect: CGRect) {
+        if restartingCapture {
+            toast.show(HudText.plain("Restarting screen capture…"), near: rect, life: 15)
+            return
+        }
+        let alert = NSAlert()
+        alert.messageText = "macOS screen capture stopped responding"
+        alert.informativeText = "Locant can restart it. Any screen recording or sharing in progress will stop."
+        alert.addButton(withTitle: "Restart Screen Capture")
+        alert.addButton(withTitle: "Not Now")
+        alert.buttons[1].keyEquivalent = "\u{1b}" // Esc chooses Not Now
+        overlay.finishDismissing() // R111: the alert must not sit under the closing overlay
+        NSApp.activate()
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        // Outlives the 3 s re-check (R112); taken down as soon as the re-check ends.
+        toast.show(HudText.plain("Restarting screen capture…"), near: rect, life: 15)
+        restartingCapture = true
+        Task {
+            let outcome = await CaptureRecovery.restart()
+            restartingCapture = false
+            toast.hide()
+            guard outcome == .recovered else {
+                // A session started during the wait cannot succeed while there are no displays.
+                if colorSession != nil { endColorPick() } else if phase != .idle { cancel() }
+                overlay.finishDismissing()
+                inform("Screen capture still isn't responding", detail: "Restart your Mac to fix it.")
+                return
+            }
+            // A capture started during the wait wins; leave it alone.
+            guard phase == .idle else { return }
+            await returnFocus(to: sourcePID)
+            guard phase == .idle else { return }
+            toast.show(HudText.plain("Screen capture restarted"), near: rect)
+            clipboardOnlyPreset = clipboardOnly
+            beginAction(failed)
+        }
+    }
+
+    /// R113: `ContextCollector.collect` takes the frontmost app as the source, which after the alert
+    /// is Locant. Hand focus back to the app the capture began over and wait up to a second for it.
+    private func returnFocus(to pid: pid_t?) async {
+        guard let pid, pid != ownPID, let app = NSRunningApplication(processIdentifier: pid) else { return }
+        _ = app.activate(options: [])
+        var waited = 0
+        while NSWorkspace.shared.frontmostApplication?.processIdentifier != pid, waited < 20 {
+            try? await Task.sleep(for: .milliseconds(50))
+            waited += 1
         }
     }
 

@@ -192,6 +192,14 @@ final class SelectionOverlay {
         }
     }
 
+    /// Orders out at once the panels `dismiss()` is still fading. Call it before a modal alert:
+    /// `runModal` blocks the main actor, so the delayed orderOut above would wait for the alert,
+    /// and the invisible panels, above every window, would take every click meanwhile.
+    func finishDismissing() {
+        for panel in dismissing { panel.orderOut(nil) }
+        dismissing = []
+    }
+
     /// Highlights `frame` (CG points). A nil frame shows the fallback square around `point`.
     /// v0.8.1 R59: true when an outline was drawn.
     @discardableResult

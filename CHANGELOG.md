@@ -2,6 +2,10 @@
 
 Every release is a signed, notarized `Locant.dmg` on [GitHub Releases](https://github.com/Malik1942/locant/releases). Drag the new copy over the old one; the permissions carry over.
 
+## Unreleased
+
+- **Stuck screen capture is fixed from Locant.** When the macOS process behind screen capture stops answering, every capture used to say "Capture failed", even after relaunching Locant. Now Locant says what is wrong, offers Restart Screen Capture, and opens the same action again. Point stops right at the click instead of after you type the note.
+
 ## 1.0.0 (2026-10-19)
 
 Locant 1.0. Point at a button on your Mac, in an iPhone app in the Simulator, or on a web page, say what should change, and paste it into your coding agent: it gets the element's role, identifier, frame, and path with a picture, and goes to the right code. From this version on, the capture format (`schema/capture.schema.json`, `schemaVersion` 1) and the MCP tools (`latest_capture`, `get_capture`, `list_captures`, `resolve_capture`) stay compatible; a change that breaks either will be a new major version.
