@@ -2,6 +2,10 @@
 
 Every release is a signed, notarized `Locant.dmg` on [GitHub Releases](https://github.com/Malik1942/locant/releases). Drag the new copy over the old one; the permissions carry over.
 
+## Unreleased
+
+- **The Project line names the build on screen.** When two checkouts of one app were building side by side (two worktrees, say), a simulator capture named whichever had built last, not the one the simulator was running, and the line under it told the agent to change that copy. Locant now reads the folder from the running build itself. When it cannot tell (a build without debug symbols) and the app's builds on this Mac come from more than one folder, the capture has no Project line rather than a guess.
+
 ## 1.0.1 (2026-10-21)
 
 - **Stuck screen capture is fixed from Locant.** When the macOS process behind screen capture stops answering, every capture used to say "Capture failed", even after relaunching Locant. Now Locant says what is wrong, offers Restart Screen Capture, and opens the same action again. Point stops right at the click instead of after you type the note.
