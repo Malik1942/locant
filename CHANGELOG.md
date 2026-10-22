@@ -2,6 +2,10 @@
 
 Every release is a signed, notarized `Locant.dmg` on [GitHub Releases](https://github.com/Malik1942/locant/releases). Drag the new copy over the old one; the permissions carry over.
 
+## Unreleased
+
+- **A Mac app you built gets its Project line however you open it.** Opened from Finder, the Dock, Spotlight, or `open`, or run from Xcode with the debugger off, an app built into a symlinked DerivedData (to `DerivedData.noindex`, say) or with `-derivedDataPath` outside the project was taken for someone else's app: no Project line, so the agent was not told which folder to change. Locant now finds the project from the folder the app was built into, wherever that is.
+
 ## 1.0.1 (2026-10-21)
 
 - **Stuck screen capture is fixed from Locant.** When the macOS process behind screen capture stops answering, every capture used to say "Capture failed", even after relaunching Locant. Now Locant says what is wrong, offers Restart Screen Capture, and opens the same action again. Point stops right at the click instead of after you type the note.
