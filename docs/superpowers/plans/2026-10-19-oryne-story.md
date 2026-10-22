@@ -29,7 +29,7 @@
 - **Each crop is located on its own, with one calibrated scale.** The spec said "derive the transform once". The Device Hub window moved during the night (the send-button capture's after-shots sit 56 pt left and 140 pt up of the capture), so position is found per capture; the scale `k` is calibrated once on two rows.
 - **Navigation uses the iOS Simulator tool, not CGEvent recipes.** It is headless and does not touch Malik's screen.
 - **Side padding is the site's 20 px**, not the spec's 16 px, so the two pages share edges.
-- **Locant's Project line is not trusted for which build was on screen.** For 9 of the 18 captures it names the Watch worktree, whose branch does not have the redesign; the images (for example `q9d4`'s serif "Drifted in") show the redesign build. Locator builds therefore come from `feat/site-new-app` by time, not from the sidecar's `gitCommit`.
+- **Locant's Project line is not trusted for which build was on screen.** For 9 of the 18 captures it names the Watch worktree, whose branch does not have the redesign. Five of those images (22:47, 22:50, 23:12, 23:13, 23:17) show strings that exist only in the redesign build ("Nearby", "Open current", the transcript's "More", "Tide"), so the line was wrong there; for the other four the visible UI does not settle it. Locator builds therefore come from `feat/site-new-app` by time, not from the sidecar's `gitCommit`.
 
 ## Checkpoint answers (Oct 21, 2026)
 
