@@ -1214,6 +1214,7 @@ final class AppState {
         alert.addButton(withTitle: "Restart Screen Capture")
         alert.addButton(withTitle: "Not Now")
         alert.buttons[1].keyEquivalent = "\u{1b}" // Esc chooses Not Now
+        overlay.finishDismissing() // R111: the alert must not sit under the closing overlay
         NSApp.activate()
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         // Outlives the 3 s re-check (R112); taken down as soon as the re-check ends.
@@ -1226,6 +1227,7 @@ final class AppState {
             guard outcome == .recovered else {
                 // A session started during the wait cannot succeed while there are no displays.
                 if colorSession != nil { endColorPick() } else if phase != .idle { cancel() }
+                overlay.finishDismissing()
                 inform("Screen capture still isn't responding", detail: "Restart your Mac to fix it.")
                 return
             }
