@@ -2,6 +2,13 @@
 
 Every release is a signed, notarized `Locant.dmg` on [GitHub Releases](https://github.com/Malik1942/locant/releases). Drag the new copy over the old one; the permissions carry over.
 
+## 1.0.0 (2026-10-19)
+
+Locant 1.0. Point at a button on your Mac, in an iPhone app in the Simulator, or on a web page, say what should change, and paste it into your coding agent: it gets the element's role, identifier, frame, and path with a picture, and goes to the right code. From this version on, the capture format (`schema/capture.schema.json`, `schemaVersion` 1) and the MCP tools (`latest_capture`, `get_capture`, `list_captures`, `resolve_capture`) stay compatible; a change that breaks either will be a new major version.
+
+- **Settings say less.** Every row is a title and a control: the descriptions and footnotes are gone, the permissions show only when one is missing, and an agent that is not connected shows just Connect. Point's two hotkeys share one row, and Clear appears only while you record a key (⌫ clears too). Renamed: Trackpad taps is Haptic feedback, Collect iterations is Recapture when your app changes, Keep images is Keep captures. The window is one compact width, and each tab is as tall as its rows. My Apps adds an app with Choose… or, for a Simulator-only app, a bundle ID in a small alert. In the menu bar, Capture is now Point. The help page is one short line per row.
+- **The ball starts high on the right.** On first launch it appears on the right edge an eighth of the way down the screen, below the menu bar's icons, instead of at the bottom right, and tucks into that edge there. A ball you have already moved stays where you put it.
+
 ## 0.9.2 (2026-10-01)
 
 - **A paste into an agent arrives whole.** The one clipboard item Return writes reached most agents in half: Cursor and Grok Bot kept the image and dropped the note and the identifier, Codex kept the text and dropped the image. Now, when you press ⌘V in the message box of Cursor, Codex, or Grok Bot, your own keystroke pastes the text and Locant adds the image right after; you choose where a capture goes by pasting it there. Your key is never held or replaced, the clipboard ends as Return left it, and `defaults write com.malikzhang.deixis completesPaste -bool NO` turns this off. Paste into your agent, still off by default, does the same after Return for the agent you used last, Grok Bot included: the text, then the image, into the message box and never into a code editor. Locant still never sends.

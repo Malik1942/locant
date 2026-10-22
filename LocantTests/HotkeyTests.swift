@@ -137,5 +137,45 @@ final class HotkeyTests: XCTestCase {
         XCTAssertEqual(HotkeyConflicts.check(snap, for: "snap", in: p), [])
         XCTAssertEqual(HotkeyConflicts.check(.doubleTap(.control), for: "point", in: p).first, .locant(action: "capture"))
         XCTAssertEqual(HotkeyConflict.locant(action: "snap").message, "Already used for Snap.")
+        XCTAssertEqual(HotkeyConflict.locant(action: "capture").message, "Already used for Point.")
+        XCTAssertEqual(HotkeyConflict.system.message, "Also a macOS shortcut; Locant takes it first.")
+    }
+
+    // MARK: Recorder (R93)
+
+    private func press(_ keyCode: UInt16, _ modifiers: KeyModifiers = [], _ characters: String? = nil, canClear: Bool = true) -> HotkeyRecorder.Press {
+        HotkeyRecorder.press(keyCode: keyCode, modifiers: modifiers, characters: characters, canClear: canClear)
+    }
+
+    func testRecorderEscCancels() {
+        XCTAssertEqual(press(53), .cancel)
+        XCTAssertEqual(press(53, [.command]), .cancel)
+    }
+
+    func testRecorderDeleteAloneClearsWhenTheHotkeyMayBeEmpty() {
+        XCTAssertEqual(press(51), .clear, "⌫")
+        XCTAssertEqual(press(117), .clear, "⌦")
+    }
+
+    func testRecorderDeleteAloneNeedsAModifierWhenTheHotkeyMustStay() {
+        XCTAssertEqual(press(51, canClear: false), .needsModifier)
+        XCTAssertEqual(press(117, canClear: false), .needsModifier)
+    }
+
+    func testRecorderDeleteWithModifiersIsAChord() {
+        XCTAssertEqual(press(51, [.control, .option]), .record(.chord(keyCode: 51, modifiers: [.control, .option], key: "⌫")))
+    }
+
+    func testRecorderBareKeyNeedsAModifierAndAFunctionKeyDoesNot() {
+        XCTAssertEqual(press(0, [], "a"), .needsModifier)
+        XCTAssertEqual(press(96), .record(.chord(keyCode: 96, modifiers: [], key: "F5")))
+    }
+
+    func testRecorderChordTakesTheKeyInCapitals() {
+        XCTAssertEqual(press(2, [.command, .shift], "d"), .record(.chord(keyCode: 2, modifiers: [.command, .shift], key: "D")))
+    }
+
+    func testRecorderKeyWithNoNameIsIgnored() {
+        XCTAssertEqual(press(0, [.command], ""), .ignore)
     }
 }

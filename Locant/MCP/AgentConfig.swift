@@ -33,15 +33,6 @@ enum Agent: String, CaseIterable, Identifiable, Sendable {
         case .cursor, .codex: nil
         }
     }
-
-    /// What the row says beneath the name.
-    var detail: String {
-        switch self {
-        case .claudeCode: "Added to ~/.claude.json for every project, through the claude command when it is installed."
-        case .cursor: "Added to ~/.cursor/mcp.json. Cursor asks once whether to enable it; the agent CLI needs cursor-agent mcp enable locant."
-        case .codex: "Added to ~/.codex/config.toml as one table; nothing else in the file is touched."
-        }
-    }
 }
 
 enum AgentStatus: Equatable, Sendable {

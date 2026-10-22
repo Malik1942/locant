@@ -66,4 +66,21 @@ final class FloatingBallTests: XCTestCase {
         let safe = FloatingBall.onScreenOrigin(CGPoint(x: 900, y: -400), screens: [screen], visible: [visible])
         XCTAssertEqual(safe.y + offset, 52 + FloatingBall.Tokens.diameter / 2)
     }
+
+    func testFirstLaunchIsOnTheRightEdgeAnEighthOfTheWayDown() {
+        // specs/ball-findable.md R102: the built-in display under a 37 pt menu bar, above a 52 pt Dock.
+        let visible = CGRect(x: 0, y: 52, width: 2056, height: 1240)
+        let origin = FloatingBall.firstLaunchOrigin(visibleFrame: visible)
+        let radius = FloatingBall.Tokens.diameter / 2
+        XCTAssertEqual(origin.x + offset, visible.maxX - FloatingBall.Tokens.firstLaunchInset - radius)
+        XCTAssertEqual(origin.y + offset, visible.maxY - visible.height / 8)
+    }
+
+    func testFirstLaunchFollowsAFrameThatDoesNotStartAtZero() {
+        let visible = CGRect(x: -1038, y: 1329, width: 3360, height: 1816)
+        let origin = FloatingBall.firstLaunchOrigin(visibleFrame: visible)
+        let radius = FloatingBall.Tokens.diameter / 2
+        XCTAssertEqual(origin.x + offset, 2322 - FloatingBall.Tokens.firstLaunchInset - radius)
+        XCTAssertEqual(origin.y + offset, 3145 - 227)
+    }
 }

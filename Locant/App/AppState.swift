@@ -159,7 +159,8 @@ final class AppState {
         return hints
     }
 
-    /// v0.3 R20: the ball follows the Settings toggle; first launch places it at the lower right.
+    /// v0.3 R20: the ball follows the Settings toggle; first launch places it on the right edge, an
+    /// eighth of the way down (specs/ball-findable.md R102).
     private func updateBall() {
         if preferences.ballEnabled {
             guard ball == nil else { return }
@@ -344,7 +345,7 @@ final class AppState {
         }
     }
 
-    /// The daily check, or Settings › General "Check Now…" (`manual`), which ignores the daily
+    /// The daily check, or Settings › General "Check Now" (`manual`), which ignores the daily
     /// limit and the skipped version and always answers with an alert (R47).
     func checkForUpdates(manual: Bool) async {
         guard let current = UpdateCheck.currentVersion else { return }
@@ -353,7 +354,7 @@ final class AppState {
         do {
             latest = try await UpdateCheck.fetch(current: current)
         } catch {
-            if manual { inform("Locant could not reach GitHub.", detail: "Try again later. The check runs by itself once a day.") }
+            if manual { inform("Locant could not reach GitHub.", detail: "Try again later.") }
             return
         }
         switch UpdateCheck.outcome(latest: latest, current: current, skipped: manual ? nil : preferences.skippedUpdateVersion) {
@@ -362,7 +363,7 @@ final class AppState {
             guard manual || phase == .idle else { return }
             offerUpdate(release, current: current)
         case .upToDate:
-            if manual { inform("Locant \(current) is up to date.", detail: "The newest release on GitHub is \(latest.tagName).") }
+            if manual { inform("Locant \(current) is up to date.") }
         case .skipped:
             break
         }
@@ -372,7 +373,7 @@ final class AppState {
         let newest = release.version.map(\.description) ?? release.tagName
         let alert = NSAlert()
         alert.messageText = "Locant \(newest) is available"
-        alert.informativeText = "You have \(current). Download the dmg and drag Locant over the copy in Applications; the permissions carry over because every release is signed with the same Developer ID."
+        alert.informativeText = "You have \(current). Drag the new copy over the old one in Applications; your permissions carry over."
         alert.addButton(withTitle: "Download")
         alert.addButton(withTitle: "Later")
         alert.addButton(withTitle: "Skip This Version")
@@ -384,7 +385,7 @@ final class AppState {
         }
     }
 
-    private func inform(_ message: String, detail: String) {
+    private func inform(_ message: String, detail: String = "") {
         let alert = NSAlert()
         alert.messageText = message
         alert.informativeText = detail
@@ -564,7 +565,7 @@ final class AppState {
         feedback?.play(.landed, tapping: false)
     }
 
-    /// v0.8.1 R61: turning Trackpad taps on plays one tap, the other half of the same idea.
+    /// v0.8.1 R61: turning Haptic feedback on plays one tap, the other half of the same idea.
     func previewTap() {
         feedback?.tap(.generic)
     }
@@ -1185,7 +1186,7 @@ final class AppState {
 
     // MARK: Diagnostics (v0.9 R70)
 
-    /// The block Settings › General › Copy Diagnostics puts on the clipboard. Gathers the values;
+    /// The block Settings › General › Diagnostics puts on the clipboard. Gathers the values;
     /// `Diagnostics.render` makes the text.
     func diagnosticsText() -> String {
         let info = Bundle.main.infoDictionary ?? [:]
