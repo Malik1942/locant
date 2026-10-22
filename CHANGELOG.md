@@ -6,6 +6,10 @@ Every release is a signed, notarized `Locant.dmg` on [GitHub Releases](https://g
 
 - **The Project line names the build on screen.** When two checkouts of one app were building side by side (two worktrees, say), a simulator capture named whichever had built last, not the one the simulator was running, and the line under it told the agent to change that copy. Locant now reads the folder from the running build itself. When it cannot tell (a build without debug symbols) and the app's builds on this Mac come from more than one folder, the capture has no Project line rather than a guess.
 
+## 1.0.1 (2026-10-21)
+
+- **Stuck screen capture is fixed from Locant.** When the macOS process behind screen capture stops answering, every capture used to say "Capture failed", even after relaunching Locant. Now Locant says what is wrong, offers Restart Screen Capture, and opens the same action again. Point stops right at the click instead of after you type the note.
+
 ## 1.0.0 (2026-10-19)
 
 Locant 1.0. Point at a button on your Mac, in an iPhone app in the Simulator, or on a web page, say what should change, and paste it into your coding agent: it gets the element's role, identifier, frame, and path with a picture, and goes to the right code. From this version on, the capture format (`schema/capture.schema.json`, `schemaVersion` 1) and the MCP tools (`latest_capture`, `get_capture`, `list_captures`, `resolve_capture`) stay compatible; a change that breaks either will be a new major version.
