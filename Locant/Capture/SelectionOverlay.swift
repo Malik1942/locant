@@ -315,7 +315,7 @@ final class OverlayPanel: NSPanel {
 
 // MARK: - Content view
 
-final class OverlayContentView: NSView, NSTextFieldDelegate {
+final class OverlayContentView: NSView {
     weak var owner: SelectionOverlay?
     /// When set, this view serves the color picker instead of the selection overlay (R25).
     weak var picker: ColorPickerSession?
@@ -325,6 +325,7 @@ final class OverlayContentView: NSView, NSTextFieldDelegate {
     private var noteField: NoteFieldView?
     /// v0.8.1 R63: where Return will paste, and the element the field is anchored to (local coordinates).
     private let targetLabel = HudLabel()
+    private var noteTargetText: NSAttributedString?
     private var noteAnchor: CGRect = .zero
     private var trackingArea: NSTrackingArea?
     private var locked = false
@@ -646,13 +647,15 @@ final class OverlayContentView: NSView, NSTextFieldDelegate {
         sizeLabel.isHidden = true
         let local = convert(window.convertFromScreen(screenRect), from: nil)
         noteAnchor = local
-        let size = CGSize(width: max(local.width, DesignTokens.fieldMinWidth), height: NoteFieldView.height)
+        let size = CGSize(width: max(local.width, DesignTokens.fieldMinWidth), height: NoteFieldView.minHeight)
         let field = NoteFieldView(frame: anchoredFrame(size: size, below: local))
-        field.textField.delegate = self
+        field.onCommit = { [weak self] text in self?.owner?.onCommit?(text) }
+        field.onCancel = { [weak self] in self?.owner?.onCancel?() }
+        field.onHeightChange = { [weak self] in self?.layoutNoteField() }
         field.alphaValue = 0
         addSubview(field)
         noteField = field
-        window.makeFirstResponder(field.textField)
+        window.makeFirstResponder(field.textView)
         NSAnimationContext.runAnimationGroup { context in
             context.duration = DesignTokens.reveal
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
@@ -662,9 +665,21 @@ final class OverlayContentView: NSView, NSTextFieldDelegate {
 
     var hasNoteField: Bool { noteField != nil }
 
+    /// The field takes the height its lines need, growing away from the element: downward below it,
+    /// upward above it. The paste target follows.
+    private func layoutNoteField() {
+        guard let field = noteField else { return }
+        let size = CGSize(width: field.frame.width, height: field.preferredHeight)
+        let frame = anchoredFrame(size: size, below: noteAnchor)
+        guard frame != field.frame else { return }
+        field.frame = frame
+        setNoteTarget(noteTargetText)
+    }
+
     /// v0.8.1 R63: where Return will paste, on the far side of the note field from the element and
     /// left-aligned with it; kept on screen. Nil hides it.
     func setNoteTarget(_ text: NSAttributedString?) {
+        noteTargetText = text
         guard let field = noteField, let text else {
             targetLabel.isHidden = true
             return
@@ -690,20 +705,6 @@ final class OverlayContentView: NSView, NSTextFieldDelegate {
         origin.x = min(max(origin.x, DesignTokens.spaceM), bounds.width - size.width - DesignTokens.spaceM)
         origin.y = min(max(origin.y, DesignTokens.spaceM), bounds.height - size.height - DesignTokens.spaceM)
         return CGRect(origin: origin, size: size)
-    }
-
-    // MARK: NSTextFieldDelegate
-
-    func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
-        if commandSelector == #selector(NSResponder.insertNewline(_:)) {
-            owner?.onCommit?(noteField?.textField.stringValue ?? "")
-            return true
-        }
-        if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
-            owner?.onCancel?()
-            return true
-        }
-        return false
     }
 }
 
@@ -835,14 +836,35 @@ final class HudLabel: NSVisualEffectView {
 
 // MARK: - Note field
 
-/// PRD note-field spec: `field.width`, `label.bg`, `label.sans`, placeholder "What should change?",
-/// right-aligned hint in the secondary color.
-final class NoteFieldView: NSVisualEffectView {
-    static let height: CGFloat = 28
-    let textField = NSTextField()
-    private let hint = NSTextField(labelWithString: "↩ copy · esc cancel")
+/// PRD note-field spec: `field.width`, `label.bg`, `label.sans`, placeholder "What should change?".
+/// The field is one line tall and grows a line at a time as the note wraps or Shift-Return adds a
+/// line, up to `maxLines`, then scrolls. Return commits, Esc cancels; the two buttons at the right
+/// do the same with a click and carry no words.
+final class NoteFieldView: NSVisualEffectView, NSTextViewDelegate {
+    /// One line of `label.sans` with its padding.
+    static let minHeight: CGFloat = 28
+    static let maxLines = 8
+    private static let buttonSize: CGFloat = 20
+
+    let textView = NSTextView()
+    private let scroll = NSScrollView()
+    private let placeholder = NSTextField(labelWithString: "What should change?")
+    private let commitButton = NoteFieldButton(symbol: "return", fill: .controlAccentColor, tint: .white,
+                                               label: "Copy", toolTip: "Copy (Return)")
+    private let cancelButton = NoteFieldButton(symbol: "xmark", fill: .quaternaryLabelColor, tint: .secondaryLabelColor,
+                                               label: "Cancel", toolTip: "Cancel (Esc)")
+    private let lineHeight: CGFloat
+
+    var onCommit: ((String) -> Void)?
+    var onCancel: (() -> Void)?
+    /// `preferredHeight` changed; the owner re-anchors the frame.
+    var onHeightChange: (() -> Void)?
+
+    var text: String { textView.string }
 
     override init(frame frameRect: NSRect) {
+        let layoutManager = NSLayoutManager()
+        lineHeight = ceil(layoutManager.defaultLineHeight(for: DesignTokens.sans))
         super.init(frame: frameRect)
         material = .hudWindow
         blendingMode = .behindWindow
@@ -851,37 +873,147 @@ final class NoteFieldView: NSVisualEffectView {
         layer?.cornerRadius = DesignTokens.labelRadius
         layer?.masksToBounds = true
 
-        hint.font = DesignTokens.sans
-        hint.textColor = .secondaryLabelColor
-        hint.sizeToFit()
-        hint.frame.origin = CGPoint(
-            x: frameRect.width - hint.frame.width - DesignTokens.spaceM,
-            y: (frameRect.height - hint.frame.height) / 2
-        )
-        addSubview(hint)
+        textView.delegate = self
+        textView.drawsBackground = false
+        textView.font = DesignTokens.sans
+        textView.textColor = .labelColor
+        textView.insertionPointColor = .labelColor
+        textView.isRichText = false
+        textView.allowsUndo = true
+        textView.isAutomaticQuoteSubstitutionEnabled = false
+        textView.isAutomaticDashSubstitutionEnabled = false
+        textView.isAutomaticTextReplacementEnabled = false
+        textView.isAutomaticSpellingCorrectionEnabled = false
+        textView.textContainerInset = .zero
+        textView.textContainer?.lineFragmentPadding = 0
+        textView.textContainer?.widthTracksTextView = true
+        textView.isVerticallyResizable = true
+        textView.isHorizontallyResizable = false
+        textView.autoresizingMask = [.width]
+        textView.minSize = CGSize(width: 0, height: lineHeight)
+        textView.maxSize = CGSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+        textView.setAccessibilityLabel("Note")
 
-        textField.isBezeled = false
-        textField.isBordered = false
-        textField.drawsBackground = false
-        textField.focusRingType = .none
-        textField.font = DesignTokens.sans
-        textField.textColor = .labelColor
-        textField.placeholderString = "What should change?"
-        textField.usesSingleLineMode = true
-        textField.cell?.wraps = false
-        textField.cell?.isScrollable = true
-        let fieldHeight: CGFloat = 17
-        textField.frame = CGRect(
-            x: DesignTokens.spaceM,
-            y: (frameRect.height - fieldHeight) / 2,
-            width: hint.frame.minX - DesignTokens.spaceM * 2,
-            height: fieldHeight
-        )
-        addSubview(textField)
+        scroll.documentView = textView
+        scroll.drawsBackground = false
+        scroll.borderType = .noBorder
+        scroll.hasVerticalScroller = false
+        scroll.hasHorizontalScroller = false
+        scroll.verticalScrollElasticity = .none
+        addSubview(scroll)
+
+        placeholder.font = DesignTokens.sans
+        placeholder.textColor = .placeholderTextColor
+        placeholder.sizeToFit()
+        addSubview(placeholder)
+
+        commitButton.target = self
+        commitButton.action = #selector(commit)
+        cancelButton.target = self
+        cancelButton.action = #selector(cancel)
+        addSubview(cancelButton)
+        addSubview(commitButton)
+        layoutSubviews()
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    override var frame: NSRect {
+        didSet { if frame.size != oldValue.size { layoutSubviews() } }
+    }
+
+    /// Text inset so that one line sits centered in `minHeight`.
+    private var verticalInset: CGFloat { (Self.minHeight - lineHeight) / 2 }
+
+    /// The height the lines need, between one line and `maxLines`.
+    var preferredHeight: CGFloat {
+        guard let layoutManager = textView.layoutManager, let container = textView.textContainer else {
+            return Self.minHeight
+        }
+        layoutManager.ensureLayout(for: container)
+        let used = ceil(layoutManager.usedRect(for: container).height)
+        let lines = min(max(used, lineHeight), lineHeight * CGFloat(Self.maxLines))
+        return lines + 2 * verticalInset
+    }
+
+    private func layoutSubviews() {
+        let size = Self.buttonSize
+        let buttonY = (Self.minHeight - size) / 2
+        commitButton.frame = CGRect(x: bounds.width - DesignTokens.spaceM - size, y: buttonY, width: size, height: size)
+        cancelButton.frame = CGRect(x: commitButton.frame.minX - DesignTokens.spaceS - size, y: buttonY, width: size, height: size)
+        let textWidth = max(cancelButton.frame.minX - DesignTokens.spaceM * 2, 40)
+        scroll.frame = CGRect(
+            x: DesignTokens.spaceM,
+            y: verticalInset,
+            width: textWidth,
+            height: max(bounds.height - 2 * verticalInset, lineHeight)
+        )
+        textView.frame.size.width = textWidth
+        placeholder.frame.origin = CGPoint(x: DesignTokens.spaceM, y: bounds.height - verticalInset - placeholder.frame.height)
+        placeholder.frame.size.width = textWidth
+    }
+
+    // MARK: NSTextViewDelegate
+
+    func textDidChange(_ notification: Notification) {
+        placeholder.isHidden = !textView.string.isEmpty
+        onHeightChange?()
+    }
+
+    func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+        if commandSelector == #selector(NSResponder.insertNewline(_:)) {
+            // Shift-Return adds a line; Option-Return arrives as insertNewlineIgnoringFieldEditor and
+            // adds one on its own.
+            if NSApp.currentEvent?.modifierFlags.contains(.shift) == true {
+                textView.insertNewlineIgnoringFieldEditor(nil)
+                return true
+            }
+            commit()
+            return true
+        }
+        if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
+            cancel()
+            return true
+        }
+        return false
+    }
+
+    @objc private func commit() { onCommit?(textView.string) }
+    @objc private func cancel() { onCancel?() }
+}
+
+/// A 20 pt disc with one symbol and no words: Return in the accent color, Esc in the secondary one.
+final class NoteFieldButton: NSButton {
+    private let fill: NSColor
+
+    init(symbol: String, fill: NSColor, tint: NSColor, label: String, toolTip: String) {
+        self.fill = fill
+        super.init(frame: .zero)
+        isBordered = false
+        imagePosition = .imageOnly
+        imageScaling = .scaleNone
+        let configuration = NSImage.SymbolConfiguration(pointSize: 10, weight: .bold)
+        image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)?.withSymbolConfiguration(configuration)
+        contentTintColor = tint
+        refusesFirstResponder = true
+        self.toolTip = toolTip
+        setAccessibilityLabel(label)
+        (cell as? NSButtonCell)?.highlightsBy = .contentsCellMask
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    override func draw(_ dirtyRect: NSRect) {
+        fill.withAlphaComponent(isHighlighted ? 0.6 : 1).setFill()
+        NSBezierPath(ovalIn: bounds).fill()
+        super.draw(dirtyRect)
+    }
+
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: .pointingHand)
+    }
 }
 
 // MARK: - Toast

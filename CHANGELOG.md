@@ -2,6 +2,10 @@
 
 Every release is a signed, notarized `Locant.dmg` on [GitHub Releases](https://github.com/Malik1942/locant/releases). Drag the new copy over the old one; the permissions carry over.
 
+## Unreleased
+
+- **The note grows with what you type.** The box under the element was one line; now it adds a line as the note wraps or when you press Shift-Return, up to eight, then scrolls. The hint at its right is gone: in its place, a Return button copies and an × cancels, with no words to read.
+
 ## 1.0.1 (2026-10-21)
 
 - **Stuck screen capture is fixed from Locant.** When the macOS process behind screen capture stops answering, every capture used to say "Capture failed", even after relaunching Locant. Now Locant says what is wrong, offers Restart Screen Capture, and opens the same action again. Point stops right at the click instead of after you type the note.
