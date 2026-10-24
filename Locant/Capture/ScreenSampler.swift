@@ -22,6 +22,8 @@ final class ScreenSampler {
     private var wanted: CGRect?
     private var inFlight = false
     private var generation = 0
+    /// Each `start()` and `stop()` opens a new one; a capture only lands in the session that asked for it.
+    private var session = 0
     private var loop: Task<Void, Never>?
 
     init(hasPermission: @escaping @MainActor () -> Bool = { ScreenCapture.hasPermission() },
@@ -35,6 +37,7 @@ final class ScreenSampler {
     /// The overlay is up: the area hover wants is taken again every `refresh`.
     func start() {
         guard loop == nil else { return }
+        session += 1
         let refresh = refresh
         loop = Task { [weak self] in
             while !Task.isCancelled {
@@ -45,8 +48,11 @@ final class ScreenSampler {
         }
     }
 
-    /// The overlay is gone: no more captures, and the image is dropped.
+    /// The overlay is gone: no more captures, and the image is dropped. A capture still running may
+    /// finish, but its image is discarded.
     func stop() {
+        session += 1
+        inFlight = false
         loop?.cancel()
         loop = nil
         latest = nil
@@ -75,6 +81,7 @@ final class ScreenSampler {
         inFlight = true
         generation += 1
         let generation = generation
+        let session = session
         let capture = capture
         Task { [weak self] in
             let grid = await Task.detached { () -> PixelGrid? in
@@ -82,12 +89,16 @@ final class ScreenSampler {
                 return PixelGrid(image: taken.image, frame: taken.frame,
                                  scale: CGFloat(taken.image.width) / taken.frame.width, generation: generation)
             }.value
-            guard let self else { return }
+            guard let self, self.session == session else { return }
             self.inFlight = false
-            guard self.loop != nil, let grid else { return }
-            self.latest = grid
-            self.latestArea = area
-            self.onUpdate?()
+            if let grid {
+                self.latest = grid
+                self.latestArea = area
+                self.onUpdate?()
+            }
+            // An area wanted while this one was in flight is taken now, not at the next refresh. It
+            // cannot loop: only `want` moves `wanted`, and a failed capture of it matches itself.
+            if let wanted = self.wanted, !HitRefiner.matches(Frame(wanted), Frame(area)) { self.take() }
         }
     }
 }

@@ -12,6 +12,23 @@ final class ScreenSamplerTests: XCTestCase {
         var count: Int { areas.count }
     }
 
+    /// Holds a capture until the test opens it.
+    private actor Gate {
+        private var open = false
+        private var waiting: [CheckedContinuation<Void, Never>] = []
+        func wait() async {
+            if open { return }
+            await withCheckedContinuation { waiting.append($0) }
+        }
+        func release() {
+            open = true
+            for continuation in waiting { continuation.resume() }
+            waiting = []
+        }
+    }
+
+    private struct Refused: Error {}
+
     private nonisolated static func image(width: Int, height: Int) -> CGImage {
         let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
                                 space: CGColorSpace(name: CGColorSpace.sRGB)!,
@@ -21,11 +38,13 @@ final class ScreenSamplerTests: XCTestCase {
         return context.makeImage()!
     }
 
-    /// A sampler whose capture records the area and returns a plain image at 2x; refresh far off, so
-    /// only `want` captures.
-    private func makeSampler(permitted: Bool, calls: Calls) -> ScreenSampler {
+    /// A sampler whose capture records the area, runs `before` (which can hold it or throw), and returns
+    /// a plain image at 2x; refresh far off, so only `want` captures.
+    private func makeSampler(permitted: Bool, calls: Calls,
+                             before: @escaping @Sendable (CGRect) async throws -> Void = { _ in }) -> ScreenSampler {
         ScreenSampler(hasPermission: { permitted }, capture: { area in
             await calls.add(area)
+            try await before(area)
             return (Self.image(width: Int(area.width) * 2, height: Int(area.height) * 2), area, 2)
         }, refresh: .seconds(600))
     }
@@ -45,7 +64,7 @@ final class ScreenSamplerTests: XCTestCase {
         sampler.stop()
     }
 
-    func testOneCapturePerAreaAndAnotherForANewArea() async {
+    func testOneCapturePerAreaAndAnotherForANewArea() async throws {
         let calls = Calls()
         let sampler = makeSampler(permitted: true, calls: calls)
         sampler.start()
@@ -57,8 +76,11 @@ final class ScreenSamplerTests: XCTestCase {
         XCTAssertEqual(sampler.image(for: first)?.width, 200)
         XCTAssertEqual(sampler.image(for: first)?.generation, 1)
         sampler.want(first) // the newest image already shows it
+        try await Task.sleep(for: .milliseconds(200))
         var count = await calls.count
         XCTAssertEqual(count, 1)
+        let asked = await calls.areas
+        XCTAssertEqual(asked, [first])
 
         let moved = expectation(description: "second image")
         sampler.onUpdate = { moved.fulfill() }
@@ -85,5 +107,81 @@ final class ScreenSamplerTests: XCTestCase {
         try await Task.sleep(for: .milliseconds(200))
         let count = await calls.count
         XCTAssertEqual(count, 1)
+    }
+
+    func testACaptureStartedBeforeStopNeverLandsAfterIt() async throws {
+        let calls = Calls()
+        let gate = Gate()
+        let held = first
+        let sampler = makeSampler(permitted: true, calls: calls, before: { area in
+            if area == held { await gate.wait() }
+        })
+        sampler.start()
+        var updates = 0
+        sampler.onUpdate = { updates += 1 }
+        sampler.want(first) // held at the gate
+        try await Task.sleep(for: .milliseconds(100))
+        sampler.stop()
+        sampler.start()
+        sampler.want(second) // the held capture does not block the new session
+        try await Task.sleep(for: .milliseconds(200))
+        var count = await calls.count
+        XCTAssertEqual(count, 2)
+        XCTAssertEqual(sampler.image(for: second)?.generation, 2)
+        XCTAssertEqual(updates, 1)
+
+        await gate.release() // the old capture finishes now, into a session that is over
+        try await Task.sleep(for: .milliseconds(200))
+        XCTAssertNil(sampler.image(for: first)?.generation)
+        XCTAssertEqual(sampler.image(for: second)?.generation, 2)
+        XCTAssertEqual(updates, 1)
+        count = await calls.count
+        XCTAssertEqual(count, 2)
+        sampler.stop()
+    }
+
+    func testAFailedCaptureLeavesThePreviousImageAndSaysNothing() async throws {
+        let calls = Calls()
+        let refused = second
+        let sampler = makeSampler(permitted: true, calls: calls, before: { area in
+            if area == refused { throw Refused() }
+        })
+        sampler.start()
+        let landed = expectation(description: "first image")
+        sampler.onUpdate = { landed.fulfill() }
+        sampler.want(first)
+        await fulfillment(of: [landed], timeout: 2)
+
+        sampler.onUpdate = { XCTFail("a failed capture is not an update") }
+        sampler.want(second)
+        try await Task.sleep(for: .milliseconds(200))
+        let count = await calls.count
+        XCTAssertEqual(count, 2)
+        XCTAssertEqual(sampler.image(for: first)?.generation, 1)
+        XCTAssertNil(sampler.image(for: second))
+        sampler.stop()
+    }
+
+    func testAnAreaWantedDuringAFailedCaptureIsTakenRightAfterIt() async {
+        let calls = Calls()
+        let gate = Gate()
+        let held = first
+        let sampler = makeSampler(permitted: true, calls: calls, before: { area in
+            if area == held {
+                await gate.wait()
+                throw Refused()
+            }
+        })
+        sampler.start()
+        let landed = expectation(description: "second image")
+        sampler.onUpdate = { landed.fulfill() }
+        sampler.want(first) // in flight, and about to fail
+        sampler.want(second) // wanted meanwhile, parked
+        await gate.release()
+        await fulfillment(of: [landed], timeout: 2) // well inside the 600 s refresh
+        let asked = await calls.areas
+        XCTAssertEqual(asked, [first, second])
+        XCTAssertEqual(sampler.image(for: second)?.generation, 2)
+        sampler.stop()
     }
 }
