@@ -78,6 +78,31 @@ enum ScreenCapture {
         return (image, display.frame, scale)
     }
 
+    /// specs/capture-shapes.md R118: `rect` (global points) from the display holding its center, own
+    /// windows excluded, at the display's scale unless that would exceed `maxSamples` samples. `frame`
+    /// is the part of `rect` on that display.
+    static func regionImage(_ rect: CGRect, maxSamples: Int) async throws -> (image: CGImage, frame: CGRect, scale: CGFloat) {
+        let content = try await shareableContent()
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        guard let display = content.displays.first(where: { $0.frame.contains(center) }) ?? content.displays.first else {
+            throw ScreenCaptureFailure.noDisplay
+        }
+        let visible = rect.intersection(display.frame).integral
+        guard !visible.isEmpty else { throw ScreenCaptureFailure.cropOutsideImage }
+        let ownPID = ProcessInfo.processInfo.processIdentifier
+        let ownWindows = content.windows.filter { $0.owningApplication?.processID == ownPID }
+        let filter = SCContentFilter(display: display, excludingWindows: ownWindows)
+        let scale = Geometry.sampleScale(native: CGFloat(filter.pointPixelScale), size: visible.size, maxSamples: maxSamples)
+        let configuration = SCStreamConfiguration()
+        configuration.sourceRect = Geometry.displayLocalRect(visible, inDisplay: display.frame)
+        configuration.width = Int((visible.width * scale).rounded())
+        configuration.height = Int((visible.height * scale).rounded())
+        configuration.showsCursor = false
+        configuration.captureResolution = .best
+        let image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: configuration)
+        return (image, visible, scale)
+    }
+
     /// Captures `rect` (global screen points) from the display that contains its center.
     static func crop(_ rect: CGRect) async throws -> CroppedImage {
         let content = try await shareableContent()
