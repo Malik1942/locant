@@ -474,19 +474,24 @@ enum HitRefiner {
         let base = ElementResolver.resolve(snapshot)
         let window = windowFrame(in: snapshot)
         var levels: [ResolvedElement?] = []
-        if let base, ElementResolver.containerRoles.contains(base.role), spans(snapshot.element.frame, window: window) {
-            // Window-sized container under the cursor: the cluster around the point, else nothing.
+        if let base, ElementResolver.containerRoles.contains(base.role) {
+            // A container under the cursor: the cluster around the point, whatever the container's size
+            // (specs/capture-shapes.md R120); else nothing when it spans the window, else the container.
+            let spanning = spans(snapshot.element.frame, window: window)
+            let containerArea = snapshot.element.frame.map { $0.w * $0.h } ?? .infinity
             let nodes = content(of: snapshot.children ?? [], within: snapshot.element.frame)
             if let members = cluster(containing: point, among: nodes),
-               let cluster = ElementResolver.clusterElement(members: members, ancestors: [snapshot.element] + snapshot.ancestors, within: snapshot.element.frame) {
+               let cluster = ElementResolver.clusterElement(members: members, ancestors: [snapshot.element] + snapshot.ancestors, within: snapshot.element.frame),
+               spanning || cluster.frame.w * cluster.frame.h < 0.9 * containerArea {
                 levels.append(cluster)
-            } else {
+            } else if spanning {
                 levels.append(nil)
             }
             levels.append(base)
         } else if let base {
             levels.append(base)
-            if let siblings = snapshot.siblings, let parent = snapshot.ancestors.first, spans(parent.frame, window: window) {
+            // R120: the cluster around the element under any parent.
+            if let siblings = snapshot.siblings, let parent = snapshot.ancestors.first {
                 let nodes = content(of: siblings, within: parent.frame)
                 let parentArea = parent.frame.map { $0.w * $0.h } ?? .infinity
                 if let members = cluster(around: snapshot.element, among: nodes),

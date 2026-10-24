@@ -330,12 +330,11 @@ actor AccessibilityReader {
         }
         var snapshot = ElementSnapshot(element: elementAttributes, ancestors: ancestors)
         if web { snapshot.url = pageURL(above: current, pid: pidOf(element)) }
-        // Flat trees (SwiftUI): read the neighbourhood so HitRefiner can form visual clusters.
-        let window = HitRefiner.windowFrame(in: snapshot)
-        if ElementResolver.isContainer(elementAttributes), HitRefiner.spans(elementAttributes.frame, window: window) {
+        // Flat trees (SwiftUI): read the neighbourhood so HitRefiner can form visual clusters, under any
+        // container (specs/capture-shapes.md R120), not only one that spans the window.
+        if ElementResolver.isContainer(elementAttributes) {
             snapshot.children = neighbors(of: element, attributes: elementAttributes)
-        } else if let parent = parents.first, let parentAttributes = ancestors.first,
-                  HitRefiner.spans(parentAttributes.frame, window: window) {
+        } else if let parent = parents.first, let parentAttributes = ancestors.first, ElementResolver.isContainer(parentAttributes) {
             snapshot.siblings = neighbors(of: parent, attributes: parentAttributes)
         }
         return snapshot

@@ -186,6 +186,34 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertNil(onNothing[0], "nothing specific here: fallback square, element null on click")
     }
 
+    // MARK: Clusters under any parent (specs/capture-shapes.md R120)
+
+    /// Oryne's thought-detail toolbar: share and pencil, 40×40 each, in a 360×48 hosting group that is
+    /// far from spanning the 400×870 screen.
+    private func toolbarNodes() -> (share: AttributeSet, pencil: AttributeSet, hosting: AttributeSet, screen: AttributeSet) {
+        (AttributeSet(role: "AXButton", identifier: "share", frame: Frame(x: 256, y: 330, w: 40, h: 40)),
+         AttributeSet(role: "AXButton", identifier: "pencil", frame: Frame(x: 300, y: 330, w: 40, h: 40)),
+         AttributeSet(role: "AXGroup", identifier: "_TtGC7SwiftUI32NavigationStackHosting", frame: Frame(x: 118, y: 324, w: 360, h: 48)),
+         AttributeSet(role: "AXGroup", frame: Frame(x: 100, y: 100, w: 400, h: 870)))
+    }
+
+    func testClusterFormsUnderAParentThatDoesNotSpanTheWindow() {
+        let n = toolbarNodes()
+        let snapshot = ElementSnapshot(element: n.pencil, ancestors: [n.hosting, n.screen], siblings: [n.share, n.pencil])
+        let levels = HitRefiner.selectionLevels(for: snapshot, at: CGPoint(x: 320, y: 350))
+        XCTAssertEqual(levels.map { $0?.role }, ["button", "cluster", "group", "group"])
+        XCTAssertEqual(levels[1]?.members?.compactMap(\.identifier), ["share", "pencil"])
+    }
+
+    func testAContainerThatDoesNotSpanTheWindowIsRungZeroWithoutACluster() {
+        let n = toolbarNodes()
+        let hit = ElementSnapshot(element: n.hosting, ancestors: [n.screen], children: [n.share, n.pencil])
+        XCTAssertEqual(HitRefiner.selectionLevels(for: hit, at: CGPoint(x: 200, y: 350)).map { $0?.role }, ["group", "group"],
+                       "away from the buttons: the container itself, not the fallback square")
+        XCTAssertEqual(HitRefiner.selectionLevels(for: hit, at: CGPoint(x: 298, y: 350)).map { $0?.role }, ["cluster", "group", "group"],
+                       "between the buttons: their cluster")
+    }
+
     /// SwiftUI nests several containers in one frame (three 456×900 groups in the Simulator, five
     /// 470×1000 ones in Device Hub), and so does the web. They outline the same rectangle, so they
     /// are one rung, and Option always moves the outline. Of a run the window stays, else the one
