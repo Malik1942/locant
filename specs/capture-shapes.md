@@ -163,7 +163,7 @@ The existing region tests keep passing either way. R121's members depend on the 
   Each fixture also has a point on its background that must give no shape. Fixtures load at the capture's 2x scale through `PixelGrid(image:frame:scale:generation:)`, the conversion `ScreenSampler` uses.
 - `ScreenSamplerTests`: without permission nothing is captured; an area is captured once, and again only when hover wants another area; stopping drops the image.
 - `GeometryTests`: `sampleScale` keeps the display's scale up to 4,000,000 samples and lowers it above.
-- **Speed:** with the probe built at `-O`, 100 shape lookups on `shape-sheet`'s iPhone screen (668×1453 samples, edge map precomputed) have a median under 5 ms and a 95th percentile under 15 ms. On Oct 23 they measured 4.6 ms and 13.4 ms; the edge map took 27 ms once. The unit tests run unoptimized, so they check results, not speed. Debug builds log each lookup's time, for information only.
+- **Speed:** with the probe built at `-O`, 100 shape lookups on the iPhone screen of capture 20261023-023021-yu3f, unblurred and kept out of the repo (668×1453 samples, edge map precomputed) have a median under 5 ms and a 95th percentile under 15 ms. On Oct 23 they measured 4.6 ms and 13.4 ms; the edge map took 27 ms once. On the blurred `shape-sheet` fixture the text smudges add fill work: p50 5.6 ms. The unit tests run unoptimized, so they check results, not speed. Debug builds log each lookup's time, for information only.
 - `ElementResolverTests`:
   - **Ordering:** rungs ordered by containment; a shape placed between the rung it contains and the rung that contains it.
   - **Dropped:** a shape that neither contains nor is contained by its neighbors.

@@ -207,4 +207,52 @@ final class ShapeFinderTests: XCTestCase {
         XCTAssertFalse(fill.covers(CGPoint(x: 20, y: 20), in: grid))
         XCTAssertFalse(fill.covers(CGPoint(x: 250, y: 160), in: canvas.grid(generation: 2)), "a newer sample")
     }
+
+    // MARK: Real screens (section 3)
+
+    private struct FixtureFile: Decodable {
+        struct Case: Decodable {
+            let name: String
+            let at: [CGFloat]?
+            let around: [CGFloat]?
+            let expect: [CGFloat]?
+        }
+        let file: String
+        let source: String
+        let bound: [CGFloat]?
+        let cases: [Case]
+    }
+
+    private func rect(_ v: [CGFloat]) -> CGRect { CGRect(x: v[0], y: v[1], width: v[2], height: v[3]) }
+
+    /// Malik's captures of the failing cases and two cards outside SwiftUI, text blurred, at their 2x
+    /// scale through the conversion the live sample uses. Expected rectangles were measured apart from
+    /// `ShapeFinder`; a nil one is a background point that must give no shape.
+    func testRealScreens() throws {
+        let bundle = Bundle(for: Self.self)
+        let index = try XCTUnwrap(bundle.url(forResource: "shapes", withExtension: "json"))
+        let files = try JSONDecoder().decode([FixtureFile].self, from: Data(contentsOf: index))
+        XCTAssertEqual(files.count, 6)
+        for fixture in files {
+            let url = try XCTUnwrap(bundle.url(forResource: fixture.file, withExtension: "png"), fixture.file)
+            let image = try XCTUnwrap(NSBitmapImageRep(data: try Data(contentsOf: url))?.cgImage, fixture.file)
+            let frame = CGRect(x: 0, y: 0, width: CGFloat(image.width) / 2, height: CGFloat(image.height) / 2)
+            let grid = try XCTUnwrap(PixelGrid(image: image, frame: frame, scale: 2, generation: 1))
+            let bound = fixture.bound.map(rect) ?? frame
+            for c in fixture.cases {
+                let label = "\(fixture.file): \(c.name)"
+                let found: CGRect?
+                if let at = c.at {
+                    found = ShapeFinder.fill(at: CGPoint(x: at[0], y: at[1]), in: grid, bound: bound)?.shape
+                } else {
+                    found = ShapeFinder.shape(around: rect(try XCTUnwrap(c.around, label)), in: grid, bound: bound)
+                }
+                if let expect = c.expect {
+                    assertRect(found, rect(expect), within: 2, label)
+                } else {
+                    XCTAssertNil(found, label)
+                }
+            }
+        }
+    }
 }
