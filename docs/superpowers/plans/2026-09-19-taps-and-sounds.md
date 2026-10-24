@@ -19,7 +19,7 @@
 - Taps: `NSHapticFeedbackManager.defaultPerformer.perform(_:performanceTime: .drawCompleted)`; patterns `.alignment` (outline moves, ring segments), `.levelChange` (Option), `.generic` (ring opens); at most one per 80 ms (`DesignTokens.hover`); only for an outline actually drawn; an edge shift of 2 pt or less is not a move; never on a click, and a click on the overlay holds the gate for 80 ms.
 - Sounds: `landed`, `missed`; mono, 48 kHz, 24-bit linear PCM CAF, at most 700 ms (retuned Sep 20 against the macOS corpus); `landed` peaks at −15 dBFS ± 1 dB, `missed` 3 dB lower; played with `AudioServicesPlaySystemSoundWithCompletion`; `kAudioServicesPropertyIsUISound` left at its default.
 - Settings copy, verbatim: "Trackpad taps" / "A light tap under your finger when the outline moves to a new element, when the ring opens and between its segments, and when a capture lands. Needs a Force Touch trackpad." and "Sounds" / "A soft sound when a capture reaches the clipboard, a lower one when nothing did. Follows Play user interface sound effects in Sound settings."
-- `docs/CLAUDE.md`: commit messages `area: what changed`, one intent each; never commit without a green build; match the surrounding comment density; doc comments cite the requirement (`v0.8.1 R59`); do not reformat untouched code; the README is written in the last slot.
+- `CLAUDE.md`: commit messages `area: what changed`, one intent each; never commit without a green build; match the surrounding comment density; doc comments cite the requirement (`v0.8.1 R59`); do not reformat untouched code; the README is written in the last slot.
 - Build and test commands (from the worktree root; `build/` is git-ignored):
   - Build: `xcodebuild -project Locant.xcodeproj -scheme Locant -configuration Debug -derivedDataPath build/dd build 2>&1 | tail -3` → ends with `** BUILD SUCCEEDED **`
   - One test class: `xcodebuild test -project Locant.xcodeproj -scheme Locant -derivedDataPath build/dd -only-testing:LocantTests/FeedbackTests 2>&1 | grep -E "Test Case|error:|TEST (SUCCEEDED|FAILED)" | tail -20`
@@ -290,7 +290,7 @@ git commit -m "preferences: Trackpad taps and Sounds, both on by default"
 ### Task 4: `Feedback`, owned by `AppState` and handed to the ball (R59, R60, R62)
 
 **Files:**
-- Modify: `docs/CLAUDE.md:19` (its own commit, first)
+- Modify: `CLAUDE.md:19` (its own commit, first)
 - Create: `Locant/Feedback/Feedback.swift`
 - Modify: `Locant/App/AppState.swift` (a property after `ball`; the first line of `start()`; `updateBall()`)
 - Modify: `Locant/Launcher/FloatingBall.swift` (a property after `onAction`)
@@ -301,13 +301,13 @@ git commit -m "preferences: Trackpad taps and Sounds, both on by default"
 - Produces: `@MainActor final class Feedback { enum Sound: String, CaseIterable, Sendable { case landed, missed }; var perform: @MainActor (NSHapticFeedbackManager.FeedbackPattern) -> Void; var playSound: @MainActor (SystemSoundID) -> Void; var now: @MainActor () -> TimeInterval; init(preferences: Preferences, bundle: Bundle = .main); func tap(_ pattern: NSHapticFeedbackManager.FeedbackPattern); func clicked(); func play(_ sound: Sound); nonisolated static func url(for sound: Sound, in bundle: Bundle) -> URL? }`. `perform`, `playSound`, `now` default to the real calls; tests replace them.
 - Produces: `AppState.feedback: Feedback?` (private) and `FloatingBall.feedback: Feedback?`.
 
-- [ ] **Step 1: The framework line, committed alone.** In `docs/CLAUDE.md` replace
+- [ ] **Step 1: The framework line, committed alone.** In `CLAUDE.md` replace
 `- No third-party packages. Foundation, AppKit, SwiftUI, ScreenCaptureKit, Vision, ApplicationServices only.`
 with
 `- No third-party packages. Foundation, AppKit, SwiftUI, ScreenCaptureKit, Vision, ApplicationServices, and AudioToolbox (the two interface sounds, specs/v0.8.1.md R60) only.`
 
 ```bash
-git add docs/CLAUDE.md
+git add CLAUDE.md
 git commit -m "docs: AudioToolbox joins the allowed frameworks, for the two interface sounds"
 ```
 
