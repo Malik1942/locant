@@ -131,6 +131,8 @@ enum ElementResolver {
 
     static let clusterRole = "cluster"
     static let clusterRawRole = "LocantCluster"
+    /// specs/capture-shapes.md R116: a shape found on screen; a cluster too, but its frame is the edges seen.
+    static let shapeRawRole = "LocantShape"
 
     /// A visual grouping computed from neighbouring elements. SwiftUI exposes leaves but not the
     /// cards that hold them; this stands in for the missing container and says so in its role.
@@ -520,4 +522,135 @@ enum HitRefiner {
         guard depth <= snapshot.ancestors.count else { return nil }
         return ElementSnapshot(element: snapshot.ancestors[depth - 1], ancestors: Array(snapshot.ancestors[depth...]))
     }
+}
+
+// MARK: - Shapes (specs/capture-shapes.md)
+
+extension HitRefiner {
+    /// R117: inside a shape, the element under the pointer keeps the outline this far past its frame.
+    static let shapeHold: Double = 3
+    /// R117: a shape and an accessibility rung within this on every edge are one rung, since pixel edges
+    /// are read a sample at a time. Two accessibility rungs still merge within 1 pt (`collapsingSameFrames`).
+    static let shapeMerge: Double = 2
+
+    /// R117: the ladder with the shapes under the pointer.
+    /// - Rung 0 is the element the pointer is on; else the element still held inside a shape; else the
+    ///   shape at the point; else today's ladder, unchanged.
+    /// - After rung 0 come the shapes around it, then today's rungs that hold it, ordered by containment.
+    /// - With no accessibility answer: nothing, and no shape is asked for.
+    static func selectionLevels(for snapshot: ElementSnapshot?, at point: CGPoint,
+                                shapes: inout some ShapeSource, holding previous: ResolvedElement?) -> [ResolvedElement?] {
+        guard let snapshot else { return [] }
+        let today = selectionLevels(for: snapshot, at: point)
+        let rung0: ResolvedElement
+        var shapeAtPoint: CGRect?
+        if let hit = ElementResolver.resolve(snapshot), isElement(hit), hit.frame.cgRect.contains(point) {
+            rung0 = hit
+        } else if let shape = shapes.shape(at: point) {
+            shapeAtPoint = shape
+            if let previous, isElement(previous),
+               previous.frame.cgRect.insetBy(dx: -shapeHold, dy: -shapeHold).contains(point),
+               holds(shape, previous.frame.cgRect) {
+                rung0 = previous
+            } else {
+                rung0 = shapeElement(frame: shape, snapshot: snapshot)
+            }
+        } else {
+            return today
+        }
+        let around = shapes.shapes(around: rung0.frame.cgRect)
+        // R120: the cluster stands in for a shape, so it is offered only where there is none.
+        let offersCluster = shapeAtPoint == nil && around.isEmpty
+        let accessibility = today.compactMap { $0 }.filter { rung in
+            !(rung.frame == rung0.frame && rung.rawRole == rung0.rawRole)
+                && holds(rung.frame.cgRect, rung0.frame.cgRect)
+                && (offersCluster || rung.rawRole != ElementResolver.clusterRawRole)
+        }
+        let candidates = (around.map { shapeElement(frame: $0, snapshot: snapshot) } + accessibility)
+            .enumerated()
+            .sorted { a, b in
+                let (x, y) = (rungArea(a.element), rungArea(b.element))
+                if x != y { return x < y }
+                if isShape(a.element) != isShape(b.element) { return !isShape(a.element) }
+                return a.offset < b.offset
+            }
+            .map(\.element)
+        var ladder: [ResolvedElement] = [rung0]
+        for candidate in candidates {
+            let last = ladder[ladder.count - 1]
+            if matches(last.frame, candidate.frame, within: shapeMerge) {
+                // The accessibility rung is kept: it carries a handle to grep.
+                if isShape(last), !isShape(candidate) { ladder[ladder.count - 1] = candidate }
+                continue
+            }
+            if holds(candidate.frame.cgRect, last.frame.cgRect) {
+                ladder.append(candidate)
+                continue
+            }
+            // A shape that does not hold the rung below it is dropped; so is one below an accessibility
+            // rung that does not hold it.
+            guard !isShape(candidate) else { continue }
+            while ladder.count > 1, let top = ladder.last, isShape(top), !holds(candidate.frame.cgRect, top.frame.cgRect) {
+                ladder.removeLast()
+            }
+            ladder.append(candidate)
+        }
+        return collapsingSameFrames(ladder)
+    }
+
+    /// R116: a shape as an element. Its path is that of the innermost node, among the hovered element and
+    /// its ancestors, whose frame holds it; its members are what the snapshot holds inside it (R121).
+    static func shapeElement(frame: CGRect, snapshot: ElementSnapshot) -> ResolvedElement {
+        let chain = [snapshot.element] + snapshot.ancestors
+        let holder = chain.firstIndex { node in node.frame.map { holds($0.cgRect, frame) } ?? false } ?? chain.count
+        var path: [PathEntry] = chain[holder...].prefix(ElementResolver.maxAncestors).reversed().map { node in
+            PathEntry(role: ElementResolver.mapRole(node.role ?? "", subrole: node.subrole), identifier: ElementResolver.nonEmpty(node.identifier))
+        }
+        path.append(PathEntry(role: ElementResolver.clusterRole, identifier: nil))
+        return ResolvedElement(
+            role: ElementResolver.clusterRole, rawRole: ElementResolver.shapeRawRole, label: nil, identifier: nil,
+            identifierSource: .unknown, value: nil, frame: Frame(frame), path: path,
+            members: members(inside: frame, of: snapshot)
+        )
+    }
+
+    /// R121: the non-container nodes the snapshot holds (the element, its siblings, its children) at least
+    /// half inside `frame`, one per rectangle, in reading order.
+    static func members(inside frame: CGRect, of snapshot: ElementSnapshot) -> [ElementMember] {
+        var seen = Set<String>()
+        let inside = ([snapshot.element] + (snapshot.siblings ?? []) + (snapshot.children ?? [])).filter { node in
+            guard !ElementResolver.isContainer(node), let f = node.frame, f.w > 0, f.h > 0 else { return false }
+            let overlap = f.cgRect.intersection(frame)
+            guard !overlap.isNull, overlap.width * overlap.height >= RegionResolver.minimumInside * f.w * f.h else { return false }
+            return seen.insert("\(node.role ?? "")|\(f.x)|\(f.y)|\(f.w)|\(f.h)").inserted
+        }
+        let ordered = inside.sorted { a, b in
+            let fa = a.frame!, fb = b.frame!
+            return abs(fa.y - fb.y) > 4 ? fa.y < fb.y : fa.x < fb.x
+        }
+        return ordered.map { node in
+            ElementMember(role: ElementResolver.mapRole(node.role ?? "", subrole: node.subrole),
+                          label: ElementResolver.nonEmpty(node.title) ?? ElementResolver.nonEmpty(node.description),
+                          identifier: ElementResolver.nonEmpty(node.identifier))
+        }
+    }
+
+    /// `outer` holds `inner`, give or take `shapeMerge`.
+    static func holds(_ outer: CGRect, _ inner: CGRect) -> Bool {
+        outer.insetBy(dx: -shapeMerge, dy: -shapeMerge).contains(inner)
+    }
+
+    /// The same rectangle, within `slack` on every edge.
+    static func matches(_ a: Frame, _ b: Frame, within slack: Double) -> Bool {
+        abs(a.x - b.x) <= slack && abs(a.y - b.y) <= slack
+            && abs((a.x + a.w) - (b.x + b.w)) <= slack && abs((a.y + a.h) - (b.y + b.h)) <= slack
+    }
+
+    private static func isElement(_ rung: ResolvedElement) -> Bool {
+        !ElementResolver.containerRoles.contains(rung.role) && rung.role != ElementResolver.clusterRole
+    }
+
+    private static func isShape(_ rung: ResolvedElement) -> Bool { rung.rawRole == ElementResolver.shapeRawRole }
+
+    private static func rungArea(_ rung: ResolvedElement) -> Double { rung.frame.w * rung.frame.h }
 }

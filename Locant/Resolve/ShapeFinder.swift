@@ -314,3 +314,49 @@ enum ShapeFinder {
         return ring.filter { box.contains(x: $0.x, y: $0.y) }
     }
 }
+
+/// specs/capture-shapes.md R117: what the ladder asks of the pixels. `ShapeLookup` answers from a screen
+/// sample; tests answer from fixed rectangles.
+protocol ShapeSource {
+    /// R119: the shape at a point; nil when there is none.
+    mutating func shape(at point: CGPoint) -> CGRect?
+    /// R119: the shapes around a rectangle, innermost first, at most three.
+    mutating func shapes(around rect: CGRect) -> [CGRect]
+}
+
+/// The live `ShapeSource` over one screen sample. `memo` carries the last fill and the shapes found around
+/// rectangles from one hover step to the next while the sample and the bound stay the same (R119).
+struct ShapeLookup: ShapeSource, Sendable {
+    struct Memo: Sendable {
+        var generation = -1
+        var bound = CGRect.null
+        var lastFill: ShapeFinder.Fill?
+        var around: [Frame: [CGRect]] = [:]
+    }
+
+    let grid: PixelGrid
+    let bound: CGRect
+    private(set) var memo: Memo
+
+    init(grid: PixelGrid, bound: CGRect, memo: Memo) {
+        self.grid = grid
+        self.bound = bound
+        self.memo = memo.generation == grid.generation && memo.bound == bound ? memo : Memo(generation: grid.generation, bound: bound)
+    }
+
+    mutating func shape(at point: CGPoint) -> CGRect? {
+        if let fill = memo.lastFill, fill.covers(point, in: grid) { return fill.shape }
+        let fill = ShapeFinder.fill(at: point, in: grid, bound: bound)
+        memo.lastFill = fill
+        return fill?.shape
+    }
+
+    mutating func shapes(around rect: CGRect) -> [CGRect] {
+        let key = Frame(rect)
+        if let known = memo.around[key] { return known }
+        let found = ShapeFinder.enclosing(rect, in: grid, bound: bound)
+        if memo.around.count >= 64 { memo.around.removeAll() }
+        memo.around[key] = found
+        return found
+    }
+}

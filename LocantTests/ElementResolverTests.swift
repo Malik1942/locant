@@ -214,6 +214,109 @@ final class ElementResolverTests: XCTestCase {
                        "between the buttons: their cluster")
     }
 
+    // MARK: Shapes on the ladder (specs/capture-shapes.md R117, R121)
+
+    /// Shapes at fixed rectangles: at a point, the smallest that holds it; around a rectangle, the ones
+    /// holding it, innermost first. `asked` tells whether the ladder asked at all.
+    private struct FixedShapes: ShapeSource {
+        var rects: [CGRect]
+        var asked = false
+
+        mutating func shape(at point: CGPoint) -> CGRect? {
+            asked = true
+            return rects.filter { $0.contains(point) }.min { $0.width * $0.height < $1.width * $1.height }
+        }
+
+        mutating func shapes(around rect: CGRect) -> [CGRect] {
+            asked = true
+            return rects.filter { $0.insetBy(dx: -1, dy: -1).contains(rect) && !HitRefiner.matches(Frame($0), Frame(rect)) }
+                .sorted { $0.width * $0.height < $1.width * $1.height }
+        }
+    }
+
+    /// The glass capsule around share, pencil, and trash.
+    private let capsule = CGRect(x: 250, y: 326, width: 140, height: 44)
+
+    func testOnAButtonTheCapsuleIsTheNextRung() throws {
+        let n = toolbarNodes()
+        let snapshot = ElementSnapshot(element: n.pencil, ancestors: [n.hosting, n.screen], siblings: [n.share, n.pencil])
+        var shapes = FixedShapes(rects: [capsule])
+        let levels = HitRefiner.selectionLevels(for: snapshot, at: CGPoint(x: 320, y: 350), shapes: &shapes, holding: nil)
+        XCTAssertEqual(levels.map { $0?.role }, ["button", "cluster", "group", "group"])
+        let shape = try XCTUnwrap(levels[1])
+        XCTAssertEqual(shape.rawRole, "LocantShape")
+        XCTAssertEqual(shape.frame, Frame(capsule))
+        XCTAssertEqual(shape.members?.compactMap(\.identifier), ["share", "pencil"])
+        XCTAssertEqual(shape.path.map(\.role), ["group", "group", "cluster"])
+        XCTAssertEqual(shape.path[1].identifier, "_TtGC7SwiftUI32NavigationStackHosting", "the innermost node holding it")
+        XCTAssertEqual(levels[2]?.identifier, "_TtGC7SwiftUI32NavigationStackHosting", "the sibling cluster gave way to the shape")
+    }
+
+    func testInsideAShapeTheElementHoldsForThreePoints() throws {
+        let n = toolbarNodes()
+        let gap = ElementSnapshot(element: n.hosting, ancestors: [n.screen], children: [n.share, n.pencil])
+        let pencil = try XCTUnwrap(ElementResolver.resolve(ElementSnapshot(element: n.pencil, ancestors: [n.hosting, n.screen])))
+        var shapes = FixedShapes(rects: [capsule])
+        let held = HitRefiner.selectionLevels(for: gap, at: CGPoint(x: 342, y: 350), shapes: &shapes, holding: pencil)
+        XCTAssertEqual(held.first??.identifier, "pencil", "2 pt past its edge: still the pencil")
+        let left = HitRefiner.selectionLevels(for: gap, at: CGPoint(x: 345, y: 350), shapes: &shapes, holding: pencil)
+        XCTAssertEqual(left.first??.rawRole, "LocantShape", "5 pt past it: the capsule")
+        let fresh = HitRefiner.selectionLevels(for: gap, at: CGPoint(x: 342, y: 350), shapes: &shapes, holding: nil)
+        XCTAssertEqual(fresh.first??.rawRole, "LocantShape", "arriving in the gap: the capsule, not the pencil")
+    }
+
+    func testAShapeBeatsAnElementReachedOnlyByTolerance() {
+        let n = toolbarNodes()
+        // The reader refined the gap to the pencil, 3 pt away: within its 8 pt tolerance, not under the pointer.
+        let refined = ElementSnapshot(element: n.pencil, ancestors: [n.hosting, n.screen], siblings: [n.share, n.pencil])
+        var shapes = FixedShapes(rects: [capsule])
+        let levels = HitRefiner.selectionLevels(for: refined, at: CGPoint(x: 343, y: 350), shapes: &shapes, holding: nil)
+        XCTAssertEqual(levels.map { $0?.rawRole }, ["LocantShape", "AXGroup", "AXGroup"],
+                       "the pencil, which does not hold the capsule, is dropped, and so is the sibling cluster")
+    }
+
+    func testAShapeThatOverhangsItsParentIsDroppedAndOneThatMatchesItMerges() {
+        let n = toolbarNodes()
+        let snapshot = ElementSnapshot(element: n.pencil, ancestors: [n.hosting, n.screen])
+        let point = CGPoint(x: 320, y: 350)
+        var overhang = FixedShapes(rects: [CGRect(x: 250, y: 326, width: 140, height: 60)])
+        XCTAssertEqual(HitRefiner.selectionLevels(for: snapshot, at: point, shapes: &overhang, holding: nil).map { $0?.rawRole },
+                       ["AXButton", "AXGroup", "AXGroup"])
+        var matching = FixedShapes(rects: [CGRect(x: 119, y: 325, width: 359, height: 46)])
+        let merged = HitRefiner.selectionLevels(for: snapshot, at: point, shapes: &matching, holding: nil)
+        XCTAssertEqual(merged.map { $0?.rawRole }, ["AXButton", "AXGroup", "AXGroup"])
+        XCTAssertEqual(merged[1]?.identifier, "_TtGC7SwiftUI32NavigationStackHosting", "the accessibility rung is kept")
+    }
+
+    func testNoAnswerAsksForNoShape() {
+        var shapes = FixedShapes(rects: [capsule])
+        XCTAssertEqual(HitRefiner.selectionLevels(for: nil, at: CGPoint(x: 320, y: 350), shapes: &shapes, holding: nil).count, 0)
+        XCTAssertFalse(shapes.asked)
+    }
+
+    func testWithoutAShapeTodaysLadderStands() {
+        let n = toolbarNodes()
+        let gap = ElementSnapshot(element: n.hosting, ancestors: [n.screen], children: [n.share, n.pencil])
+        var none = FixedShapes(rects: [])
+        let point = CGPoint(x: 298, y: 350)
+        XCTAssertEqual(HitRefiner.selectionLevels(for: gap, at: point, shapes: &none, holding: nil),
+                       HitRefiner.selectionLevels(for: gap, at: point))
+    }
+
+    func testAShapeReadsTheNamesOfWhatItHolds() {
+        let recent = AttributeSet(role: "AXButton", description: "Recent", frame: Frame(x: 40, y: 40, w: 78, h: 30))
+        let currents = AttributeSet(role: "AXButton", description: "Currents", frame: Frame(x: 118, y: 40, w: 78, h: 30))
+        let nameless = AttributeSet(role: "AXImage", frame: Frame(x: 60, y: 45, w: 10, h: 10))
+        let screen = AttributeSet(role: "AXGroup", frame: Frame(x: 0, y: 0, w: 400, h: 870))
+        let snapshot = ElementSnapshot(element: recent, ancestors: [screen], siblings: [recent, currents, nameless])
+        let shape = HitRefiner.shapeElement(frame: CGRect(x: 37, y: 37.5, width: 162.5, height: 36.5), snapshot: snapshot)
+        XCTAssertEqual(shape.members?.count, 3)
+        XCTAssertEqual(Readout.describing(shape), Readout(role: "cluster", identifier: nil, suffix: "Recent, Currents", isFallback: false))
+        var empty = shape
+        empty.members = []
+        XCTAssertNil(Readout.describing(empty).suffix)
+    }
+
     /// SwiftUI nests several containers in one frame (three 456×900 groups in the Simulator, five
     /// 470×1000 ones in Device Hub), and so does the web. They outline the same rectangle, so they
     /// are one rung, and Option always moves the outline. Of a run the window stays, else the one

@@ -40,7 +40,9 @@ struct Readout: Equatable, Sendable {
             return Readout(role: "no element info", identifier: nil, suffix: "image only", isFallback: true)
         }
         if element.role == ElementResolver.clusterRole {
-            return Readout(role: "cluster", identifier: nil, suffix: "\(element.members?.count ?? 0) elements", isFallback: false)
+            // specs/capture-shapes.md R121: what the shape or cluster holds, by name.
+            let names = (element.members ?? []).compactMap { $0.label ?? $0.identifier }
+            return Readout(role: "cluster", identifier: nil, suffix: names.isEmpty ? nil : names.joined(separator: ", "), isFallback: false)
         }
         // v0.8: a web node without an accessibility identifier shows its DOM handle instead.
         let handle = element.identifier ?? element.domReadout

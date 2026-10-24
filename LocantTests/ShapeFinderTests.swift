@@ -208,6 +208,22 @@ final class ShapeFinderTests: XCTestCase {
         XCTAssertFalse(fill.covers(CGPoint(x: 250, y: 160), in: canvas.grid(generation: 2)), "a newer sample")
     }
 
+    // R119: the live source keeps its memo while the sample and the bound stay the same, and drops it otherwise.
+    func testShapeLookupKeepsItsMemoForOneSampleAndBound() {
+        var canvas = Canvas(400, 300, background: dark)
+        let card = CGRect(x: 100, y: 80, width: 160, height: 90)
+        canvas.paint(card, RGB(r: 50, g: 50, b: 54))
+        var lookup = ShapeLookup(grid: canvas.grid(generation: 1), bound: canvas.bounds, memo: .init())
+        assertRect(lookup.shape(at: CGPoint(x: 106, y: 125)), card)
+        XCTAssertNotNil(lookup.memo.lastFill)
+        XCTAssertEqual(lookup.shapes(around: CGRect(x: 120, y: 100, width: 20, height: 20)).count, 1)
+        XCTAssertEqual(lookup.memo.around.count, 1)
+        XCTAssertNotNil(ShapeLookup(grid: canvas.grid(generation: 1), bound: canvas.bounds, memo: lookup.memo).memo.lastFill)
+        let newer = ShapeLookup(grid: canvas.grid(generation: 2), bound: canvas.bounds, memo: lookup.memo)
+        XCTAssertNil(newer.memo.lastFill)
+        XCTAssertTrue(newer.memo.around.isEmpty)
+    }
+
     // MARK: Real screens (section 3)
 
     private struct FixtureFile: Decodable {
