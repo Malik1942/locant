@@ -5,6 +5,7 @@ Every release is a signed, notarized `Locant.dmg` on [GitHub Releases](https://g
 ## Unreleased
 
 - **The note grows with what you type.** The box under the element was one line; now it adds a line as the note wraps or when you press Shift-Return, up to eight, then scrolls. The hint at its right is gone: in its place, a Return button copies and an × cancels, with no words to read.
+- **A Mac app you built gets its Project line however you open it.** Opened from Finder, the Dock, Spotlight, or `open`, or run from Xcode with the debugger off, an app built into a symlinked DerivedData (to `DerivedData.noindex`, say) or with `-derivedDataPath` outside the project was taken for someone else's app: no Project line, so the agent was not told which folder to change. Locant now finds the project from the folder the app was built into, wherever that is.
 
 ## 1.0.1 (2026-10-21)
 
