@@ -55,6 +55,10 @@ final class AppState {
     @ObservationIgnored private var levelIndex = 0
     /// v0.8.1 R59: whether the drawn outline moved since the last redraw; reset with each session.
     @ObservationIgnored private var outlineMoves = OutlineMoves()
+    /// specs/capture-shapes.md R118: the screen under the pointer, read for the shapes hover lands on.
+    @ObservationIgnored private let sampler = ScreenSampler()
+    /// R119: the last fill and the shapes found around rectangles, while the sample stays the same.
+    @ObservationIgnored private var shapeMemo = ShapeLookup.Memo()
     @ObservationIgnored private var lockedElement: ResolvedElement?
     @ObservationIgnored private var lockedElements: [RegionElement]?
     @ObservationIgnored private var lockedNearby: [RegionElement]?
@@ -122,6 +126,7 @@ final class AppState {
         overlay.onCommit = { [weak self] note in self?.commit(note: note) }
         overlay.onOptionPressed = { [weak self] in self?.optionPressed() }
         overlay.onRegion = { [weak self] rect, start in self?.region(rect, start: start) }
+        sampler.onUpdate = { [weak self] in self?.rehover() }
         restartHotkey()
     }
 
@@ -544,6 +549,7 @@ final class AppState {
             context = collected
             windows = WindowList.onScreen()
             overlay.show()
+            sampler.start()
             showHintIfNeeded(key: Self.hintKey(for: requested), text: Self.hintText(for: requested))
         }
     }
@@ -649,7 +655,8 @@ final class AppState {
             pendingHover = nil
             let fresh = await reader.snapshot(at: point, candidates: windowCandidates(at: point), fallbackPID: context?.frontPID ?? 0)
             guard phase == .hovering, !Task.isCancelled else { return }
-            var freshLevels = fresh.map { HitRefiner.selectionLevels(for: $0, at: point) } ?? []
+            var freshLevels = await shapeLevels(for: fresh, at: point)
+            guard phase == .hovering, !Task.isCancelled else { return }
             if action == .snap || action == .cut {
                 // v0.9 R77: the same ladder as Point, ending in the window under the cursor, which
                 // comes from the window list and needs no accessibility. On a device in Xcode 27's
@@ -680,6 +687,41 @@ final class AppState {
             renderHover()
             try? await Task.sleep(for: .milliseconds(33))
         }
+    }
+
+    /// specs/capture-shapes.md R117: the ladder at `point`, with the shapes under the pointer once the screen
+    /// sample of their area has landed (R118). Until then, today's ladder; with no answer at the point, nothing.
+    private func shapeLevels(for snapshot: ElementSnapshot?, at point: CGPoint) async -> [ResolvedElement?] {
+        guard let snapshot else { return [] }
+        let bound = shapeBound(at: point, in: snapshot)
+        sampler.want(bound)
+        guard let grid = sampler.image(for: bound) else { return HitRefiner.selectionLevels(for: snapshot, at: point) }
+        let holding = lastHoverElement
+        let memo = shapeMemo
+        let started = ContinuousClock.now
+        let (levels, kept) = await Task.detached(priority: .userInitiated) {
+            var lookup = ShapeLookup(grid: grid, bound: bound, memo: memo)
+            let levels = HitRefiner.selectionLevels(for: snapshot, at: point, shapes: &lookup, holding: holding)
+            return (levels, lookup.memo)
+        }.value
+        shapeMemo = kept
+        #if DEBUG
+        NSLog("Locant shapes: %.2f ms", (ContinuousClock.now - started) / .milliseconds(1))
+        #endif
+        return levels
+    }
+
+    /// R119's bound: the simulated screen in Device Hub, else the window under the point, else its display.
+    private func shapeBound(at point: CGPoint, in snapshot: ElementSnapshot) -> CGRect {
+        HitRefiner.simulatedScreen(in: snapshot)
+            ?? Geometry.windowOwner(at: point, windows: windows, excludingPID: ownPID)?.bounds
+            ?? SelectionOverlay.displayFrameCG(containing: point)
+    }
+
+    /// R118: a new screen sample landed; the spot under the pointer is read again with it.
+    private func rehover() {
+        guard phase == .hovering, lastHoverSnapshot != nil else { return }
+        hover(lastHoverPoint)
     }
 
     /// The hovered selection at the current Option level.
@@ -1157,6 +1199,8 @@ final class AppState {
         levelIndex = 0
         snapAtWindow = true
         outlineMoves = OutlineMoves()
+        sampler.stop()
+        shapeMemo = ShapeLookup.Memo()
         context = nil
         windows = []
         overlay.dismiss()
