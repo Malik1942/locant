@@ -544,6 +544,7 @@ extension HitRefiner {
         let today = selectionLevels(for: snapshot, at: point)
         let rung0: ResolvedElement
         var shapeAtPoint: CGRect?
+        var heldIn: CGRect?
         if let hit = ElementResolver.resolve(snapshot), isElement(hit), hit.frame.cgRect.contains(point) {
             rung0 = hit
         } else if let shape = shapes.shape(at: point) {
@@ -552,13 +553,19 @@ extension HitRefiner {
                previous.frame.cgRect.insetBy(dx: -shapeHold, dy: -shapeHold).contains(point),
                holds(shape, previous.frame.cgRect) {
                 rung0 = previous
+                heldIn = shape
             } else {
                 rung0 = shapeElement(frame: shape, snapshot: snapshot)
             }
         } else {
             return today
         }
-        let around = shapes.shapes(around: rung0.frame.cgRect)
+        var around = shapes.shapes(around: rung0.frame.cgRect)
+        // A held element is not the shape it sits in: that shape is the next rung even where nothing is
+        // found around the element, but not twice where something is.
+        if let heldIn, !around.contains(where: { matches(Frame($0), Frame(heldIn), within: shapeMerge) }) {
+            around.append(heldIn)
+        }
         // R120: the cluster stands in for a shape, so it is offered only where there is none.
         let offersCluster = shapeAtPoint == nil && around.isEmpty
         let accessibility = today.compactMap { $0 }.filter { rung in
@@ -578,7 +585,8 @@ extension HitRefiner {
         var ladder: [ResolvedElement] = [rung0]
         for candidate in candidates {
             let last = ladder[ladder.count - 1]
-            if matches(last.frame, candidate.frame, within: shapeMerge) {
+            // Two accessibility rungs are left to `collapsingSameFrames`, which merges them within 1 pt by weight.
+            if isShape(last) || isShape(candidate), matches(last.frame, candidate.frame, within: shapeMerge) {
                 // The accessibility rung is kept: it carries a handle to grep.
                 if isShape(last), !isShape(candidate) { ladder[ladder.count - 1] = candidate }
                 continue

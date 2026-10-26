@@ -317,6 +317,56 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertNil(Readout.describing(empty).suffix)
     }
 
+    /// R117: the 2 pt merge is for a shape and an accessibility rung. Two accessibility rungs merge only
+    /// within 1 pt (`collapsingSameFrames`), so with no shape in sight the ladder is today's, whatever the pointer is on.
+    func testWithNoShapeTwoAccessibilityRungsKeepTheirOwnWeights() {
+        // (A) a group 1.5 pt off its parent `card`: two rungs, and the one with the identifier stays.
+        let ok = AttributeSet(role: "AXButton", identifier: "ok", frame: Frame(x: 100, y: 70, w: 60, h: 30))
+        let inner = AttributeSet(role: "AXGroup", frame: Frame(x: 50, y: 50, w: 200, h: 100))
+        let card = AttributeSet(role: "AXGroup", identifier: "card", frame: Frame(x: 48.5, y: 50, w: 201.5, h: 100))
+        let screen = AttributeSet(role: "AXGroup", frame: Frame(x: 0, y: 0, w: 400, h: 600))
+        let nested = ElementSnapshot(element: ok, ancestors: [inner, card, screen])
+        let onOK = CGPoint(x: 120, y: 85)
+        var none = FixedShapes(rects: [])
+        let today = HitRefiner.selectionLevels(for: nested, at: onOK)
+        XCTAssertTrue(today.contains { $0?.identifier == "card" }, "today's ladder has the identified rung")
+        XCTAssertEqual(HitRefiner.selectionLevels(for: nested, at: onOK, shapes: &none, holding: nil), today)
+
+        // (B) a button inside a group of the same frame, `saveButton`: the group's identifier wins.
+        let button = AttributeSet(role: "AXButton", frame: Frame(x: 100, y: 70, w: 60, h: 30))
+        let wrapper = AttributeSet(role: "AXGroup", identifier: "saveButton", frame: Frame(x: 100, y: 70, w: 60, h: 30))
+        let wrapped = ElementSnapshot(element: button, ancestors: [wrapper, screen])
+        let todayWrapped = HitRefiner.selectionLevels(for: wrapped, at: onOK)
+        XCTAssertEqual(todayWrapped.first??.identifier, "saveButton", "today's ladder has the identified rung")
+        XCTAssertEqual(HitRefiner.selectionLevels(for: wrapped, at: onOK, shapes: &none, holding: nil), todayWrapped)
+    }
+
+    /// Only the shape at the pointer is known (nothing found around the element).
+    private struct ShapeAtOnly: ShapeSource {
+        var rect: CGRect
+
+        mutating func shape(at point: CGPoint) -> CGRect? { rect.contains(point) ? rect : nil }
+        mutating func shapes(around rect: CGRect) -> [CGRect] { [] }
+    }
+
+    /// R117: the element held inside a shape is rung 0, and the shape at the pointer is the next rung even
+    /// when nothing is found around the element; when something is, the shape is not listed twice.
+    func testAHeldElementKeepsTheShapeAtThePointer() throws {
+        let n = toolbarNodes()
+        let gap = ElementSnapshot(element: n.hosting, ancestors: [n.screen], children: [n.share, n.pencil])
+        let pencil = try XCTUnwrap(ElementResolver.resolve(ElementSnapshot(element: n.pencil, ancestors: [n.hosting, n.screen])))
+        let point = CGPoint(x: 342, y: 350)
+        var atOnly = ShapeAtOnly(rect: capsule)
+        let levels = HitRefiner.selectionLevels(for: gap, at: point, shapes: &atOnly, holding: pencil)
+        XCTAssertEqual(levels.map { $0?.rawRole }, ["AXButton", "LocantShape", "AXGroup", "AXGroup"])
+        XCTAssertEqual(levels.first??.identifier, "pencil")
+        XCTAssertEqual(levels[1]?.frame, Frame(capsule))
+
+        var both = FixedShapes(rects: [capsule])
+        let once = HitRefiner.selectionLevels(for: gap, at: point, shapes: &both, holding: pencil)
+        XCTAssertEqual(once.map { $0?.rawRole }, ["AXButton", "LocantShape", "AXGroup", "AXGroup"], "found both ways: one rung")
+    }
+
     /// SwiftUI nests several containers in one frame (three 456×900 groups in the Simulator, five
     /// 470×1000 ones in Device Hub), and so does the web. They outline the same rectangle, so they
     /// are one rung, and Option always moves the outline. Of a run the window stays, else the one
