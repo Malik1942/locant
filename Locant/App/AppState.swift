@@ -674,10 +674,19 @@ final class AppState {
             if freshIsVague, HitRefiner.sticks(lastHoverElement, to: point) {
                 // Crossing padding: keep the small element and its Option level.
             } else {
-                if freshElement?.frame != lastHoverElement?.frame {
-                    // v0.9 R77: Snap and Cut open on the window and stay there as the cursor moves;
-                    // once Option has left the window, the element level persists as in Point.
-                    levelIndex = startsAtWindow && snapAtWindow ? max(0, freshLevels.count - 1) : 0
+                let selected = selectedElement()
+                if startsAtWindow && snapAtWindow {
+                    // v0.9 R77: Snap and Cut open on the window and stay there as the cursor moves, and as
+                    // the ladder grows or shrinks under it (specs/capture-shapes.md R118: a landing screen
+                    // sample adds shapes between the first rung and the window).
+                    levelIndex = max(0, freshLevels.count - 1)
+                } else if freshElement?.frame != lastHoverElement?.frame {
+                    // Once Option has left the window, the element level persists as in Point.
+                    levelIndex = 0
+                } else if let selected, let index = freshLevels.firstIndex(where: { $0?.frame == selected.frame }) {
+                    levelIndex = index // the same rung, wherever the new ladder puts it
+                } else {
+                    levelIndex = min(levelIndex, max(0, freshLevels.count - 1))
                 }
                 lastHoverSnapshot = fresh
                 levels = freshLevels
@@ -704,7 +713,7 @@ final class AppState {
             let levels = HitRefiner.selectionLevels(for: snapshot, at: point, shapes: &lookup, holding: holding)
             return (levels, lookup.memo)
         }.value
-        shapeMemo = kept
+        if phase == .hovering { shapeMemo = kept } // a session that ended during the lookup keeps no memo
         #if DEBUG
         NSLog("Locant shapes: %.2f ms", (ContinuousClock.now - started) / .milliseconds(1))
         #endif
@@ -721,7 +730,7 @@ final class AppState {
     /// R118: a new screen sample landed; the spot under the pointer is read again with it.
     private func rehover() {
         guard phase == .hovering, lastHoverSnapshot != nil else { return }
-        hover(lastHoverPoint)
+        hover(pendingHover ?? lastHoverPoint) // a newer point queued during a lookup stays the newer one
     }
 
     /// The hovered selection at the current Option level.
