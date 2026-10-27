@@ -45,9 +45,11 @@ struct AttributeSet: Codable, Sendable, Equatable {
 struct ElementSnapshot: Codable, Sendable, Equatable {
     var element: AttributeSet
     var ancestors: [AttributeSet]
-    /// Direct children, read only when the element is a window-spanning container (flat trees).
+    /// Direct children, read when the element is a container, whatever its size (flat trees;
+    /// specs/capture-shapes.md R120).
     var children: [AttributeSet]? = nil
-    /// The parent's children (including this element), read only when the parent spans the window.
+    /// The parent's children (including this element), read when the element is not a container and its
+    /// parent is one, whatever the parent's size (R120).
     var siblings: [AttributeSet]? = nil
     /// The on-screen window whose owner answered the hit test (R3). Not part of fixtures.
     var window: Geometry.WindowRecord? = nil
