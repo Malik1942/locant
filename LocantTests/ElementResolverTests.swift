@@ -872,6 +872,44 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertEqual(try textRung(cardLines + [below], at: CGPoint(x: 400, y: 566), in: card)?.label, "Weeknight noodles")
     }
 
+    /// R127: a line is not kept by the 12 pt stickiness either, as any other element is when the pointer leaves it.
+    func testALineDoesNotStick() throws {
+        let l = library()
+        let bar = ElementSnapshot(element: tabBar, ancestors: [l.screen], children: [])
+        let ask = try XCTUnwrap(try textRung(tabLines, at: CGPoint(x: 527, y: 847), in: bar))
+        let near = CGPoint(x: 527, y: 860)
+        XCTAssertFalse(HitRefiner.sticks(ask, to: near))
+        var element = ask
+        element.rawRole = "AXStaticText"
+        XCTAssertTrue(HitRefiner.sticks(element, to: near), "an accessibility element would")
+    }
+
+    /// R127: a line read again, its box moved a little, is the same rung: the ⌥ level chosen from it stays.
+    func testALineReadAgainIsTheSameRung() throws {
+        let l = library()
+        let card = ElementSnapshot(element: cardButton, ancestors: [l.inner, l.screen])
+        let first = try XCTUnwrap(try textRung(cardLines, at: CGPoint(x: 400, y: 566), in: card))
+        var moved = cardLines
+        moved[0].frame = Frame(x: 377.5, y: 559.5, w: 121.0, h: 12.5)
+        let again = try XCTUnwrap(try textRung(moved, at: CGPoint(x: 400, y: 566), in: card))
+        XCTAssertNotEqual(first.frame, again.frame)
+        XCTAssertTrue(HitRefiner.isRereadLine(first, in: card, again, in: card))
+
+        let second = try XCTUnwrap(try textRung(cardLines, at: CGPoint(x: 400, y: 588), in: card))
+        XCTAssertFalse(HitRefiner.isRereadLine(first, in: card, second, in: card), "another line")
+        var other = cardButton
+        other.description = "Weeknight noodles, last week"
+        XCTAssertFalse(HitRefiner.isRereadLine(first, in: card, again, in: ElementSnapshot(element: other, ancestors: [l.inner, l.screen])),
+                       "another answer's label")
+        var shifted = cardButton
+        shifted.frame = Frame(x: 362.2, y: 623.2, w: 331.1, h: 75.9)
+        XCTAssertFalse(HitRefiner.isRereadLine(first, in: card, again, in: ElementSnapshot(element: shifted, ancestors: [l.inner, l.screen])),
+                       "another answer's frame")
+        var element = again
+        element.rawRole = "AXStaticText"
+        XCTAssertFalse(HitRefiner.isRereadLine(first, in: card, element, in: card), "an accessibility element")
+        XCTAssertFalse(HitRefiner.isRereadLine(nil, in: card, again, in: card))
+    }
 
     func testLinesAreReadOnlyInAnAnswerOnTheSimulatedScreenThatHasNoChildren() {
         let l = library()

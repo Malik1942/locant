@@ -398,7 +398,9 @@ enum HitRefiner {
     /// True when the previously shown element should stay: it is a real control and the cursor is
     /// still within `stickiness` of its frame.
     static func sticks(_ previous: ResolvedElement?, to point: CGPoint) -> Bool {
-        guard let previous, !ElementResolver.containerRoles.contains(previous.role) else { return false }
+        // R127: nor a line read from the screen, which is read again at each step.
+        guard let previous, !ElementResolver.containerRoles.contains(previous.role),
+              previous.rawRole != ElementResolver.textRawRole else { return false }
         return previous.frame.cgRect.insetBy(dx: -stickiness, dy: -stickiness).contains(point)
     }
 
@@ -918,4 +920,15 @@ extension HitRefiner {
     /// R127: letters and digits the shorter side needs before one contains the other.
     static let textMatchMinLength = 3
 
+    /// R127: `a` and `b`, the rung 0 of two hover steps, are one line read again: both read from the screen, of
+    /// the same label and path and with overlapping boxes, in answers (`answerA`, `answerB`) of the same frame
+    /// and label. A re-read can move a line's box a little; it is no move to another rung.
+    static func isRereadLine(_ a: ResolvedElement?, in answerA: ElementSnapshot?, _ b: ResolvedElement?, in answerB: ElementSnapshot?) -> Bool {
+        guard let a, let b, let answerA, let answerB,
+              a.rawRole == ElementResolver.textRawRole, b.rawRole == ElementResolver.textRawRole,
+              a.label == b.label, a.path == b.path, a.frame.cgRect.intersects(b.frame.cgRect),
+              let frame = answerA.element.frame, frame == answerB.element.frame else { return false }
+        func label(_ node: AttributeSet) -> String? { ElementResolver.nonEmpty(node.title) ?? ElementResolver.nonEmpty(node.description) }
+        return label(answerA.element) == label(answerB.element)
+    }
 }
