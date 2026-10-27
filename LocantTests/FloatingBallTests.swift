@@ -83,4 +83,16 @@ final class FloatingBallTests: XCTestCase {
         XCTAssertEqual(origin.x + offset, 2322 - FloatingBall.Tokens.firstLaunchInset - radius)
         XCTAssertEqual(origin.y + offset, 3145 - 227)
     }
+
+    // specs/frozen-screen.md R122: only the disc takes a press, as `BallView` decides; the window's
+    // clear margin passes it through.
+    func testDiscTakesAPressWithinItsRadiusPlusTwoPoints() {
+        let panel = CGRect(x: 1980, y: 1100, width: FloatingBall.Tokens.panelSide, height: FloatingBall.Tokens.panelSide)
+        let center = CGPoint(x: panel.midX, y: panel.midY)
+        let radius = FloatingBall.Tokens.diameter / 2
+        XCTAssertTrue(FloatingBall.discContains(center, panelFrame: panel))
+        XCTAssertTrue(FloatingBall.discContains(CGPoint(x: center.x + radius + 2, y: center.y), panelFrame: panel))
+        XCTAssertFalse(FloatingBall.discContains(CGPoint(x: center.x + radius + 3, y: center.y), panelFrame: panel))
+        XCTAssertFalse(FloatingBall.discContains(CGPoint(x: panel.minX + 1, y: panel.minY + 1), panelFrame: panel), "the corner of the clear margin")
+    }
 }

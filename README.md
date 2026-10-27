@@ -248,7 +248,9 @@ macOS 15, an Intel Mac, a non-English system, or a second display is what 0.9 is
 - Web pages and Electron apps: the DOM id and class list come through, and the page URL; a `localhost`
   page is fix mode. Tested in Chromium browsers and Electron; Safari exposes the same attributes but
   has not been exercised.
-- Menus and popovers stay open under the overlay, but an element inside another app's menu may not resolve.
+- A menu or a window that opened from the menu bar is captured as it was when Point opened, even when
+  it closes at the click. A standard menu (an app's File menu, most status menus) closes as the overlay
+  opens, so it is taken as one window, without its items.
 - Snap and Cut open on a normal window, or on the device's screen in Xcode 27's Device Hub; on the
   desktop, the menu bar, or the Dock they open on the largest element there is.
 

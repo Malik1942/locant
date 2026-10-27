@@ -4,6 +4,7 @@ Every release is a signed, notarized `Locant.dmg` on [GitHub Releases](https://g
 
 ## Unreleased
 
+- **Menus and menu bar windows can be captured.** The screen now freezes when Point, Snap, Text, or Cut opens, and the image is cut from that frozen screen. A window that opens from the menu bar used to close at your click and come out as wallpaper; now it comes out as you saw it, and you can still pick a control inside it. A standard menu closes as soon as the overlay opens, so it is taken as one window. Clicking the ball while a menu is open no longer closes the menu.
 - **The note grows with what you type.** The box under the element was one line; now it adds a line as the note wraps or when you press Shift-Return, up to eight, then scrolls. The hint at its right is gone: in its place, a Return button copies and an × cancels, with no words to read.
 
 ## 1.0.1 (2026-10-21)
