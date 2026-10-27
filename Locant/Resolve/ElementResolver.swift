@@ -335,12 +335,20 @@ enum HitRefiner {
         return frame.cgRect
     }
 
-    /// specs/capture-shapes.md R125: Device Hub draws a screen-sized content group under smaller chrome (the
-    /// tab bar, toolbars, a sheet's grabber), whatever the reading order, and its hit test answers from the
-    /// group. Of the screen's direct `children`, the one that should answer at `point` instead: one with a
-    /// non-empty frame that holds the point and does not span the screen (the smallest, if several), when
-    /// the child holding the hit (`holding`, nil when not known) spans it. Nil when there is none, or when
-    /// the hit already sits in a child that does not span the screen. Spanning: the screen's frame within 1 pt.
+    /// specs/capture-shapes.md R125: Device Hub sometimes names a detached copy of the screen's group as an
+    /// element's parent: subrole `iOSContentGroup`, an empty frame, no parent or window of its own. Its frame
+    /// is then the union of its children's non-empty frames; nil when none has one.
+    static func detachedScreenFrame(children: [AttributeSet]) -> Frame? {
+        let bounds = union(of: children.filter { ($0.frame?.w ?? 0) > 0 && ($0.frame?.h ?? 0) > 0 })
+        return bounds.isNull ? nil : Frame(bounds)
+    }
+
+    /// R125: Device Hub draws a screen-sized content group under smaller chrome (the tab bar, toolbars, a
+    /// sheet's grabber), whatever the reading order, and its hit test answers from the group. Of the screen's
+    /// direct `children`, the one that should answer at `point` instead: one with a non-empty frame that holds
+    /// the point and does not span the screen (the smallest, if several), when the child holding the hit
+    /// (`holding`, nil when not known) spans it. Nil when there is none, or when the hit already sits in a
+    /// child that does not span the screen. Spanning: the screen's frame within 1 pt.
     static func overlayIndex(at point: CGPoint, screen: Frame, children: [AttributeSet], holding: Int?) -> Int? {
         func spansScreen(_ node: AttributeSet) -> Bool { node.frame.map { matches($0, screen) } ?? false }
         if let holding, children.indices.contains(holding), !spansScreen(children[holding]) { return nil }

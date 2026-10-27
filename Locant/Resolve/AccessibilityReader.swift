@@ -95,7 +95,8 @@ actor AccessibilityReader {
         let elements = [hit] + read.ancestors
         let screen = elements[index]
         let kids = Array(children(of: screen).prefix(Self.neighborLimit))
-        let known = neighbors(of: screen, attributes: chain[index])
+        // Keyed by the screen as read: a detached copy's chain entry carries its children's union instead.
+        let known = neighbors(of: screen, attributes: index == 0 ? chain[0] : cachedAttributes(of: screen))
         let attributes = known.count == kids.count ? known : kids.map { lightAttributes(of: $0) }
         let below = elements[..<index]
         let holding = kids.firstIndex { kid in below.contains { CFEqual($0, kid) } }
@@ -374,7 +375,20 @@ actor AccessibilityReader {
                 snapshot.siblings = neighbors(of: parent, attributes: parentAttributes)
             }
         }
+        snapshot.ancestors = zip(snapshot.ancestors, parents).map { framingDetachedScreen($0, of: $1) }
         return (snapshot, parents)
+    }
+
+    /// R125: an ancestor that is a detached copy of Device Hub's screen group (subrole `iOSContentGroup`, an
+    /// empty frame) takes the union of its children's frames (`HitRefiner.detachedScreenFrame`), or stays as
+    /// read when none has one. Its children are read under the attributes as read, so the neighbor cache
+    /// entry is the one the siblings and the overlay check use.
+    private func framingDetachedScreen(_ attributes: AttributeSet, of element: AXUIElement) -> AttributeSet {
+        guard attributes.subrole == HitRefiner.simulatedScreenSubrole, (attributes.frame.map { $0.w <= 0 || $0.h <= 0 } ?? true),
+              let union = HitRefiner.detachedScreenFrame(children: neighbors(of: element, attributes: attributes)) else { return attributes }
+        var framed = attributes
+        framed.frame = union
+        return framed
     }
 
     /// R125: the answer of `listingParent`, found or not, per element for `neighborTTL`.

@@ -532,6 +532,21 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertEqual(HitRefiner.overlayIndex(at: CGPoint(x: 527, y: 880), screen: hubScreen, children: doubled, holding: 0), 3)
     }
 
+    /// A detached copy of the screen's group (empty frame, no parent; seen Oct 26 after switching devices)
+    /// takes the union of its children's frames. The probe rounds to 0.1 pt, so the tab bar ends 0.1 pt
+    /// below the content group.
+    func testADetachedScreenGroupTakesTheUnionOfItsChildren() throws {
+        let union = try XCTUnwrap(HitRefiner.detachedScreenFrame(children: hubChildren()))
+        XCTAssertEqual(union.x, 347.9, accuracy: 0.15, "the generic element of no size at the origin adds nothing")
+        XCTAssertEqual(union.y, 137.5, accuracy: 0.15)
+        XCTAssertEqual(union.w, 359.7, accuracy: 0.15)
+        XCTAssertEqual(union.h, 780.9, accuracy: 0.15)
+        XCTAssertTrue(HitRefiner.matches(hubChildren()[0].frame!, union), "the content group still spans the screen")
+        let empty = [AttributeSet(role: "AXGenericElement", frame: Frame(x: 0, y: 1329, w: 0, h: 0)), AttributeSet(role: "AXGroup")]
+        XCTAssertNil(HitRefiner.detachedScreenFrame(children: empty), "no child with a non-empty frame")
+        XCTAssertNil(HitRefiner.detachedScreenFrame(children: []))
+    }
+
     /// Currents as the repaired reader reads it: the inner group, which lists it, heads its ancestors ahead
     /// of the screen that Device Hub reports as its parent, and its siblings are the inner group's children.
     func testTheRepairedSnapshotOfCurrentsFeedsTheRowOfButtons() throws {
