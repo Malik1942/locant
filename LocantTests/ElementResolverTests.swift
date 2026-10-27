@@ -669,12 +669,12 @@ final class ElementResolverTests: XCTestCase {
 
     func testOnTheSimulatedScreenACardsButtonTakesTheCardDrawnInIt() throws {
         let l = library()
-        let tight = drawnCard.insetBy(dx: -1, dy: -1).intersection(cardButton.frame!.cgRect) // 1 pt around it, cut to the button
+        let tight = drawnCard.intersection(cardButton.frame!.cgRect) // the card, cut to the button
         var shapes = FixedShapes(rects: [drawnCard], inks: [drawnCard])
         let onCard = ElementSnapshot(element: cardButton, ancestors: [l.inner, l.screen])
         let levels = HitRefiner.selectionLevels(for: onCard, at: CGPoint(x: 500, y: 616), shapes: &shapes, holding: nil)
         XCTAssertEqual(levels.map { $0?.rawRole }, ["AXButton", "AXGroup"], "the card's fill merges into the button")
-        assertFrame(levels.first??.frame, tight, "in the padding below the card, the button is still rung 0, tightened")
+        assertFrame(levels.first??.frame, tight, "in the padding below the card, the button is still rung 0, tightened to it")
         XCTAssertEqual(levels.first??.label, "Weeknight noodles, yesterday")
         XCTAssertEqual(levels.first??.path, ElementResolver.resolve(onCard)?.path)
 
@@ -684,7 +684,7 @@ final class ElementResolverTests: XCTestCase {
         let point = CGPoint(x: 400, y: 570)
         let merged = HitRefiner.selectionLevels(for: inside, at: point, shapes: &shapes, holding: nil)
         XCTAssertEqual(merged.map { $0?.rawRole }, ["AXStaticText", "AXButton", "AXGroup"])
-        assertFrame(merged[0]?.frame, title.frame!.cgRect, "drawn edge to edge: unchanged")
+        assertFrame(merged[0]?.frame, title.frame!.cgRect, "20 pt tall, under the 44 pt gate: unchanged")
         assertFrame(merged[1]?.frame, tight)
         XCTAssertEqual(merged[1]?.label, "Weeknight noodles, yesterday", "the accessibility rung carries the handle")
 
@@ -698,40 +698,64 @@ final class ElementResolverTests: XCTestCase {
 
     func testOnTheSimulatedScreenContainersAndComputedRungsKeepTheirFrames() throws {
         let l = library()
-        let currents = l.capsule[1]
-        // Each capsule button's icon, the heading, and a header's text are drawn; so is all of it inside the screen.
+        let header = l.children[6]
+        XCTAssertEqual(header.description, "Product Ideas")
+        // The header's title and "1 >", the heading, and each capsule button's icon are drawn; so is all of it
+        // inside the screen.
+        let title = CGRect(x: 378, y: 338, width: 300, height: 21)
         let icons = l.capsule.map { $0.frame!.cgRect.insetBy(dx: 10, dy: 10) }
-        var shapes = FixedShapes(rects: [], inks: icons + [CGRect(x: 362.2, y: 226, width: 100, height: 28), CGRect(x: 378, y: 340, width: 150, height: 20)])
-        let snapshot = ElementSnapshot(element: currents, ancestors: [l.inner, l.screen], siblings: l.children)
-        let today = HitRefiner.selectionLevels(for: snapshot, at: center(currents))
-        let levels = HitRefiner.selectionLevels(for: snapshot, at: center(currents), shapes: &shapes, holding: nil)
+        var shapes = FixedShapes(rects: [], inks: [title, CGRect(x: 362.2, y: 226, width: 100, height: 28)] + icons)
+        let snapshot = ElementSnapshot(element: header, ancestors: [l.inner, l.screen], siblings: l.children)
+        let today = HitRefiner.selectionLevels(for: snapshot, at: center(header))
+        let levels = HitRefiner.selectionLevels(for: snapshot, at: center(header), shapes: &shapes, holding: nil)
         XCTAssertEqual(levels.map { $0?.rawRole }, ["AXButton", "LocantGroup", "LocantCluster", "AXGroup"])
-        assertFrame(levels[0]?.frame, icons[1].insetBy(dx: -1, dy: -1), "the button: its icon and 1 pt")
-        XCTAssertEqual(levels[1]?.frame, today[1]?.frame, "the group is the union of the buttons' own frames")
+        assertFrame(levels[0]?.frame, title, "the header (331.1×61.7): what is drawn in it")
+        XCTAssertEqual(levels[1]?.frame, today[1]?.frame, "the column of headers and cards is the union of their own frames")
+        XCTAssertEqual(levels[1]?.members?.count, 4)
         XCTAssertEqual(levels[2]?.frame, today[2]?.frame, "the cluster too")
         XCTAssertEqual(levels[3]?.frame, hubScreen, "a container keeps its frame")
 
         // With no shape at the point and no element under it, today's ladder, tightened.
-        let gap = CGPoint(x: 649, y: 240) // 3 pt past Currents, toward Filter: the reader's 8 pt tolerance
-        let fromGap = HitRefiner.selectionLevels(for: snapshot, at: gap, shapes: &shapes, holding: nil)
-        XCTAssertEqual(fromGap.map { $0?.rawRole }, ["AXButton", "LocantGroup", "LocantCluster", "AXGroup"])
-        assertFrame(fromGap[0]?.frame, icons[1].insetBy(dx: -1, dy: -1))
+        let left = CGPoint(x: 359.2, y: 349) // 3 pt left of the header: the reader's 8 pt tolerance
+        let fromLeft = HitRefiner.selectionLevels(for: snapshot, at: left, shapes: &shapes, holding: nil)
+        XCTAssertEqual(fromLeft.map { $0?.rawRole }, ["AXButton", "LocantGroup", "LocantCluster", "AXGroup"])
+        assertFrame(fromLeft[0]?.frame, title)
 
         // Off the simulated screen: today's ladder, frames and all.
-        let plain = ElementSnapshot(element: currents, ancestors: [l.inner, AttributeSet(role: "AXGroup", frame: hubScreen)], siblings: l.children)
-        XCTAssertEqual(HitRefiner.selectionLevels(for: plain, at: center(currents), shapes: &shapes, holding: nil),
-                       HitRefiner.selectionLevels(for: plain, at: center(currents)))
+        let plain = ElementSnapshot(element: header, ancestors: [l.inner, AttributeSet(role: "AXGroup", frame: hubScreen)], siblings: l.children)
+        XCTAssertEqual(HitRefiner.selectionLevels(for: plain, at: center(header), shapes: &shapes, holding: nil),
+                       HitRefiner.selectionLevels(for: plain, at: center(header)))
     }
 
-    func testATightFrameIsWhatIsDrawnGrownByAPointAndOnlyWhenItIsMoreThanTwoPointsIn() {
+    /// R126: iOS pads a control smaller than its 44 pt tap target on purpose, so the capsule's 39.4×39.3
+    /// buttons keep their frames, icons drawn or not.
+    func testOnTheSimulatedScreenAControlUnder44PointsKeepsItsFrame() {
+        let l = library()
+        let currents = l.capsule[1]
+        var shapes = FixedShapes(rects: [], inks: l.capsule.map { $0.frame!.cgRect.insetBy(dx: 10, dy: 10) })
+        let snapshot = ElementSnapshot(element: currents, ancestors: [l.inner, l.screen], siblings: l.children)
+        let levels = HitRefiner.selectionLevels(for: snapshot, at: center(currents), shapes: &shapes, holding: nil)
+        XCTAssertEqual(levels, HitRefiner.selectionLevels(for: snapshot, at: center(currents)))
+        XCTAssertEqual(levels.first??.frame, currents.frame)
+    }
+
+    func testATightFrameIsWhatIsDrawnInsideAFrameAtLeast44PointsBothWays() {
         let frame = CGRect(x: 100, y: 100, width: 200, height: 60)
         XCTAssertEqual(HitRefiner.tightFrame(frame, ink: nil), frame, "nothing drawn inside it")
-        XCTAssertEqual(HitRefiner.tightFrame(frame, ink: CGRect(x: 120, y: 120, width: 80, height: 20)), CGRect(x: 119, y: 119, width: 82, height: 22))
-        XCTAssertEqual(HitRefiner.tightFrame(frame, ink: CGRect(x: 100, y: 125, width: 200, height: 10)), CGRect(x: 100, y: 124, width: 200, height: 12),
-                       "cut to the frame at the sides")
-        XCTAssertEqual(HitRefiner.tightFrame(frame, ink: frame.insetBy(dx: 3, dy: 3)), frame, "2 pt in on every side, not more")
-        XCTAssertEqual(HitRefiner.tightFrame(frame, ink: CGRect(x: 100, y: 100, width: 200, height: 56.5)),
+        XCTAssertEqual(HitRefiner.tightFrame(frame, ink: CGRect(x: 120, y: 120, width: 80, height: 20)), CGRect(x: 120, y: 120, width: 80, height: 20))
+        XCTAssertEqual(HitRefiner.tightFrame(frame, ink: CGRect(x: 90, y: 125, width: 220, height: 10)), CGRect(x: 100, y: 125, width: 200, height: 10),
+                       "cut to the frame")
+        XCTAssertEqual(HitRefiner.tightFrame(frame, ink: frame.insetBy(dx: 2, dy: 2)), frame, "2 pt in on every side, not more")
+        XCTAssertEqual(HitRefiner.tightFrame(frame, ink: CGRect(x: 100, y: 100, width: 200, height: 57.5)),
                        CGRect(x: 100, y: 100, width: 200, height: 57.5), "2.5 pt in at the bottom alone")
+        // At least 44 pt both ways.
+        let icon = CGRect(x: 110, y: 110, width: 20, height: 20)
+        XCTAssertEqual(HitRefiner.tightFrame(CGRect(x: 100, y: 100, width: 200, height: 44), ink: icon), icon, "44 pt tall")
+        XCTAssertEqual(HitRefiner.tightFrame(CGRect(x: 100, y: 100, width: 44, height: 200), ink: icon), icon, "44 pt wide")
+        for small in [CGRect(x: 100, y: 100, width: 200, height: 43.9), CGRect(x: 100, y: 100, width: 43.9, height: 200),
+                      CGRect(x: 100, y: 100, width: 39.4, height: 39.3), CGRect(x: 100, y: 100, width: 74, height: 39.3)] {
+            XCTAssertEqual(HitRefiner.tightFrame(small, ink: icon), small, "\(small): under 44 pt one way")
+        }
     }
 
     /// SwiftUI nests several containers in one frame (three 456×900 groups in the Simulator, five
