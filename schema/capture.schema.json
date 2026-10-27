@@ -332,7 +332,7 @@
     "role": {
       "type": "string",
       "pattern": "^[a-z][A-Za-z0-9]*$",
-      "description": "Lowercase, platform-neutral role: button, textField, staticText, image, group, toolbar, navigationBar, unknown, and so on. Never AX-prefixed. `cluster` is computed by Locant where the platform exposes no container; it is not an accessibility element and carries `members`. rawRole LocantShape: a shape found on screen from its visible edges (a pill, capsule, card, or sheet), its frame those edges. rawRole LocantCluster: a grouping of neighboring elements, its frame approximate. rawRole LocantGroup: controls in one row or column lined up with small gaps, its frame their union."
+      "description": "Lowercase, platform-neutral role: button, textField, staticText, image, group, toolbar, navigationBar, unknown, and so on. Never AX-prefixed. `cluster` is computed by Locant where the platform exposes no container; it is not an accessibility element and carries `members`. rawRole LocantShape: a shape found on screen from its visible edges (a pill, capsule, card, or sheet), its frame those edges. rawRole LocantCluster: a grouping of neighboring elements, its frame approximate. rawRole LocantGroup: controls in one row or column lined up with small gaps, its frame their union. rawRole LocantText: a line of text Locant read from the screen inside an element that merges it (Device Hub)."
     },
     "frame": {
       "type": "object",

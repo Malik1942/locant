@@ -152,6 +152,21 @@ final class MarkdownBuilderTests: XCTestCase {
         XCTAssertFalse(md.contains("visible edges"))
     }
 
+    // specs/capture-shapes.md R127: a line read from the screen prints like any element, and says what it is.
+    func testATextLineSaysLocantReadItFromTheScreen() {
+        let line = ResolvedElement(
+            role: "staticText", rawRole: "LocantText", label: "Weeknight noodles", identifier: nil, identifierSource: .unknown, value: nil,
+            frame: Frame(x: 375, y: 558, w: 124, h: 16),
+            path: [PathEntry(role: "group", identifier: nil), PathEntry(role: "button", identifier: nil), PathEntry(role: "staticText", identifier: nil)]
+        )
+        let md = MarkdownBuilder.build(capture(element: line))
+        XCTAssertTrue(md.contains("### Target element\nstaticText \"Weeknight noodles\" · no identifier\nText read from the screen by Locant; not an accessibility element. The element it sits in is the next ⌥ level.\nNo identifier. Grep the label text; add .accessibilityIdentifier(\"…\") to this view so the next capture is exact.\nFrame: x=375 y=558 w=124 h=16\nPath: group > button > staticText\n"), md)
+
+        var element = line
+        element.rawRole = "AXStaticText"
+        XCTAssertFalse(MarkdownBuilder.build(capture(element: element)).contains("Text read from the screen"), "an accessibility element says nothing of the kind")
+    }
+
     func testNullElementHintsAtIdentifier() {
         let md = MarkdownBuilder.build(capture(element: nil))
         XCTAssertTrue(md.contains("Use the image.\nIf this view is yours, give it .accessibilityElement() and .accessibilityIdentifier(\"…\") so Locant can point at it next time.\n"))
