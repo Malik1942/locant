@@ -186,7 +186,7 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertNil(onNothing[0], "nothing specific here: fallback square, element null on click")
     }
 
-    // MARK: Clusters under any parent (specs/capture-shapes.md R120)
+    // MARK: Clusters under any parent (specs/capture-shapes.md R128)
 
     /// Oryne's thought-detail toolbar: share and pencil, 40×40 each, in a 360×48 hosting group that is
     /// far from spanning the 400×870 screen.
@@ -202,7 +202,7 @@ final class ElementResolverTests: XCTestCase {
         let snapshot = ElementSnapshot(element: n.pencil, ancestors: [n.hosting, n.screen], siblings: [n.share, n.pencil])
         let levels = HitRefiner.selectionLevels(for: snapshot, at: CGPoint(x: 320, y: 350))
         XCTAssertEqual(levels.map { $0?.rawRole }, ["AXButton", "LocantGroup", "LocantCluster", "AXGroup", "AXGroup"],
-                       "share and pencil, 4 pt apart, are also a row (R124)")
+                       "share and pencil, 4 pt apart, are also a row (R132)")
         XCTAssertEqual(levels[2]?.members?.compactMap(\.identifier), ["share", "pencil"])
     }
 
@@ -215,10 +215,10 @@ final class ElementResolverTests: XCTestCase {
                        "between the buttons: their cluster")
     }
 
-    // MARK: Shapes on the ladder (specs/capture-shapes.md R117, R121)
+    // MARK: Shapes on the ladder (specs/capture-shapes.md R125, R129)
 
     /// Shapes at fixed rectangles: at a point, the smallest that holds it; around a rectangle, the ones
-    /// holding it, innermost first; inside a rectangle, the bounds of the parts of `inks` in it (R126).
+    /// holding it, innermost first; inside a rectangle, the bounds of the parts of `inks` in it (R134).
     /// `asked` tells whether the ladder asked for a shape at all.
     private struct FixedShapes: ShapeSource {
         var rects: [CGRect]
@@ -251,7 +251,7 @@ final class ElementResolverTests: XCTestCase {
         var shapes = FixedShapes(rects: [capsule])
         let levels = HitRefiner.selectionLevels(for: snapshot, at: CGPoint(x: 320, y: 350), shapes: &shapes, holding: nil)
         XCTAssertEqual(levels.map { $0?.rawRole }, ["AXButton", "LocantGroup", "LocantShape", "AXGroup", "AXGroup"],
-                       "share and pencil, 4 pt apart, are a row (R124) inside the capsule")
+                       "share and pencil, 4 pt apart, are a row (R132) inside the capsule")
         let shape = try XCTUnwrap(levels[2])
         XCTAssertEqual(shape.frame, Frame(capsule))
         XCTAssertEqual(shape.members?.compactMap(\.identifier), ["share", "pencil"])
@@ -325,7 +325,7 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertNil(Readout.describing(empty).suffix)
     }
 
-    /// R117: the 2 pt merge is for a shape and an accessibility rung. Two accessibility rungs merge only
+    /// R125: the 2 pt merge is for a shape and an accessibility rung. Two accessibility rungs merge only
     /// within 1 pt (`collapsingSameFrames`), so with no shape in sight the ladder is today's, whatever the pointer is on.
     func testWithNoShapeTwoAccessibilityRungsKeepTheirOwnWeights() {
         // (A) a group 1.5 pt off its parent `card`: two rungs, and the one with the identifier stays.
@@ -358,7 +358,7 @@ final class ElementResolverTests: XCTestCase {
         mutating func ink(inside rect: CGRect) -> CGRect? { nil }
     }
 
-    /// R117: the element held inside a shape is rung 0, and the shape at the pointer is the next rung even
+    /// R125: the element held inside a shape is rung 0, and the shape at the pointer is the next rung even
     /// when nothing is found around the element; when something is, the shape is not listed twice.
     func testAHeldElementKeepsTheShapeAtThePointer() throws {
         let n = toolbarNodes()
@@ -376,7 +376,7 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertEqual(once.map { $0?.rawRole }, ["AXButton", "LocantShape", "AXGroup", "AXGroup"], "found both ways: one rung")
     }
 
-    // MARK: A row of touching controls (specs/capture-shapes.md R124)
+    // MARK: A row of touching controls (specs/capture-shapes.md R132)
 
     /// Oryne's thought-detail toolbar in Device Hub (capture 20261026-190816-8ngf): folder, share, and
     /// trash touch and tile the glass capsule, and the meta line sits 23 pt below it.
@@ -452,7 +452,7 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertEqual(rungs(node("AXButton", id: "b", x: 140, y: 50, w: 0, h: 40)).count, 0, "a member needs a frame")
     }
 
-    /// R124, capped Oct 27 (Malik): the reach is a quarter of the smaller side up to 10 pt, so the Library capsule's
+    /// R132, capped Oct 27 (Malik): the reach is a quarter of the smaller side up to 10 pt, so the Library capsule's
     /// 8 pt still joins and ordinary card spacing does not.
     func testTheReachIsCappedAtTenPoints() {
         let screen = node("AXGroup", x: 0, y: 0, w: 800, h: 900)
@@ -481,7 +481,7 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertTrue(groups(in: HitRefiner.selectionLevels(for: apart, at: center(pair[0]))).isEmpty, "a 10 pt gap between 39.3 pt controls")
     }
 
-    /// R124: when two controls could join at one step, the nearer does, then the first in sibling order.
+    /// R132: when two controls could join at one step, the nearer does, then the first in sibling order.
     func testOfTwoControlsThatCouldJoinTheNearerDoes() throws {
         let a = node("AXButton", id: "a", x: 100, y: 50, w: 40, h: 40)
         let far = node("AXButton", id: "far", x: 146, y: 50, w: 40, h: 40)    // 6 pt on
@@ -550,7 +550,7 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertEqual(groups(in: bare).count, 1)
     }
 
-    // MARK: Device Hub's tree (specs/capture-shapes.md R125)
+    // MARK: Device Hub's tree (specs/capture-shapes.md R133)
 
     /// Oryne's Library screen in Device Hub (probe of Oct 26). The screen's direct children: the content
     /// group with the screen's frame, a generic element of no size at its origin, and the tab bar, drawn
@@ -633,7 +633,7 @@ final class ElementResolverTests: XCTestCase {
                 capsule, children)
     }
 
-    /// R124 amended: Filter, 8 pt past Currents (the limit for 39.3 pt buttons is 9.8 pt), joins the row,
+    /// R132 amended: Filter, 8 pt past Currents (the limit for 39.3 pt buttons is 9.8 pt), joins the row,
     /// from each of the three.
     func testTheLibraryCapsuleIsOneGroupFromEachOfItsThreeButtons() throws {
         let l = library()
@@ -665,7 +665,7 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertEqual(levels.first??.identifier, "water.waves")
         let group = try XCTUnwrap(levels[1])
         XCTAssertEqual(group.members?.compactMap(\.identifier), ["square.grid.2x2", "water.waves", "library.filter"],
-                       "Filter, 8 pt on, is in the row (R124 amended)")
+                       "Filter, 8 pt on, is in the row (R132 amended)")
         XCTAssertEqual(group.frame.x, 567.1, accuracy: 0.1)
         XCTAssertEqual(group.frame.w, 126.2, accuracy: 0.1)
         XCTAssertEqual(group.path.map(\.role), ["group", "group", "cluster"], "the inner group joins the path")
@@ -716,10 +716,10 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertNil(HitRefiner.smallerSibling(at: point, in: group), "a container hit is refined, not replaced by a sibling")
     }
 
-    // MARK: Padded frames tighten, in the phone (specs/capture-shapes.md R126)
+    // MARK: Padded frames tighten, in the phone (specs/capture-shapes.md R134)
 
     /// The Library screen's card "Weeknight noodles, yesterday" (Oct 26): its button's frame is 6 pt taller
-    /// than the card drawn in it, top and bottom, which R119's fill finds.
+    /// than the card drawn in it, top and bottom, which R127's fill finds.
     private let cardButton = AttributeSet(role: "AXButton", description: "Weeknight noodles, yesterday", frame: Frame(x: 362.2, y: 543.2, w: 331.1, h: 75.9))
     private let drawnCard = CGRect(x: 363.4, y: 549.0, width: 329.5, height: 64.0)
 
@@ -792,7 +792,7 @@ final class ElementResolverTests: XCTestCase {
                        HitRefiner.selectionLevels(for: plain, at: center(header)))
     }
 
-    /// R126: the sample shows the simulated screen only, so a rung that does not lie inside it, such as a
+    /// R134: the sample shows the simulated screen only, so a rung that does not lie inside it, such as a
     /// non-container around the screen, keeps its frame.
     func testOnTheSimulatedScreenOnlyRungsInsideItTighten() throws {
         let l = library()
@@ -807,7 +807,7 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertEqual(levels.last??.frame, around.frame, "around the screen: its own frame")
     }
 
-    /// R126: iOS pads a control smaller than its 44 pt tap target on purpose, so the capsule's 39.4×39.3
+    /// R134: iOS pads a control smaller than its 44 pt tap target on purpose, so the capsule's 39.4×39.3
     /// buttons keep their frames, icons drawn or not.
     func testOnTheSimulatedScreenAControlUnder44PointsKeepsItsFrame() {
         let l = library()
@@ -838,7 +838,7 @@ final class ElementResolverTests: XCTestCase {
         }
     }
 
-    /// R126: the rule the ladder tightens an accessibility frame by, which iterations share: what is drawn inside it,
+    /// R134: the rule the ladder tightens an accessibility frame by, which iterations share: what is drawn inside it,
     /// read only when the frame is at least 44 pt both ways and lies inside the simulated screen.
     func testAFrameTightensOnlyInsideTheSimulatedScreen() {
         let padded = cardButton.frame!.cgRect
@@ -860,12 +860,12 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertNotEqual(HitRefiner.tightFrame(edge, on: hubScreen.cgRect, ink: { _ in self.drawnCard }), edge, "inside within 1 pt")
     }
 
-    // MARK: Text lines (specs/capture-shapes.md R127)
+    // MARK: Text lines (specs/capture-shapes.md R135)
 
     /// The card's two lines as Vision might read them; it reads the list icon before "yesterday" as "=".
     private let cardLines = [TextLine(text: "Weeknight noodles", frame: Frame(x: 377.0, y: 560.0, w: 120.0, h: 12.0)),
                              TextLine(text: "= yesterday", frame: Frame(x: 377.0, y: 582.0, w: 70.0, h: 11.0))]
-    /// The floating tab bar Device Hub reports with no children (R125), and its three labels as read.
+    /// The floating tab bar Device Hub reports with no children (R133), and its three labels as read.
     private let tabBar = AttributeSet(role: "AXGroup", description: "Tab Bar", frame: Frame(x: 347.9, y: 844.3, w: 359.7, h: 74.2), childCount: 0)
     private let tabLines = [TextLine(text: "Tide", frame: Frame(x: 445.5, y: 844.0, w: 18.0, h: 6.5)),
                             TextLine(text: "Ask", frame: Frame(x: 520.5, y: 844.0, w: 14.5, h: 6.5)),
@@ -933,7 +933,7 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertEqual(HitRefiner.textLabel("Q天", within: "周末面条, 昨天"), "Q天")
     }
 
-    /// R127: a merged element's label ticks with the text it merges, so one element's two labels share a part.
+    /// R135: a merged element's label ticks with the text it merges, so one element's two labels share a part.
     func testLabelsOfOneElementShareAPart() {
         XCTAssertTrue(HitRefiner.labelsSharePart("Random, 4 seconds ago", "Random, 5 seconds ago"))
         XCTAssertTrue(HitRefiner.labelsSharePart("Tab Bar", "Tab Bar"))
@@ -949,7 +949,7 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertTrue(HitRefiner.labelsSharePart("Cooking, 1", "Cooking, 1"), "equal labels")
     }
 
-    /// R127 with R126: a line goes ahead of the ladder, and when rung 0 is the answer it was read in, outlined
+    /// R135 with R134: a line goes ahead of the ladder, and when rung 0 is the answer it was read in, outlined
     /// tighter, the line's frame is cut to that outline too, so ⌥ never steps from a line to an outline that does
     /// not hold it.
     func testALineAheadOfTheTightenedAnswerIsCutToItsOutline() throws {
@@ -1009,7 +1009,7 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertEqual(try textRung(cardLines + [below], at: CGPoint(x: 400, y: 566), in: card)?.label, "Weeknight noodles")
     }
 
-    /// R127: a line is not kept by the 12 pt stickiness either, as any other element is when the pointer leaves it.
+    /// R135: a line is not kept by the 12 pt stickiness either, as any other element is when the pointer leaves it.
     func testALineDoesNotStick() throws {
         let l = library()
         let bar = ElementSnapshot(element: tabBar, ancestors: [l.screen], children: [])
@@ -1021,7 +1021,7 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertTrue(HitRefiner.sticks(element, to: near), "an accessibility element would")
     }
 
-    /// R127: a line read again, its box moved a little, is the same rung: the ⌥ level chosen from it stays.
+    /// R135: a line read again, its box moved a little, is the same rung: the ⌥ level chosen from it stays.
     func testALineReadAgainIsTheSameRung() throws {
         let l = library()
         let card = ElementSnapshot(element: cardButton, ancestors: [l.inner, l.screen])
@@ -1052,7 +1052,7 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertFalse(HitRefiner.isRereadLine(nil, in: card, again, in: card))
     }
 
-    /// R127: the line under the pointer ticks with the card's label, "9 seconds ago" then "10 seconds ago": its own
+    /// R135: the line under the pointer ticks with the card's label, "9 seconds ago" then "10 seconds ago": its own
     /// label changes, so only the path, the answer, and the boxes say it is the same line.
     func testALineWhoseTextTicksIsTheSameRung() throws {
         let l = library()
@@ -1104,7 +1104,7 @@ final class ElementResolverTests: XCTestCase {
         }
     }
 
-    /// R127: a leaf merges texts when its label joins two or more with ", ", as SwiftUI joins a card's. A leaf with
+    /// R135: a leaf merges texts when its label joins two or more with ", ", as SwiftUI joins a card's. A leaf with
     /// a label of one part (a paragraph, an editor, a two-line button) or none gets no line rungs; a container whose
     /// children read empty (the tab bar, whose label names none of its tabs) still does.
     func testALeafsLinesAreReadOnlyWhenItsLabelJoinsTwoTextsOrMore() {
@@ -1130,13 +1130,13 @@ final class ElementResolverTests: XCTestCase {
                        tabBar.frame?.cgRect, "a childless container, whatever its label")
     }
 
-    /// R117 step 2 holds an element inside a shape; a line is read again at each step instead.
+    /// R125 step 2 holds an element inside a shape; a line is read again at each step instead.
     func testALineIsNeverHeldInsideAShape() throws {
         let l = library()
         let bar = ElementSnapshot(element: tabBar, ancestors: [l.screen], children: [])
         let capsule = CGRect(x: 352, y: 844.3, width: 351, height: 70) // the tab bar's glass
         let ask = try XCTUnwrap(try textRung(tabLines, at: CGPoint(x: 527, y: 847), in: bar))
-        let near = CGPoint(x: 527, y: 854) // 1.5 pt below the line's rung: inside R117's 3 pt hold
+        let near = CGPoint(x: 527, y: 854) // 1.5 pt below the line's rung: inside R125's 3 pt hold
         var shapes = FixedShapes(rects: [capsule])
         let levels = HitRefiner.selectionLevels(for: bar, at: near, shapes: &shapes, holding: ask)
         XCTAssertEqual(levels.first??.rawRole, ElementResolver.shapeRawRole)
@@ -1147,7 +1147,7 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertEqual(held.first??.rawRole, "AXStaticText", "an accessibility element there would be held")
     }
 
-    /// R126: a click commits what hover drew. On the simulated screen, near the frame of the element hover
+    /// R134: a click commits what hover drew. On the simulated screen, near the frame of the element hover
     /// outlined tighter counts; near an element that only neighbors the rung drawn does not; off the screen
     /// the 12 pt rule alone decides.
     func testAClickIsOnTheTightenedRungNearItsElementsOwnFrame() throws {
@@ -1171,7 +1171,7 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertFalse(HitRefiner.clickIsOnHover(ring, shown: nil, snapshot: snapshot))
     }
 
-    /// R126: rung 0 tightened when the first sample lands is the same element, so ⌥'s level stays.
+    /// R134: rung 0 tightened when the first sample lands is the same element, so ⌥'s level stays.
     func testTheSameElementOutlinedTighterIsNoMove() throws {
         let l = library()
         let header = try XCTUnwrap(ElementResolver.resolve(ElementSnapshot(element: l.children[6], ancestors: [l.inner, l.screen])))
@@ -1190,7 +1190,7 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertFalse(HitRefiner.isRetightened(header, nil))
     }
 
-    /// R125–R127: one predicate says an answer is on Device Hub's simulated screen: the element or an ancestor has
+    /// R133–R135: one predicate says an answer is on Device Hub's simulated screen: the element or an ancestor has
     /// subrole `iOSContentGroup`, whatever its frame (a detached copy reports none).
     func testAnAnswerIsOnTheSimulatedScreenByItsChainsSubrole() {
         let l = library()
@@ -1202,9 +1202,9 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertFalse(HitRefiner.isOnSimulatedScreen(nil))
     }
 
-    /// R126, R127: the ⌥ level chosen before stays when hover's rung 0 is the same frame, and, on the simulated screen
+    /// R134, R135: the ⌥ level chosen before stays when hover's rung 0 is the same frame, and, on the simulated screen
     /// only, the same element outlined tighter or the same line read again. Elsewhere an element whose frame changes
-    /// inside its old one (a field that grows) is a move, as before R126.
+    /// inside its old one (a field that grows) is a move, as before R134.
     func testTheOptionLevelStaysForTheSameRungAndOnlyOnTheScreenForAnOutlineTightened() throws {
         let l = library()
         let onPhone = ElementSnapshot(element: l.children[6], ancestors: [l.inner, l.screen], siblings: l.children)
@@ -1235,7 +1235,7 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertTrue(HitRefiner.keepsLevel([first], in: card, [again], in: card), "the same line read again")
     }
 
-    /// R127: a ⌥ pressed before the lines are read keeps its rung when they land and the line goes ahead of the
+    /// R135: a ⌥ pressed before the lines are read keeps its rung when they land and the line goes ahead of the
     /// ladder, and when they go again; at rung 0 the outline moves to the line as the pointer is on it.
     func testTheOptionLevelFollowsItsRungWhenALineLandsOrGoes() throws {
         let l = library()
@@ -1279,7 +1279,7 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertEqual(HitRefiner.nextLevel(2, from: levels, in: plain, to: levels, in: plain), 2)
     }
 
-    /// R126: a frame cut to another and stored as x, y, w, h can end an ulp past it (x + w), so "inside"
+    /// R134: a frame cut to another and stored as x, y, w, h can end an ulp past it (x + w), so "inside"
     /// allows a hundredth of a point. Built the way `tightFrame` builds it.
     func testATightenedFrameAnUlpPastItsElementsStillLiesInside() throws {
         let frame = Frame(x: 291.4, y: 197.4, w: 603.7, h: 665.1)
@@ -1294,7 +1294,7 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertTrue(HitRefiner.clickIsOnHover(CGPoint(x: 295, y: 800), shown: shown, snapshot: snapshot), "in its padding")
     }
 
-    /// R126: when the rung drawn is not the snapshot's element (R117 step 3, a shape over an element reached
+    /// R134: when the rung drawn is not the snapshot's element (R125 step 3, a shape over an element reached
     /// through the tolerance; step 2, an element held inside a shape), a click in that element's frame far
     /// from the rung is a click elsewhere.
     func testAClickNearTheElementReadIsNotOnAShapeOrAHeldElement() throws {

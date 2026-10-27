@@ -85,7 +85,7 @@ actor AccessibilityReader {
         return reading.snapshot
     }
 
-    /// R125: on Device Hub's simulated screen, the smallest sibling under the point answers for a hit whose
+    /// R133: on Device Hub's simulated screen, the smallest sibling under the point answers for a hit whose
     /// frame hangs over it (`HitRefiner.smallerSibling`). Its element comes from the listing container's
     /// cached neighborhood, whose elements are in step with its first 60 nodes, the siblings as read. Nil
     /// off the screen, where nothing is read, or where no sibling answers.
@@ -97,7 +97,7 @@ actor AccessibilityReader {
         return hood.elements[index]
     }
 
-    /// specs/capture-shapes.md R125: on Device Hub's simulated screen the hit test answers from the
+    /// specs/capture-shapes.md R133: on Device Hub's simulated screen the hit test answers from the
     /// screen-sized content group under the chrome drawn over it (the tab bar). The screen's direct child
     /// that answers instead (`HitRefiner.overlayIndex`), refined as a hit is. Nil off the screen, where
     /// nothing more is read, or where the hit stands.
@@ -376,11 +376,11 @@ actor AccessibilityReader {
         var snapshot = ElementSnapshot(element: elementAttributes, ancestors: ancestors)
         if web { snapshot.url = pageURL(above: current, pid: pidOf(element)) }
         // Flat trees (SwiftUI): read the neighbourhood so HitRefiner can form visual clusters, under any
-        // container (specs/capture-shapes.md R120), not only one that spans the window.
+        // container (specs/capture-shapes.md R128), not only one that spans the window.
         if ElementResolver.isContainer(elementAttributes) {
             snapshot.children = neighbors(of: element, attributes: elementAttributes)
         } else if let parent = parents.first, let parentAttributes = ancestors.first, ElementResolver.isContainer(parentAttributes) {
-            // R125: Device Hub names the screen's content group as the parent of what the group inside it
+            // R133: Device Hub names the screen's content group as the parent of what the group inside it
             // holds. The siblings come from the container that lists the element, which joins the path. One
             // read of the parent's children, through the neighbor cache, serves the check and the siblings.
             // Only on the simulated screen, which the parents just read say; elsewhere the parent's children
@@ -400,7 +400,7 @@ actor AccessibilityReader {
         return (snapshot, parents)
     }
 
-    /// R125: an ancestor that is a detached copy of Device Hub's screen group (subrole `iOSContentGroup`, an
+    /// R133: an ancestor that is a detached copy of Device Hub's screen group (subrole `iOSContentGroup`, an
     /// empty frame) takes the union of its children's frames (`HitRefiner.detachedScreenFrame`), or stays as
     /// read when none has one. Its children are read under the attributes as read, so the neighbor cache
     /// entry is the one the siblings and the overlay check use.
@@ -412,7 +412,7 @@ actor AccessibilityReader {
         return framed
     }
 
-    /// R125: the answer of `listingParent`, found or not, per element and reported parent for `neighborTTL`.
+    /// R133: the answer of `listingParent`, found or not, per element and reported parent for `neighborTTL`.
     /// Keyed by both, so an element whose reported parent changes (to the very container found before) is
     /// asked afresh and that container never joins the path twice.
     private struct ListingKey: Hashable {
@@ -423,7 +423,7 @@ actor AccessibilityReader {
 
     private var listingParentCache: [ListingKey: (stamp: ContinuousClock.Instant, parent: AXUIElement?)] = [:]
 
-    /// R125: when `parent` does not list `element` among its children (`kids`, all of them, as the neighbor
+    /// R133: when `parent` does not list `element` among its children (`kids`, all of them, as the neighbor
     /// cache has them), the container below it that does. Depth first through containers whose frame holds
     /// the element's within 1 pt, at most 4 levels below `parent` and 200 nodes. Nil when `parent` lists the
     /// element or nothing below it does.
@@ -530,7 +530,7 @@ actor AccessibilityReader {
     /// Hover moves inside one container far more often than that container's children change, so a
     /// container's children are re-read at most every `neighborTTL`. Keyed by app, role, subrole, frame,
     /// and the container itself: Device Hub nests a group of the screen's frame in the screen's own group
-    /// (R125), and the two must not share an entry.
+    /// (R133), and the two must not share an entry.
     private struct NeighborKey: Hashable {
         let pid: pid_t
         let role: String?

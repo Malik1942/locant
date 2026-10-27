@@ -2,7 +2,7 @@ import CoreGraphics
 import XCTest
 @testable import Locant
 
-/// specs/capture-shapes.md R118: one image of the area hover wants, taken once per area, never without
+/// specs/capture-shapes.md R126: one image of the area hover wants, taken once per area, never without
 /// permission, and dropped on stop.
 @MainActor
 final class ScreenSamplerTests: XCTestCase {

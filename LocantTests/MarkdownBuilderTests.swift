@@ -122,7 +122,7 @@ final class MarkdownBuilderTests: XCTestCase {
         XCTAssertNil((plain?["element"] as? [String: Any])?["members"], "members only exist on clusters")
     }
 
-    // specs/capture-shapes.md R121: a shape's frame is its visible edges; a cluster's stays approximate.
+    // specs/capture-shapes.md R129: a shape's frame is its visible edges; a cluster's stays approximate.
     func testShapeHeadLineSaysItsFrameIsTheVisibleEdges() {
         let shape = ResolvedElement(
             role: "cluster", rawRole: "LocantShape", label: nil, identifier: nil, identifierSource: .unknown, value: nil,
@@ -136,7 +136,7 @@ final class MarkdownBuilderTests: XCTestCase {
         XCTAssertFalse(md.contains("frame approximate"))
     }
 
-    // specs/capture-shapes.md R124: a row of touching controls says what it is, and that its frame is their union.
+    // specs/capture-shapes.md R132: a row of touching controls says what it is, and that its frame is their union.
     func testGroupHeadLineSaysItsFrameIsTheUnionOfTheControls() {
         let group = ResolvedElement(
             role: "cluster", rawRole: "LocantGroup", label: nil, identifier: nil, identifierSource: .unknown, value: nil,
@@ -152,7 +152,7 @@ final class MarkdownBuilderTests: XCTestCase {
         XCTAssertFalse(md.contains("visible edges"))
     }
 
-    // specs/capture-shapes.md R127: a line read from the screen prints like any element, and says what it is.
+    // specs/capture-shapes.md R135: a line read from the screen prints like any element, and says what it is.
     func testATextLineSaysLocantReadItFromTheScreen() {
         let line = ResolvedElement(
             role: "staticText", rawRole: "LocantText", label: "Weeknight noodles", identifier: nil, identifierSource: .unknown, value: nil,

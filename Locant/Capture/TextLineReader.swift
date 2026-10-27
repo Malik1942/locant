@@ -2,7 +2,7 @@ import CoreGraphics
 import Foundation
 import Vision
 
-/// specs/capture-shapes.md R127: the lines of text inside an element that merges them (a SwiftUI list card,
+/// specs/capture-shapes.md R135: the lines of text inside an element that merges them (a SwiftUI list card,
 /// Device Hub's floating tab bar), read from the screen sample with Vision. Hover never waits for them:
 /// without lines for a rectangle's pixels it asks for them and goes on with the lines last read there for the
 /// same element, if any, and when they land `onUpdate` has the spot read again. Memory only, dropped on `stop()`.
@@ -59,7 +59,7 @@ final class TextLineReader {
     /// The newest request that came while one was in flight; an older one waiting is dropped.
     private var waiting: Request?
     /// The last key worked out, so a sample's pixels are hashed once per rectangle, not at each hover step.
-    /// A grid's generation names one sample (R119).
+    /// A grid's generation names one sample (R127).
     private var lastKey: (generation: Int, key: Key)?
     /// Each `stop()` opens a new one; lines only land in the session that asked for them.
     private var session = 0
@@ -153,7 +153,7 @@ final class TextLineReader {
             if self.cache.count >= Self.cacheLimit { self.cache.removeAll() }
             self.cache[request.key] = landed
             self.remember(landed, in: request.key.frame, label: request.label)
-            // One line or none makes no rung (R127), so only a landing that can change the ladder reads the spot again.
+            // One line or none makes no rung (R135), so only a landing that can change the ladder reads the spot again.
             if landed.count >= 2 || shown >= 2 { self.onUpdate?() }
             if let next = self.waiting {
                 self.waiting = nil
@@ -181,7 +181,7 @@ final class TextLineReader {
         return han ? .han : .latin
     }
 
-    /// R127: an answer's lines, read with `read` first as its label chose (`reading`). The label is evidence for how
+    /// R135: an answer's lines, read with `read` first as its label chose (`reading`). The label is evidence for how
     /// to read only when it names what was read: when no line of that read matches a ", "-part of `label`
     /// (`HitRefiner.textMatches`), as the tab bar's "Tab Bar" names none of its tabs and a tab bar in Chinese read the
     /// English way gives junk ("4 1JBIJ"), the lines are read once more, `.detected`. That read's lines, or none when

@@ -34,7 +34,7 @@ final class AutoVerifyTests: XCTestCase {
         XCTAssertFalse(AutoVerify.wants(capture(element: nil), activated: "com.inspireocean.app", now: now))
         let cluster = ResolvedElement(role: ElementResolver.clusterRole, rawRole: "", label: nil, identifier: nil, identifierSource: .unknown, value: nil, frame: Frame(x: 0, y: 0, w: 9, h: 9), path: [])
         XCTAssertFalse(AutoVerify.wants(capture(element: cluster), activated: "com.inspireocean.app", now: now))
-        // specs/capture-shapes.md R127: a line of text read from the screen has no accessibility element to find again.
+        // specs/capture-shapes.md R135: a line of text read from the screen has no accessibility element to find again.
         let line = ResolvedElement(role: "staticText", rawRole: ElementResolver.textRawRole, label: "Weeknight noodles", identifier: nil,
                                    identifierSource: .unknown, value: nil, frame: Frame(x: 375, y: 558, w: 124, h: 16), path: [])
         XCTAssertFalse(AutoVerify.wants(capture(element: line), activated: "com.inspireocean.app", now: now))
@@ -107,7 +107,7 @@ final class AutoVerifyTests: XCTestCase {
         XCTAssertEqual(AutoVerify.companions(of: alone), [])
     }
 
-    // 9: specs/capture-shapes.md R126: in Device Hub a capture commits the card as drawn, inside the padded frame
+    // 9: specs/capture-shapes.md R134: in Device Hub a capture commits the card as drawn, inside the padded frame
     // accessibility reports; the element found again is tightened by the same rule, so the two images show one outline.
     func testAnIterationOfATightenedCaptureTightensTheElementFoundAgain() {
         let screen = CGRect(x: 347.9, y: 137.5, width: 359.7, height: 780.9)
@@ -194,7 +194,7 @@ final class AutoVerifyTests: XCTestCase {
         XCTAssertNil(taken.cut(to: CGRect(x: 0, y: 0, width: 10, height: 10)), "outside it")
     }
 
-    // 11: specs/capture-shapes.md R127: a line read from the screen has no accessibility element, so a set that has to
+    // 11: specs/capture-shapes.md R135: a line read from the screen has no accessibility element, so a set that has to
     // refind one with its first element would find another element in its place.
     func testASetWithALineToRefindIsIgnored() {
         func target(_ element: ResolvedElement, imagePath: String? = nil) -> CaptureTarget {

@@ -2,7 +2,7 @@ import AppKit
 import XCTest
 @testable import Locant
 
-/// specs/capture-shapes.md R119: shapes found in the pixels.
+/// specs/capture-shapes.md R127: shapes found in the pixels.
 final class ShapeFinderTests: XCTestCase {
     /// A screen in points, `scale` samples per point, painted with rectangles, read as a grid at the origin.
     private struct Canvas {
@@ -222,7 +222,7 @@ final class ShapeFinderTests: XCTestCase {
         XCTAssertNil(grid.sample(at: CGPoint(x: 12, y: 20)))
     }
 
-    // R119: while the pointer stays on the samples a fill took, its answer stands.
+    // R127: while the pointer stays on the samples a fill took, its answer stands.
     func testAFillCoversTheSamplesItTook() throws {
         var canvas = Canvas(400, 300, background: dark)
         canvas.paint(CGRect(x: 100, y: 80, width: 160, height: 90), RGB(r: 50, g: 50, b: 54))
@@ -233,7 +233,7 @@ final class ShapeFinderTests: XCTestCase {
         XCTAssertFalse(fill.covers(CGPoint(x: 250, y: 160), in: canvas.grid(generation: 2)), "a newer sample")
     }
 
-    // R119: the live source keeps its memo while the sample and the bound stay the same, and drops it otherwise.
+    // R127: the live source keeps its memo while the sample and the bound stay the same, and drops it otherwise.
     func testShapeLookupKeepsItsMemoForOneSampleAndBound() {
         var canvas = Canvas(400, 300, background: dark)
         let card = CGRect(x: 100, y: 80, width: 160, height: 90)
@@ -249,7 +249,7 @@ final class ShapeFinderTests: XCTestCase {
         XCTAssertTrue(newer.memo.around.isEmpty)
     }
 
-    // R126: what is drawn inside a rectangle is the bounds of the edge samples it covers. A step marks the
+    // R134: what is drawn inside a rectangle is the bounds of the edge samples it covers. A step marks the
     // sample on each side of it, so the bounds reach one sample (half a point here) past what is painted.
     func testEdgeBoundsAreWhatIsDrawnInsideARectangle() {
         var canvas = Canvas(400, 300, background: dark)
@@ -269,7 +269,7 @@ final class ShapeFinderTests: XCTestCase {
                    CGRect(x: 50, y: 55.5, width: 300, height: 161), within: 0.01, "the card and the block, the part the sample shows")
     }
 
-    // R126: the live source keeps what it found inside each rectangle, nothing found included.
+    // R134: the live source keeps what it found inside each rectangle, nothing found included.
     func testShapeLookupKeepsWhatIsDrawnInsideEachRectangle() {
         var canvas = Canvas(400, 300, background: dark)
         canvas.paint(CGRect(x: 100, y: 80, width: 160, height: 90), RGB(r: 50, g: 50, b: 54))
@@ -282,7 +282,7 @@ final class ShapeFinderTests: XCTestCase {
         XCTAssertTrue(ShapeLookup(grid: canvas.grid(generation: 2), bound: canvas.bounds, memo: lookup.memo).memo.ink.isEmpty, "a newer sample")
     }
 
-    // MARK: Padded frames tighten, in the phone (R126)
+    // MARK: Padded frames tighten, in the phone (R134)
 
     /// The tightened frame of `frame` on this canvas, as the ladder takes it from the live source.
     private func tightened(_ frame: CGRect, on canvas: Canvas) -> CGRect {

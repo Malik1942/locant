@@ -12,14 +12,14 @@ struct CroppedImage: Sendable {
 }
 
 extension CroppedImage {
-    /// specs/capture-shapes.md R126: the pixels as a `PixelGrid` over `crop`, to read what is drawn inside a frame.
+    /// specs/capture-shapes.md R134: the pixels as a `PixelGrid` over `crop`, to read what is drawn inside a frame.
     func grid() -> PixelGrid? {
         NSBitmapImageRep(data: png)?.cgImage.flatMap { PixelGrid(image: $0, frame: crop, scale: CGFloat(scale), generation: 0) }
     }
 
     /// The part of the image inside `rect` (global points, out to whole points), as a crop of its own with the same
     /// pixels a crop of that rectangle takes; nil when none of it is inside. An iteration's after-image is cut
-    /// around the outline found in the crop just taken (R126), with no second capture.
+    /// around the outline found in the crop just taken (R134), with no second capture.
     func cut(to rect: CGRect) -> CroppedImage? {
         let visible = rect.intersection(crop).integral
         guard !visible.isEmpty, let image = NSBitmapImageRep(data: png)?.cgImage else { return nil }
@@ -100,7 +100,7 @@ enum ScreenCapture {
         return (image, display.frame, scale)
     }
 
-    /// specs/capture-shapes.md R118: `rect` (global points) from the display holding its center, own
+    /// specs/capture-shapes.md R126: `rect` (global points) from the display holding its center, own
     /// windows excluded, at the display's scale unless that would exceed `maxSamples` samples. `frame`
     /// is the part of `rect` on that display.
     static func regionImage(_ rect: CGRect, maxSamples: Int) async throws -> (image: CGImage, frame: CGRect, scale: CGFloat) {

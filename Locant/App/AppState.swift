@@ -31,13 +31,13 @@ final class AppState {
 
     private(set) var phase: Phase = .idle {
         didSet {
-            // specs/capture-shapes.md R118: the screen sample is for hover. It stops, and is dropped with its
+            // specs/capture-shapes.md R126: the screen sample is for hover. It stops, and is dropped with its
             // memo, as soon as the session leaves hover: a click, a drawn frame, Snap, Text, Cut, or the end.
             // Shift-click pins stay in hover and keep it.
             if phase != .hovering {
                 sampler.stop()
                 shapeMemo = ShapeLookup.Memo()
-                textReader.stop() // R127: the lines read from the sample go with it
+                textReader.stop() // R135: the lines read from the sample go with it
             }
         }
     }
@@ -66,12 +66,12 @@ final class AppState {
     @ObservationIgnored private var levelIndex = 0
     /// v0.8.1 R59: whether the drawn outline moved since the last redraw; reset with each session.
     @ObservationIgnored private var outlineMoves = OutlineMoves()
-    /// R118: the screen under the pointer, read for the shapes hover lands on; stopped whenever `phase`
+    /// R126: the screen under the pointer, read for the shapes hover lands on; stopped whenever `phase`
     /// leaves hover.
     @ObservationIgnored private let sampler = ScreenSampler()
-    /// R119: the last fill and the shapes found around rectangles, while the sample stays the same.
+    /// R127: the last fill and the shapes found around rectangles, while the sample stays the same.
     @ObservationIgnored private var shapeMemo = ShapeLookup.Memo()
-    /// specs/capture-shapes.md R127: the lines of text inside an element that merges them, read from the sample;
+    /// specs/capture-shapes.md R135: the lines of text inside an element that merges them, read from the sample;
     /// started and stopped with it.
     @ObservationIgnored private let textReader = TextLineReader()
     @ObservationIgnored private var lockedElement: ResolvedElement?
@@ -458,7 +458,7 @@ final class AppState {
             let region = largest?.bounds ?? SelectionOverlay.displayFrameCG(containing: element.frame.cgRect.origin)
             let snapshots = await reader.elements(in: region, pid: pid)
             found = ElementRefinder.match(element, among: snapshots)
-            // specs/capture-shapes.md R126: Device Hub's simulated screen in the tree it was found in, if any.
+            // specs/capture-shapes.md R134: Device Hub's simulated screen in the tree it was found in, if any.
             foundScreen = found.flatMap { match in snapshots.first { ElementResolver.resolve($0) == match } }.flatMap(HitRefiner.simulatedScreen(in:))
             others = companions.compactMap { ElementRefinder.match($0, among: snapshots) }
             if found != nil, others.count == companions.count { break }
@@ -474,7 +474,7 @@ final class AppState {
                 ? Geometry.cropRect(element: found.frame.cgRect, clickPoint: center, window: windowBounds, display: display)
                 : Geometry.cropRects(for: ([found] + others).map(\.frame.cgRect), display: display, displayFor: SelectionOverlay.displayFrameCG(containing:))[0]
             let taken = try await ScreenCapture.crop(crop)
-            // R126: on Device Hub's screen the capture committed the element as drawn, inside the padded frame found
+            // R134: on Device Hub's screen the capture committed the element as drawn, inside the padded frame found
             // here. That frame is tightened the same way, from this crop, and the after-image is cut around it from
             // the same pixels, so the two images show one outline (`AutoVerify.afterFrame`).
             let (screen, window) = (foundScreen, windowBounds)
@@ -707,13 +707,13 @@ final class AppState {
             } else {
                 if startsAtWindow && snapAtWindow {
                     // v0.9 R77: Snap and Cut open on the window and stay there as the cursor moves, and as
-                    // the ladder grows or shrinks under it (specs/capture-shapes.md R118: a landing screen
+                    // the ladder grows or shrinks under it (specs/capture-shapes.md R126: a landing screen
                     // sample adds shapes between the first rung and the window).
                     levelIndex = max(0, freshLevels.count - 1)
                 } else {
                     // Once Option has left the window, the element level persists as in Point, on the same rung
                     // wherever the new ladder puts it. On Device Hub's screen, the same element outlined tighter
-                    // (R126), the same line read again, or lines landing or going while ⌥ is up a level (R127),
+                    // (R134), the same line read again, or lines landing or going while ⌥ is up a level (R135),
                     // keep the level chosen before.
                     levelIndex = HitRefiner.nextLevel(levelIndex, from: levels, in: lastHoverSnapshot, to: freshLevels, in: fresh)
                 }
@@ -727,9 +727,9 @@ final class AppState {
         }
     }
 
-    /// specs/capture-shapes.md R117: the ladder at `point`, with the shapes under the pointer once the screen
-    /// sample of their area has landed (R118), and on Device Hub's screen the line of text under the pointer
-    /// (R127). Until then, today's ladder; with no answer at the point, nothing.
+    /// specs/capture-shapes.md R125: the ladder at `point`, with the shapes under the pointer once the screen
+    /// sample of their area has landed (R126), and on Device Hub's screen the line of text under the pointer
+    /// (R135). Until then, today's ladder; with no answer at the point, nothing.
     private func shapeLevels(for snapshot: ElementSnapshot?, at point: CGPoint) async -> [ResolvedElement?] {
         guard let snapshot else { return [] }
         let bound = shapeBound(at: point, in: snapshot)
@@ -747,14 +747,14 @@ final class AppState {
         #if DEBUG
         NSLog("Locant shapes: %.2f ms", (ContinuousClock.now - started) / .milliseconds(1))
         #endif
-        // R127: in Point, the line under the pointer goes ahead of the ladder, which keeps the answer and what
+        // R135: in Point, the line under the pointer goes ahead of the ladder, which keeps the answer and what
         // follows. Not in Text, which would read one line instead of the card, nor in Snap and Cut, whose first ⌥
         // from the window would land on a line.
         guard action == .point else { return levels }
         return withLine(for: snapshot, at: point, in: grid, ahead: levels)
     }
 
-    /// R127: on Device Hub's screen, `levels` with the line of text under the pointer ahead of them, inside an answer
+    /// R135: on Device Hub's screen, `levels` with the line of text under the pointer ahead of them, inside an answer
     /// that merges its lines, once they are read from the sample; cut to the answer's tightened outline when that is
     /// rung 0 (`HitRefiner.addingLine`). Until then, and anywhere else, `levels`. Point only.
     private func withLine(for snapshot: ElementSnapshot, at point: CGPoint, in grid: PixelGrid, ahead levels: [ResolvedElement?]) -> [ResolvedElement?] {
@@ -764,14 +764,14 @@ final class AppState {
         return HitRefiner.addingLine(line, to: levels, answer: answer)
     }
 
-    /// R119's bound: the simulated screen in Device Hub, else the window under the point, else its display.
+    /// R127's bound: the simulated screen in Device Hub, else the window under the point, else its display.
     private func shapeBound(at point: CGPoint, in snapshot: ElementSnapshot) -> CGRect {
         HitRefiner.simulatedScreen(in: snapshot)
             ?? Geometry.windowOwner(at: point, windows: windows, excludingPID: ownPID)?.bounds
             ?? SelectionOverlay.displayFrameCG(containing: point)
     }
 
-    /// R118, R127: a new screen sample, or the lines read from it, landed; the spot under the pointer is read
+    /// R126, R135: a new screen sample, or the lines read from it, landed; the spot under the pointer is read
     /// again with it.
     private func rehover() {
         guard phase == .hovering, lastHoverSnapshot != nil else { return }
@@ -859,7 +859,7 @@ final class AppState {
     }
 
     /// What a click at `point` means: the hovered selection at its Option level when the click is on or
-    /// near it, else a fresh read with the lazy-tree retry. specs/capture-shapes.md R126: on Device Hub's
+    /// near it, else a fresh read with the lazy-tree retry. specs/capture-shapes.md R134: on Device Hub's
     /// screen, near the frame of the element hover outlined tighter counts too (`HitRefiner.clickIsOnHover`).
     private func resolveClicked(at point: CGPoint) async -> (element: ResolvedElement?, snapshot: ElementSnapshot?) {
         let hoverIsCurrent = !levels.isEmpty && HitRefiner.clickIsOnHover(point, shown: lastHoverElement, snapshot: lastHoverSnapshot)
@@ -881,7 +881,7 @@ final class AppState {
         return CaptureTarget(element: element, app: source?.app ?? AppInfo(bundleId: "unknown", name: "unknown"), window: source?.window, url: snapshot?.url)
     }
 
-    /// R121: a shape Point commits lists every element the drawn-frame walk finds inside it; the members
+    /// R129: a shape Point commits lists every element the drawn-frame walk finds inside it; the members
     /// known at hover stay when it finds none.
     private func withWalkedMembers(_ element: ResolvedElement?, pid: pid_t) async -> ResolvedElement? {
         guard var shape = element, shape.rawRole == ElementResolver.shapeRawRole, pid > 0 else { return element }
@@ -962,7 +962,7 @@ final class AppState {
             // v0.9 R77: the outline at its level, exactly, when the click is on or near it or a level
             // was chosen on purpose; else the window under the point, else the display.
             let hovered = selectedElement()
-            let hoverIsCurrent = HitRefiner.clickIsOnHover(point, shown: hovered, snapshot: lastHoverSnapshot) // R126
+            let hoverIsCurrent = HitRefiner.clickIsOnHover(point, shown: hovered, snapshot: lastHoverSnapshot) // R134
             let chosenOnPurpose = levelIndex > 0 && !snapAtWindow
             let rect = (hoverIsCurrent || chosenOnPurpose ? hovered?.frame.cgRect : nil)
                 ?? Geometry.windowOwner(at: point, windows: windows, excludingPID: ownPID)?.bounds
@@ -1040,7 +1040,7 @@ final class AppState {
         watchForStuckCapture()
 
         if let joining {
-            // R121: a clicked shape lists what the walk finds inside it.
+            // R129: a clicked shape lists what the walk finds inside it.
             let walked = await withWalkedMembers(joining, pid: window?.ownerPID ?? context?.frontPID ?? 0) ?? joining
             guard phase == .resolving, cropTask == crop else { return }
             targets.append(await describeTarget(walked, snapshot: snapshot, window: window))

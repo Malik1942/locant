@@ -2,7 +2,7 @@ import AppKit
 import XCTest
 @testable import Locant
 
-/// specs/capture-shapes.md R127: lines of text read in the background, once per rectangle and its pixels, one
+/// specs/capture-shapes.md R135: lines of text read in the background, once per rectangle and its pixels, one
 /// read at a time, dropped on stop. Every test but the last answers with a stand-in for Vision.
 @MainActor
 final class TextLineReaderTests: XCTestCase {

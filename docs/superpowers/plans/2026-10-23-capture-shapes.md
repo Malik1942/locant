@@ -2,12 +2,12 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Point lands on the capsule, card, or panel under the pointer whose edges are drawn on screen, even where the app exposes none to accessibility (`specs/capture-shapes.md`, R116–R123). Shapes with no drawn edge (the "Thought deleted" pill, the Notification sheet's faded bottom) fall back to the cluster.
+**Goal:** Point lands on the capsule, card, or panel under the pointer whose edges are drawn on screen, even where the app exposes none to accessibility (`specs/capture-shapes.md`, R124–R131). Shapes with no drawn edge (the "Thought deleted" pill, the Notification sheet's faded bottom) fall back to the cluster.
 
 **Architecture:**
 - **Two pure units.** `ShapeFinder` (new, pure) reads shapes from a `PixelGrid`, an RGBA screen sample at the display's own scale, by a tolerance-bounded flood fill. `HitRefiner` (pure) gains a shape-aware ladder that takes the shapes through a small `ShapeSource` protocol, so tests use fixed rectangles and the app uses `ShapeLookup` over the live sample.
 - **The live sample.** `ScreenSampler` (new, a class) keeps one recent region image of the area hover reads. `AppState` asks it for the area, runs the ladder off the main actor, and reads the spot again when a new image lands.
-- **The fallback.** The v0.1 cluster stays as the fallback, now under any parent (R120).
+- **The fallback.** The v0.1 cluster stays as the fallback, now under any parent (R128).
 - **The payload.** A committed shape takes its members from the drawn-frame walk.
 
 **Tech Stack:** Swift 6 (strict concurrency complete), CoreGraphics, ScreenCaptureKit (`SCScreenshotManager` with `sourceRect`), ApplicationServices (accessibility), XCTest. The blur script uses Vision and Core Image (scripts only, not the app). No packages, no new app frameworks.
@@ -23,7 +23,7 @@
   - rawRole: `LocantShape`
   - Markdown head line for a shape: `cluster · N elements (shape found on screen by Locant, not an accessibility element; frame from its visible edges)`
   - Readout of a shape or cluster: `cluster` · member names joined by `, ` (label, else identifier; nameless members left out); just `cluster` with no names.
-- **Numbers (R117–R120):**
+- **Numbers (R125–R128):**
   - Edge tolerance 4, seed tolerance 24 (set by the real-screen fixtures on Oct 23; a change reruns them and amends the spec).
   - Patch 5 pt, ring 2 pt, minimum side 12 pt, minimum growth 2 pt, edge slack 1 pt, area limit 60%, enclosing levels 3.
   - Hold 3 pt, merge 2 pt.
@@ -68,7 +68,7 @@ Ask before each; don't send synthetic input while he is at the Mac.
 
 ---
 
-### Task 1: Check the drawn-frame miss before changing the walk (R122)
+### Task 1: Check the drawn-frame miss before changing the walk (R130)
 
 On Oct 23 the real walk found all 10 elements of the Library screen. This task checks the thought-detail toolbar, where the Oct 18 frame found 0. It may end with no code change.
 
@@ -87,7 +87,7 @@ On Oct 23 the real walk found all 10 elements of the Library screen. This task c
 ```bash
 mkdir -p $SP/r122 && cat > $SP/r122/main.swift <<'EOF'
 import AppKit
-// specs/capture-shapes.md R122: at the top of the simulated screen in Device Hub (the thought detail's
+// specs/capture-shapes.md R130: at the top of the simulated screen in Device Hub (the thought detail's
 // toolbar), does the drawn-frame walk find every element hover reads? Read-only: no input is sent.
 guard let hub = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dt.Devices").first else { print("Device Hub is not running"); exit(1) }
 let pid = hub.processIdentifier
@@ -129,8 +129,8 @@ eval xcrun swiftc -O -o $SP/r122/probe $SP/r122/main.swift $READER 2>&1 | grep -
 Expected: a `screen` line, then `hover reads:` and `walk finds:` lists, then one verdict line.
 
 - [ ] **Step 3: Decide.**
-  - **`walk misses nothing`, and `hover reads:` lists the toolbar's buttons:** R122 needs no code change. Go to Step 5.
-  - **`hover reads:` lists no toolbar buttons** (only text below the toolbar, or nothing): the tree exposes no buttons there, so a drawn frame cannot list them. R122 needs no code change. Note it for the report and go to Step 5.
+  - **`walk misses nothing`, and `hover reads:` lists the toolbar's buttons:** R130 needs no code change. Go to Step 5.
+  - **`hover reads:` lists no toolbar buttons** (only text below the toolbar, or nothing): the tree exposes no buttons there, so a drawn frame cannot list them. R130 needs no code change. Note it for the report and go to Step 5.
   - **`walk misses: […]`:** the walk is broken. Find out whether its limits cause it, by rebuilding the probe against a copy with the limits lifted:
 
 ```bash
@@ -155,7 +155,7 @@ eval xcrun swiftc -O -o $SP/r122/probe-wide $SP/r122/main.swift $SP/r122/Accessi
 with:
 
 ```swift
-        // specs/capture-shapes.md R122: the budget counts only nodes that touch the region, so a large
+        // specs/capture-shapes.md R130: the budget counts only nodes that touch the region, so a large
         // sidebar does not use it up, and Device Hub's trees nest deeper than the Simulator's did.
         func walk(_ node: AXUIElement, ancestors: [AttributeSet], depth: Int) {
             guard visited < 800, depth < 24 else { return }
@@ -169,7 +169,7 @@ Rerun Step 2 against the real file (`$READER`). Expected: `walk misses nothing`.
 - [ ] **Step 4b (only if the limits were not the cause): fall back to hit-testing a grid.** The miss then means the tree's children do not lead to what hit-testing reaches. Add to `AccessibilityReader`, after `elements(in:pid:)`:
 
 ```swift
-    /// specs/capture-shapes.md R122: where the tree's children do not lead to what hit-testing reaches
+    /// specs/capture-shapes.md R130: where the tree's children do not lead to what hit-testing reaches
     /// (seen in Device Hub), the non-container elements a grid of hit tests finds inside `region`, every
     /// 8 pt or wider, at most 400 tests.
     func hitElements(in region: CGRect, pid: pid_t) -> [ElementSnapshot] {
@@ -198,7 +198,7 @@ Rerun Step 2 against the real file (`$READER`). Expected: `walk misses nothing`.
 In `AppState.region(_:start:)`, after the lazy-tree retry loop (`while snapshots.isEmpty, retry < 2 { … }`), add:
 
 ```swift
-            // R122: the tree's children did not reach what hit-testing does.
+            // R130: the tree's children did not reach what hit-testing does.
             if RegionResolver.elements(in: rect, among: snapshots).isEmpty {
                 snapshots = await reader.hitElements(in: rect, pid: pid)
             }
@@ -219,7 +219,7 @@ With no code change, write the probe's output to `$SP/r122/result.txt` and quote
 
 ---
 
-### Task 2: PixelGrid and ShapeFinder (R119), on synthetic screens
+### Task 2: PixelGrid and ShapeFinder (R127), on synthetic screens
 
 **Files:**
 - Create: `Locant/Resolve/ShapeFinder.swift`
@@ -254,7 +254,7 @@ import AppKit
 import XCTest
 @testable import Locant
 
-/// specs/capture-shapes.md R119: shapes found in the pixels.
+/// specs/capture-shapes.md R127: shapes found in the pixels.
 final class ShapeFinderTests: XCTestCase {
     /// A screen in points, `scale` samples per point, painted with rectangles, read as a grid at the origin.
     private struct Canvas {
@@ -449,7 +449,7 @@ final class ShapeFinderTests: XCTestCase {
         XCTAssertNil(grid.sample(at: CGPoint(x: 12, y: 20)))
     }
 
-    // R119: while the pointer stays on the samples a fill took, its answer stands.
+    // R127: while the pointer stays on the samples a fill took, its answer stands.
     func testAFillCoversTheSamplesItTook() throws {
         var canvas = Canvas(400, 300, background: dark)
         canvas.paint(CGRect(x: 100, y: 80, width: 160, height: 90), RGB(r: 50, g: 50, b: 54))
@@ -470,7 +470,7 @@ final class ShapeFinderTests: XCTestCase {
 import CoreGraphics
 import Foundation
 
-/// specs/capture-shapes.md R118: a screen sample as `ShapeFinder` reads it. RGBA, 8 bits per channel,
+/// specs/capture-shapes.md R126: a screen sample as `ShapeFinder` reads it. RGBA, 8 bits per channel,
 /// top row first, `scale` samples per point; `frame` is the area it shows, in global CG points.
 struct PixelGrid: Sendable {
     let frame: CGRect
@@ -478,9 +478,9 @@ struct PixelGrid: Sendable {
     let width: Int
     let height: Int
     let bytes: [UInt8]
-    /// Rises with every new sample, so nothing read from an older one is reused (R119).
+    /// Rises with every new sample, so nothing read from an older one is reused (R127).
     let generation: Int
-    /// R119: the edge samples, mapped once here so hover never pays for them.
+    /// R127: the edge samples, mapped once here so hover never pays for them.
     let edges: [Bool]
 
     init(frame: CGRect, scale: CGFloat, width: Int, height: Int, bytes: [UInt8], generation: Int) {
@@ -494,7 +494,7 @@ struct PixelGrid: Sendable {
         self.edges = Self.edgeMap(bytes, width: width, height: height, tolerance: ShapeFinder.edgeTolerance)
     }
 
-    /// R119: a sample is an edge when one of its four neighbors differs from it by more than `tolerance`.
+    /// R127: a sample is an edge when one of its four neighbors differs from it by more than `tolerance`.
     /// A thin rim between two equal fills is an edge on both sides; a gradient of a level or two is not.
     static func edgeMap(_ bytes: [UInt8], width: Int, height: Int, tolerance: Int) -> [Bool] {
         var edges = [Bool](repeating: false, count: width * height)
@@ -584,13 +584,13 @@ struct SampleBox: Equatable, Sendable {
 struct RGB: Equatable, Sendable {
     var r: UInt8, g: UInt8, b: UInt8
 
-    /// R119: the largest of the three channel differences, on a 0–255 scale.
+    /// R127: the largest of the three channel differences, on a 0–255 scale.
     func difference(_ other: RGB) -> Int {
         max(abs(Int(r) - Int(other.r)), abs(Int(g) - Int(other.g)), abs(Int(b) - Int(other.b)))
     }
 }
 
-/// specs/capture-shapes.md R119: the shape the pixels show at a point or around a rectangle: edges first,
+/// specs/capture-shapes.md R127: the shape the pixels show at a point or around a rectangle: edges first,
 /// then a fill through what is not an edge. Pure.
 enum ShapeFinder {
     /// A sample is an edge when a neighbor differs from it by more than this; seeds are within it of the
@@ -610,7 +610,7 @@ enum ShapeFinder {
     static let enclosingLevels = 3
 
     /// One fill from the pointer: the samples it took, so its answer stands while the pointer stays on
-    /// them (R119), and the shape when R119 accepted it.
+    /// them (R127), and the shape when R127 accepted it.
     struct Fill: Sendable {
         let generation: Int
         let box: SampleBox
@@ -623,7 +623,7 @@ enum ShapeFinder {
         }
     }
 
-    /// The fill from the 5×5 pt patch around `point`; its `shape` is nil when R119 rejects it. Nil when
+    /// The fill from the 5×5 pt patch around `point`; its `shape` is nil when R127 rejects it. Nil when
     /// the point lies outside the bound or the grid.
     static func fill(at point: CGPoint, in grid: PixelGrid, bound: CGRect) -> Fill? {
         guard let box = grid.box(of: bound), let center = grid.sample(at: point),
@@ -669,7 +669,7 @@ enum ShapeFinder {
         return found
     }
 
-    /// R119's "most common color": counted with each channel's three low bits dropped; the mean of the
+    /// R127's "most common color": counted with each channel's three low bits dropped; the mean of the
     /// largest bucket, the lower bucket on a tie.
     static func seedColor(of colors: [RGB]) -> RGB? {
         var buckets: [Int: (count: Int, r: Int, g: Int, b: Int)] = [:]
@@ -755,7 +755,7 @@ enum ShapeFinder {
         return Growth(taken: taken, extent: SampleBox(minX: ox + minX, minY: oy + minY, maxX: ox + maxX, maxY: oy + maxY))
     }
 
-    /// R119's tests: not the background (within `edgeSlack` of two opposite sides of the bound), under
+    /// R127's tests: not the background (within `edgeSlack` of two opposite sides of the bound), under
     /// `maxAreaFraction` of it, at least `minSide` either way.
     private static func accept(_ extent: SampleBox, in box: SampleBox, grid: PixelGrid) -> CGRect? {
         let slack = Int((edgeSlack * grid.scale).rounded())
@@ -811,7 +811,7 @@ git commit -m "shapes: find the shape around a point or a rectangle in a screen 
   - `LocantTests/Fixtures/shape-web-list.png`
   - `LocantTests/Fixtures/shapes.json`
 - Modify: `LocantTests/ShapeFinderTests.swift` (one test)
-- Modify, only if Step 6 has to change them: `Locant/Resolve/ShapeFinder.swift` (the two tolerances) and `specs/capture-shapes.md` (R119's numbers)
+- Modify, only if Step 6 has to change them: `Locant/Resolve/ShapeFinder.swift` (the two tolerances) and `specs/capture-shapes.md` (R127's numbers)
 
 **Interfaces:**
 - Consumes: `PixelGrid(image:frame:scale:generation:)`, `ShapeFinder.fill(at:in:bound:)`, `ShapeFinder.shape(around:in:bound:)`, `ShapeFinder.enclosing(_:in:bound:)`.
@@ -936,7 +936,7 @@ Notes on these:
 - **Points are local to the capture,** in points from its top-left.
 - **`shape-sheet`'s `bound`** is the simulated screen inside that capture (the hit element's frame), which is what the live bound is. The capture also holds the device's bezel and the desktop around it.
 - **Shapes cut by a capture's edge** (the file row) touch one side only, so they are still shapes. Their expected right edge is the capture's.
-- **The pill and the sheet expect no shape.** They have no edge on screen to find (spec R119, measured Oct 23), so hover falls back to the cluster there (R120). Their measured rectangles, for the record: the pill 27.5, 32.5, 150.5 × 45 to the capture's right edge; the sheet 47, 385, 321 × 375. A change that makes either pass is a spec change: tell Malik rather than loosening a rule to get it.
+- **The pill and the sheet expect no shape.** They have no edge on screen to find (spec R127, measured Oct 23), so hover falls back to the cluster there (R128). Their measured rectangles, for the record: the pill 27.5, 32.5, 150.5 × 45 to the capture's right edge; the sheet 47, 385, 321 × 375. A change that makes either pass is a spec change: tell Malik rather than loosening a rule to get it.
 - **The toolbar capsule** ends at 385.5 pt (771 px). A first reading took the trash icon's right edge, 733 px, for the capsule's.
 
 - [ ] **Step 4: Write the failing test.** Add to `ShapeFinderTests`:
@@ -1002,7 +1002,7 @@ sed -e 's/static let edgeTolerance = /nonisolated(unsafe) static var edgeToleran
     Locant/Resolve/ShapeFinder.swift > $SP/sweep/ShapeFinder.swift
 cat > $SP/sweep/main.swift <<'EOF'
 import AppKit
-// Sweeps R119's two tolerances over the real-screen fixtures, then times 100 lookups on shape-sheet's
+// Sweeps R127's two tolerances over the real-screen fixtures, then times 100 lookups on shape-sheet's
 // iPhone screen, cropped to it as the live sample is. Usage: sweep <LocantTests/Fixtures> [edge] [seed]
 let dir = URL(fileURLWithPath: CommandLine.arguments[1])
 struct FixtureFile: Decodable {
@@ -1067,7 +1067,7 @@ Expected: twelve `edge … seed …` lines, each followed by its failures, then 
 **Pick a pair.** Of the pairs that pass every fixture, take the one nearest (4, 24). Then:
 1. Set `edgeTolerance` and `seedTolerance` in `Locant/Resolve/ShapeFinder.swift` to the pair.
 2. Run all of `ShapeFinderTests`. The synthetic tests must still pass; if one fails, take the next-nearest pair.
-3. In `specs/capture-shapes.md` R119, change every tolerance number to the chosen pair: "by more than 4" (edge samples), "within 4 of the seed color" (both seed rules), "within 24 of the seed color" (the growth rule), and the sentence "The 4 and 24 were set by the real-screen fixtures…".
+3. In `specs/capture-shapes.md` R127, change every tolerance number to the chosen pair: "by more than 4" (edge samples), "within 4 of the seed color" (both seed rules), "within 24 of the seed color" (the growth rule), and the sentence "The 4 and 24 were set by the real-screen fixtures…".
 
 **If no pair passes every fixture: stop.** Write the sweep's output to `$SP/sweep/result.txt` and ask Malik. A change to the fill is a spec change, so don't make it on your own.
 
@@ -1087,7 +1087,7 @@ git commit -m "shapes: real-screen fixtures, text blurred, with edges measured a
 
 ---
 
-### Task 4: The screen sample (R118)
+### Task 4: The screen sample (R126)
 
 **Files:**
 - Modify: `Locant/Capture/Geometry.swift` (add `sampleScale`)
@@ -1111,7 +1111,7 @@ git commit -m "shapes: real-screen fixtures, text blurred, with edges measured a
 - [ ] **Step 1: Write the failing tests.** Add to `LocantTests/GeometryTests.swift`, inside the class:
 
 ```swift
-    // specs/capture-shapes.md R118: the display's own scale, lowered only above 4,000,000 samples.
+    // specs/capture-shapes.md R126: the display's own scale, lowered only above 4,000,000 samples.
     func testSampleScaleKeepsTheDisplaysScaleUpToTheCap() {
         XCTAssertEqual(Geometry.sampleScale(native: 2, size: CGSize(width: 341, height: 741), maxSamples: 4_000_000), 2)
         XCTAssertEqual(Geometry.sampleScale(native: 2, size: CGSize(width: 1720, height: 1000), maxSamples: 4_000_000),
@@ -1127,7 +1127,7 @@ import CoreGraphics
 import XCTest
 @testable import Locant
 
-/// specs/capture-shapes.md R118: one image of the area hover wants, taken once per area, never without
+/// specs/capture-shapes.md R126: one image of the area hover wants, taken once per area, never without
 /// permission, and dropped on stop.
 @MainActor
 final class ScreenSamplerTests: XCTestCase {
@@ -1221,7 +1221,7 @@ final class ScreenSamplerTests: XCTestCase {
 In `Locant/Capture/Geometry.swift`, after `pixelRect(_:inDisplay:scale:)`, add:
 
 ```swift
-    // MARK: Screen sample (specs/capture-shapes.md R118)
+    // MARK: Screen sample (specs/capture-shapes.md R126)
 
     /// The display's own scale, lowered so `size` (points) holds at most `maxSamples` samples.
     static func sampleScale(native: CGFloat, size: CGSize, maxSamples: Int) -> CGFloat {
@@ -1234,7 +1234,7 @@ In `Locant/Capture/Geometry.swift`, after `pixelRect(_:inDisplay:scale:)`, add:
 In `Locant/Capture/ScreenCapture.swift`, after `displayImage(containing:)`, add:
 
 ```swift
-    /// specs/capture-shapes.md R118: `rect` (global points) from the display holding its center, own
+    /// specs/capture-shapes.md R126: `rect` (global points) from the display holding its center, own
     /// windows excluded, at the display's scale unless that would exceed `maxSamples` samples. `frame`
     /// is the part of `rect` on that display.
     static func regionImage(_ rect: CGRect, maxSamples: Int) async throws -> (image: CGImage, frame: CGRect, scale: CGFloat) {
@@ -1266,7 +1266,7 @@ Create `Locant/Capture/ScreenSampler.swift`:
 import CoreGraphics
 import Foundation
 
-/// specs/capture-shapes.md R118: one recent image of the area hover reads shapes in, while the overlay
+/// specs/capture-shapes.md R126: one recent image of the area hover reads shapes in, while the overlay
 /// is up. Hover never waits for it: without an image of the area it wants, hover runs without shapes,
 /// and when one lands `onUpdate` has the spot read again. Memory only, dropped on `stop()`.
 @MainActor
@@ -1371,7 +1371,7 @@ git commit -m "shapes: sample the area hover reads, at the display's scale, once
 
 ---
 
-### Task 5: The cluster under any parent (R120)
+### Task 5: The cluster under any parent (R128)
 
 **Files:**
 - Modify: `Locant/Resolve/ElementResolver.swift` (`HitRefiner.ladder`)
@@ -1385,7 +1385,7 @@ git commit -m "shapes: sample the area hover reads, at the display's scale, once
 - [ ] **Step 1: Write the failing tests.** Add to `ElementResolverTests`, after `testSelectionLevelsOnSpanningContainerPickClusterUnderPointOrNothing`:
 
 ```swift
-    // MARK: Clusters under any parent (specs/capture-shapes.md R120)
+    // MARK: Clusters under any parent (specs/capture-shapes.md R128)
 
     /// Oryne's thought-detail toolbar: share and pencil, 40×40 each, in a 360×48 hosting group that is
     /// far from spanning the 400×870 screen.
@@ -1439,7 +1439,7 @@ with:
 ```swift
         if let base, ElementResolver.containerRoles.contains(base.role) {
             // A container under the cursor: the cluster around the point, whatever the container's size
-            // (specs/capture-shapes.md R120); else nothing when it spans the window, else the container.
+            // (specs/capture-shapes.md R128); else nothing when it spans the window, else the container.
             let spanning = spans(snapshot.element.frame, window: window)
             let containerArea = snapshot.element.frame.map { $0.w * $0.h } ?? .infinity
             let nodes = content(of: snapshot.children ?? [], within: snapshot.element.frame)
@@ -1453,7 +1453,7 @@ with:
             levels.append(base)
         } else if let base {
             levels.append(base)
-            // R120: the cluster around the element under any parent.
+            // R128: the cluster around the element under any parent.
             if let siblings = snapshot.siblings, let parent = snapshot.ancestors.first {
 ```
 
@@ -1476,7 +1476,7 @@ with:
 
 ```swift
         // Flat trees (SwiftUI): read the neighbourhood so HitRefiner can form visual clusters, under any
-        // container (specs/capture-shapes.md R120), not only one that spans the window.
+        // container (specs/capture-shapes.md R128), not only one that spans the window.
         if ElementResolver.isContainer(elementAttributes) {
             snapshot.children = neighbors(of: element, attributes: elementAttributes)
         } else if let parent = parents.first, let parentAttributes = ancestors.first, ElementResolver.isContainer(parentAttributes) {
@@ -1497,7 +1497,7 @@ git commit -m "hover: clusters form under any parent, and a small container unde
 
 ---
 
-### Task 6: Shapes on the ladder (R116, R117, R121 readout)
+### Task 6: Shapes on the ladder (R124, R125, R129 readout)
 
 **Files:**
 - Modify: `Locant/Resolve/ShapeFinder.swift` (add `ShapeSource`, `ShapeLookup`)
@@ -1526,7 +1526,7 @@ git commit -m "hover: clusters form under any parent, and a small container unde
 - [ ] **Step 1: Write the failing tests.** Add to `ElementResolverTests`, after Task 5's tests:
 
 ```swift
-    // MARK: Shapes on the ladder (specs/capture-shapes.md R117, R121)
+    // MARK: Shapes on the ladder (specs/capture-shapes.md R125, R129)
 
     /// Shapes at fixed rectangles: at a point, the smallest that holds it; around a rectangle, the ones
     /// holding it, innermost first. `asked` tells whether the ladder asked at all.
@@ -1633,7 +1633,7 @@ git commit -m "hover: clusters form under any parent, and a small container unde
 Add to `ShapeFinderTests`, before `// MARK: Real screens`:
 
 ```swift
-    // R119: the live source keeps its memo while the sample and the bound stay the same, and drops it otherwise.
+    // R127: the live source keeps its memo while the sample and the bound stay the same, and drops it otherwise.
     func testShapeLookupKeepsItsMemoForOneSampleAndBound() {
         var canvas = Canvas(400, 300, background: dark)
         let card = CGRect(x: 100, y: 80, width: 160, height: 90)
@@ -1657,17 +1657,17 @@ Add to `ShapeFinderTests`, before `// MARK: Real screens`:
 At the end of `Locant/Resolve/ShapeFinder.swift`, add:
 
 ```swift
-/// specs/capture-shapes.md R117: what the ladder asks of the pixels. `ShapeLookup` answers from a screen
+/// specs/capture-shapes.md R125: what the ladder asks of the pixels. `ShapeLookup` answers from a screen
 /// sample; tests answer from fixed rectangles.
 protocol ShapeSource {
-    /// R119: the shape at a point; nil when there is none.
+    /// R127: the shape at a point; nil when there is none.
     mutating func shape(at point: CGPoint) -> CGRect?
-    /// R119: the shapes around a rectangle, innermost first, at most three.
+    /// R127: the shapes around a rectangle, innermost first, at most three.
     mutating func shapes(around rect: CGRect) -> [CGRect]
 }
 
 /// The live `ShapeSource` over one screen sample. `memo` carries the last fill and the shapes found around
-/// rectangles from one hover step to the next while the sample and the bound stay the same (R119).
+/// rectangles from one hover step to the next while the sample and the bound stay the same (R127).
 struct ShapeLookup: ShapeSource, Sendable {
     struct Memo: Sendable {
         var generation = -1
@@ -1707,7 +1707,7 @@ struct ShapeLookup: ShapeSource, Sendable {
 In `Locant/Resolve/ElementResolver.swift`, after `static let clusterRawRole = "LocantCluster"`, add:
 
 ```swift
-    /// specs/capture-shapes.md R116: a shape found on screen; a cluster too, but its frame is the edges seen.
+    /// specs/capture-shapes.md R124: a shape found on screen; a cluster too, but its frame is the edges seen.
     static let shapeRawRole = "LocantShape"
 ```
 
@@ -1717,13 +1717,13 @@ At the end of `Locant/Resolve/ElementResolver.swift`, add:
 // MARK: - Shapes (specs/capture-shapes.md)
 
 extension HitRefiner {
-    /// R117: inside a shape, the element under the pointer keeps the outline this far past its frame.
+    /// R125: inside a shape, the element under the pointer keeps the outline this far past its frame.
     static let shapeHold: Double = 3
-    /// R117: a shape and an accessibility rung within this on every edge are one rung, since pixel edges
+    /// R125: a shape and an accessibility rung within this on every edge are one rung, since pixel edges
     /// are read a sample at a time. Two accessibility rungs still merge within 1 pt (`collapsingSameFrames`).
     static let shapeMerge: Double = 2
 
-    /// R117: the ladder with the shapes under the pointer.
+    /// R125: the ladder with the shapes under the pointer.
     /// - Rung 0 is the element the pointer is on; else the element still held inside a shape; else the
     ///   shape at the point; else today's ladder, unchanged.
     /// - After rung 0 come the shapes around it, then today's rungs that hold it, ordered by containment.
@@ -1749,7 +1749,7 @@ extension HitRefiner {
             return today
         }
         let around = shapes.shapes(around: rung0.frame.cgRect)
-        // R120: the cluster stands in for a shape, so it is offered only where there is none.
+        // R128: the cluster stands in for a shape, so it is offered only where there is none.
         let offersCluster = shapeAtPoint == nil && around.isEmpty
         let accessibility = today.compactMap { $0 }.filter { rung in
             !(rung.frame == rung0.frame && rung.rawRole == rung0.rawRole)
@@ -1788,8 +1788,8 @@ extension HitRefiner {
         return collapsingSameFrames(ladder)
     }
 
-    /// R116: a shape as an element. Its path is that of the innermost node, among the hovered element and
-    /// its ancestors, whose frame holds it; its members are what the snapshot holds inside it (R121).
+    /// R124: a shape as an element. Its path is that of the innermost node, among the hovered element and
+    /// its ancestors, whose frame holds it; its members are what the snapshot holds inside it (R129).
     static func shapeElement(frame: CGRect, snapshot: ElementSnapshot) -> ResolvedElement {
         let chain = [snapshot.element] + snapshot.ancestors
         let holder = chain.firstIndex { node in node.frame.map { holds($0.cgRect, frame) } ?? false } ?? chain.count
@@ -1804,7 +1804,7 @@ extension HitRefiner {
         )
     }
 
-    /// R121: the non-container nodes the snapshot holds (the element, its siblings, its children) at least
+    /// R129: the non-container nodes the snapshot holds (the element, its siblings, its children) at least
     /// half inside `frame`, one per rectangle, in reading order.
     static func members(inside frame: CGRect, of snapshot: ElementSnapshot) -> [ElementMember] {
         var seen = Set<String>()
@@ -1858,7 +1858,7 @@ with:
 
 ```swift
         if element.role == ElementResolver.clusterRole {
-            // specs/capture-shapes.md R121: what the shape or cluster holds, by name.
+            // specs/capture-shapes.md R129: what the shape or cluster holds, by name.
             let names = (element.members ?? []).compactMap { $0.label ?? $0.identifier }
             return Readout(role: "cluster", identifier: nil, suffix: names.isEmpty ? nil : names.joined(separator: ", "), isFallback: false)
         }
@@ -1877,7 +1877,7 @@ git commit -m "hover: shapes join the ladder, in containment order, and read wha
 
 ---
 
-### Task 7: Hover reads shapes (R117, R118 in the app)
+### Task 7: Hover reads shapes (R125, R126 in the app)
 
 UI wiring in `AppState`: no unit tests (`docs/CLAUDE.md`). The pure parts are tested in Tasks 2–6, and Task 9 checks the whole in the app.
 
@@ -1895,9 +1895,9 @@ UI wiring in `AppState`: no unit tests (`docs/CLAUDE.md`). The pure parts are te
 - [ ] **Step 1: Add the sampler and the memo.** After `@ObservationIgnored private var outlineMoves = OutlineMoves()`, add:
 
 ```swift
-    /// specs/capture-shapes.md R118: the screen under the pointer, read for the shapes hover lands on.
+    /// specs/capture-shapes.md R126: the screen under the pointer, read for the shapes hover lands on.
     @ObservationIgnored private let sampler = ScreenSampler()
-    /// R119: the last fill and the shapes found around rectangles, while the sample stays the same.
+    /// R127: the last fill and the shapes found around rectangles, while the sample stays the same.
     @ObservationIgnored private var shapeMemo = ShapeLookup.Memo()
 ```
 
@@ -1933,8 +1933,8 @@ with:
 After `drainHover()`, before `selectedElement()`, add:
 
 ```swift
-    /// specs/capture-shapes.md R117: the ladder at `point`, with the shapes under the pointer once the screen
-    /// sample of their area has landed (R118). Until then, today's ladder; with no answer at the point, nothing.
+    /// specs/capture-shapes.md R125: the ladder at `point`, with the shapes under the pointer once the screen
+    /// sample of their area has landed (R126). Until then, today's ladder; with no answer at the point, nothing.
     private func shapeLevels(for snapshot: ElementSnapshot?, at point: CGPoint) async -> [ResolvedElement?] {
         guard let snapshot else { return [] }
         let bound = shapeBound(at: point, in: snapshot)
@@ -1955,14 +1955,14 @@ After `drainHover()`, before `selectedElement()`, add:
         return levels
     }
 
-    /// R119's bound: the simulated screen in Device Hub, else the window under the point, else its display.
+    /// R127's bound: the simulated screen in Device Hub, else the window under the point, else its display.
     private func shapeBound(at point: CGPoint, in snapshot: ElementSnapshot) -> CGRect {
         HitRefiner.simulatedScreen(in: snapshot)
             ?? Geometry.windowOwner(at: point, windows: windows, excludingPID: ownPID)?.bounds
             ?? SelectionOverlay.displayFrameCG(containing: point)
     }
 
-    /// R118: a new screen sample landed; the spot under the pointer is read again with it.
+    /// R126: a new screen sample landed; the spot under the pointer is read again with it.
     private func rehover() {
         guard phase == .hovering, lastHoverSnapshot != nil else { return }
         hover(lastHoverPoint)
@@ -1987,7 +1987,7 @@ git commit -m "hover: read the shape under the pointer from the screen sample, a
 
 ---
 
-### Task 8: What a committed shape says (R121, R123)
+### Task 8: What a committed shape says (R129, R131)
 
 **Files:**
 - Modify: `Locant/App/AppState.swift` (`click`, `pin`, a new `withWalkedMembers`)
@@ -2003,7 +2003,7 @@ git commit -m "hover: read the shape under the pointer from the screen sample, a
 - [ ] **Step 1: Write the failing test.** Add to `MarkdownBuilderTests`, after `testClusterRendersMembers`:
 
 ```swift
-    // specs/capture-shapes.md R121: a shape's frame is its visible edges; a cluster's stays approximate.
+    // specs/capture-shapes.md R129: a shape's frame is its visible edges; a cluster's stays approximate.
     func testShapeHeadLineSaysItsFrameIsTheVisibleEdges() {
         let shape = ResolvedElement(
             role: "cluster", rawRole: "LocantShape", label: nil, identifier: nil, identifierSource: .unknown, value: nil,
@@ -2030,7 +2030,7 @@ git commit -m "hover: read the shape under the pointer from the screen sample, a
 with:
 
 ```swift
-            // specs/capture-shapes.md R121: a shape's frame is the edges seen on screen; a cluster's, an estimate.
+            // specs/capture-shapes.md R129: a shape's frame is the edges seen on screen; a cluster's, an estimate.
             let kind = element.rawRole == ElementResolver.shapeRawRole
                 ? "shape found on screen by Locant, not an accessibility element; frame from its visible edges"
                 : "visual grouping computed by Locant, not an accessibility element; frame approximate"
@@ -2057,7 +2057,7 @@ Check that it still parses: `python3 -I -c "import json; json.load(open('schema/
 - [ ] **Step 5: Members on commit.** In `Locant/App/AppState.swift`, after `describeTarget(_:snapshot:window:)`, add:
 
 ```swift
-    /// specs/capture-shapes.md R121: a shape Point commits lists every element the drawn-frame walk finds
+    /// specs/capture-shapes.md R129: a shape Point commits lists every element the drawn-frame walk finds
     /// inside it; the members known at hover stay when the walk finds none.
     private func withWalkedMembers(_ element: ResolvedElement?, pid: pid_t) async -> ResolvedElement? {
         guard var shape = element, shape.rawRole == ElementResolver.shapeRawRole, pid > 0 else { return element }
@@ -2074,7 +2074,7 @@ If Task 1 Step 4b applied, change its `found` line to the same fallback the regi
 
 ```swift
         var found = RegionResolver.elements(in: rect, among: await reader.elements(in: rect, pid: pid))
-        if found.isEmpty { found = RegionResolver.elements(in: rect, among: await reader.hitElements(in: rect, pid: pid)) } // R122
+        if found.isEmpty { found = RegionResolver.elements(in: rect, among: await reader.hitElements(in: rect, pid: pid)) } // R130
 ```
 
 In `click(_:shift:)`, inside the Point `Task`, replace:
@@ -2176,12 +2176,12 @@ If `regionImage` throws for permission when the probe runs, skip the probe's run
     2. Run the ladder 1.5 pt left of Recent's `minX`, at its `midY`. Expected: rung 0 `cluster LocantShape` with `· Recent, Currents`.
     3. Run it at Recent's center. Expected: rung 0 the button, rung 1 the capsule.
   - **Toolbar** (thought detail): at the midpoint between two adjacent toolbar buttons. Expected: rung 0 the capsule. At the pencil's center: expected rung 0 `button … pencil`, rung 1 the capsule.
-  - **Sheet** (Library with the Notification sheet up). Its bottom has no edge, so no shape is expected (spec R119).
-    - Between its heading and "Add a thought": expected rung 0 `cluster LocantCluster` with the sheet's contents (R120).
+  - **Sheet** (Library with the Notification sheet up). Its bottom has no edge, so no shape is expected (spec R127).
+    - Between its heading and "Add a thought": expected rung 0 `cluster LocantCluster` with the sheet's contents (R128).
     - 8 pt inside its left edge, away from its contents: expected the 334×726 screen group, as today.
     - On "Add a thought": expected the button.
-  - **Background:** a point on the screen's plain background. Expected: `with shapes:` and `without shapes:` print the same rungs. On a spanning background, R120 changes nothing, so `without shapes:` is today's ladder.
-  - **The pill:** it shows only after a thought is deleted. Ask Malik whether he wants to do that; skip it if not. No shape is expected (no edge along its top). In its padding, `with shapes:` and `without shapes:` match; the second rung is `cluster LocantCluster · Thought deleted, Undo` (R120).
+  - **Background:** a point on the screen's plain background. Expected: `with shapes:` and `without shapes:` print the same rungs. On a spanning background, R128 changes nothing, so `without shapes:` is today's ladder.
+  - **The pill:** it shows only after a thought is deleted. Ask Malik whether he wants to do that; skip it if not. No shape is expected (no edge along its top). In its padding, `with shapes:` and `without shapes:` match; the second rung is `cluster LocantCluster · Thought deleted, Undo` (R128).
 
 - [ ] **Step 3: By hand, in the Debug app.** Setup:
 
@@ -2201,7 +2201,7 @@ Ask Malik to Point (double-tap ⌃) over Oryne in Device Hub and try each case:
 - **Recent/Currents:** ⌥ from Recent outlines the capsule in one press.
 - **The sheet:** the fallback, and not solved. Between its contents, the outline is their cluster; in its empty margin, the 334×726 group as before; on "Add a thought", the button.
 - **The background:** outlines what it did before.
-- **A drawn frame** around the three toolbar icons lists the buttons hover reads there (R122, as Task 1 found).
+- **A drawn frame** around the three toolbar icons lists the buttons hover reads there (R130, as Task 1 found).
 - **The taps:** every outline move taps once on the trackpad.
 
 For each committed capture, check the sidecar:

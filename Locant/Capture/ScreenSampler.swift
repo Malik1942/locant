@@ -1,7 +1,7 @@
 import CoreGraphics
 import Foundation
 
-/// specs/capture-shapes.md R118: one recent image of the area hover reads shapes in, while the overlay
+/// specs/capture-shapes.md R126: one recent image of the area hover reads shapes in, while the overlay
 /// is up. Hover never waits for it: without an image of the area it wants, hover runs without shapes,
 /// and when one lands `onUpdate` has the spot read again. Memory only, dropped on `stop()`.
 @MainActor

@@ -1,7 +1,7 @@
 import CoreGraphics
 import Foundation
 
-/// specs/capture-shapes.md R118: a screen sample as `ShapeFinder` reads it. RGBA, 8 bits per channel,
+/// specs/capture-shapes.md R126: a screen sample as `ShapeFinder` reads it. RGBA, 8 bits per channel,
 /// top row first, `scale` samples per point; `frame` is the area it shows, in global CG points.
 struct PixelGrid: Sendable {
     let frame: CGRect
@@ -9,9 +9,9 @@ struct PixelGrid: Sendable {
     let width: Int
     let height: Int
     let bytes: [UInt8]
-    /// Rises with every new sample, so nothing read from an older one is reused (R119).
+    /// Rises with every new sample, so nothing read from an older one is reused (R127).
     let generation: Int
-    /// R119: the edge samples, mapped once here so hover never pays for them.
+    /// R127: the edge samples, mapped once here so hover never pays for them.
     let edges: [Bool]
 
     init(frame: CGRect, scale: CGFloat, width: Int, height: Int, bytes: [UInt8], generation: Int) {
@@ -25,7 +25,7 @@ struct PixelGrid: Sendable {
         self.edges = Self.edgeMap(bytes, width: width, height: height, tolerance: ShapeFinder.edgeTolerance)
     }
 
-    /// R119: a sample is an edge when one of its four neighbors differs from it by more than `tolerance`.
+    /// R127: a sample is an edge when one of its four neighbors differs from it by more than `tolerance`.
     /// A thin rim between two equal fills is an edge on both sides; a gradient of a level or two is not.
     static func edgeMap(_ bytes: [UInt8], width: Int, height: Int, tolerance: Int) -> [Bool] {
         var edges = [Bool](repeating: false, count: width * height)
@@ -111,7 +111,7 @@ struct PixelGrid: Sendable {
                width: CGFloat(box.width) / scale, height: CGFloat(box.height) / scale)
     }
 
-    /// specs/capture-shapes.md R126: the bounds, in global points, of the edge samples among those `rect`
+    /// specs/capture-shapes.md R134: the bounds, in global points, of the edge samples among those `rect`
     /// covers (`box(of:)`): what is drawn inside it. A step marks the sample on each side, so a drawn edge's
     /// bounds reach one sample past it. Nil when no edge is there, and when `rect` is not finite or off the grid.
     func edgeBounds(inside rect: CGRect) -> CGRect? {
@@ -130,7 +130,7 @@ struct PixelGrid: Sendable {
         return self.rect(of: SampleBox(minX: minX, minY: minY, maxX: maxX, maxY: maxY))
     }
 
-    /// specs/capture-shapes.md R127: the samples `rect` covers (`box(of:)`) as an image, the same sRGB RGBA bytes
+    /// specs/capture-shapes.md R135: the samples `rect` covers (`box(of:)`) as an image, the same sRGB RGBA bytes
     /// copied once, row by row, and the rectangle they show in global points. Nil when `rect` is not finite or off
     /// the grid.
     func image(of rect: CGRect) -> (image: CGImage, frame: CGRect)? {
@@ -148,7 +148,7 @@ struct PixelGrid: Sendable {
         return (image, self.rect(of: box))
     }
 
-    /// R127: the bytes of each row of `box`, a box inside the grid (`box(of:)`), top to bottom.
+    /// R135: the bytes of each row of `box`, a box inside the grid (`box(of:)`), top to bottom.
     func forEachRow(of box: SampleBox, _ body: (UnsafeRawBufferPointer) -> Void) {
         bytes.withUnsafeBytes { raw in
             for y in box.minY...box.maxY {
@@ -179,13 +179,13 @@ struct SampleBox: Equatable, Sendable {
 struct RGB: Equatable, Sendable {
     var r: UInt8, g: UInt8, b: UInt8
 
-    /// R119: the largest of the three channel differences, on a 0–255 scale.
+    /// R127: the largest of the three channel differences, on a 0–255 scale.
     func difference(_ other: RGB) -> Int {
         max(abs(Int(r) - Int(other.r)), abs(Int(g) - Int(other.g)), abs(Int(b) - Int(other.b)))
     }
 }
 
-/// specs/capture-shapes.md R119: the shape the pixels show at a point or around a rectangle: edges first,
+/// specs/capture-shapes.md R127: the shape the pixels show at a point or around a rectangle: edges first,
 /// then a fill through what is not an edge. Pure.
 enum ShapeFinder {
     /// A sample is an edge when a neighbor differs from it by more than this; seeds are within it of the
@@ -205,7 +205,7 @@ enum ShapeFinder {
     static let enclosingLevels = 3
 
     /// One fill from the pointer: the samples it took, so its answer stands while the pointer stays on
-    /// them (R119), and the shape when R119 accepted it.
+    /// them (R127), and the shape when R127 accepted it.
     struct Fill: Sendable {
         let generation: Int
         let box: SampleBox
@@ -218,7 +218,7 @@ enum ShapeFinder {
         }
     }
 
-    /// The fill from the 5×5 pt patch around `point`; its `shape` is nil when R119 rejects it. Nil when
+    /// The fill from the 5×5 pt patch around `point`; its `shape` is nil when R127 rejects it. Nil when
     /// the point lies outside the bound or the grid, and when the bound is empty or not finite.
     static func fill(at point: CGPoint, in grid: PixelGrid, bound: CGRect) -> Fill? {
         guard !bound.isEmpty, let box = grid.box(of: bound), let center = grid.sample(at: point),
@@ -264,7 +264,7 @@ enum ShapeFinder {
         return found
     }
 
-    /// R119's "most common color": counted with each channel's three low bits dropped; the mean of the
+    /// R127's "most common color": counted with each channel's three low bits dropped; the mean of the
     /// largest bucket, the lower bucket on a tie.
     static func seedColor(of colors: [RGB]) -> RGB? {
         var buckets: [Int: (count: Int, r: Int, g: Int, b: Int)] = [:]
@@ -350,7 +350,7 @@ enum ShapeFinder {
         return Growth(taken: taken, extent: SampleBox(minX: ox + minX, minY: oy + minY, maxX: ox + maxX, maxY: oy + maxY))
     }
 
-    /// R119's tests: not the background (within `edgeSlack` of two opposite sides of the bound), under
+    /// R127's tests: not the background (within `edgeSlack` of two opposite sides of the bound), under
     /// `maxAreaFraction` of it, at least `minSide` either way.
     private static func accept(_ extent: SampleBox, in box: SampleBox, grid: PixelGrid) -> CGRect? {
         let slack = Int((edgeSlack * grid.scale).rounded())
@@ -383,20 +383,20 @@ enum ShapeFinder {
     }
 }
 
-/// specs/capture-shapes.md R117: what the ladder asks of the pixels. `ShapeLookup` answers from a screen
+/// specs/capture-shapes.md R125: what the ladder asks of the pixels. `ShapeLookup` answers from a screen
 /// sample; tests answer from fixed rectangles.
 protocol ShapeSource {
-    /// R119: the shape at a point; nil when there is none.
+    /// R127: the shape at a point; nil when there is none.
     mutating func shape(at point: CGPoint) -> CGRect?
-    /// R119: the shapes around a rectangle, innermost first, at most three.
+    /// R127: the shapes around a rectangle, innermost first, at most three.
     mutating func shapes(around rect: CGRect) -> [CGRect]
-    /// R126: the bounds of what is drawn inside a rectangle (its edge samples); nil when nothing is.
+    /// R134: the bounds of what is drawn inside a rectangle (its edge samples); nil when nothing is.
     mutating func ink(inside rect: CGRect) -> CGRect?
 }
 
 /// The live `ShapeSource` over one screen sample. `memo` carries the last fill, the shapes found around
-/// rectangles, and what is drawn inside them (R126) from one hover step to the next while the sample and the
-/// bound stay the same (R119).
+/// rectangles, and what is drawn inside them (R134) from one hover step to the next while the sample and the
+/// bound stay the same (R127).
 struct ShapeLookup: ShapeSource, Sendable {
     struct Memo: Sendable {
         var generation = -1
