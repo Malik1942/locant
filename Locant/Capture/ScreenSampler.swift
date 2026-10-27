@@ -11,6 +11,21 @@ final class ScreenSampler {
     /// Larger areas are taken at a lower scale. Nonisolated: the default capture reads it off the main actor.
     nonisolated static let maxSamples = 4_000_000
 
+    /// The area captured now through ScreenCaptureKit, Locant's own windows excluded.
+    nonisolated static let live: Capture = { try await ScreenCapture.regionImage($0, maxSamples: ScreenSampler.maxSamples) }
+
+    /// While the screen is frozen (specs/frozen-screen.md R119), the area cut from the frozen image: hover reads
+    /// the pixels the user sees, the same ones the click crops (R120 there). `freeze` answers the session's
+    /// freeze, waiting for one still being taken; without one, or with no frozen display holding the area's
+    /// center, the area is captured by `live`. The cut runs where the capture runs, off the main actor.
+    nonisolated static func frozenFirst(_ freeze: @escaping @Sendable () async -> FrozenScreen?,
+                                        live capture: @escaping Capture = ScreenSampler.live) -> Capture {
+        { area in
+            if let cut = await freeze()?.sample(area, maxSamples: ScreenSampler.maxSamples) { return cut }
+            return try await capture(area)
+        }
+    }
+
     /// A new image landed.
     var onUpdate: (() -> Void)?
 
@@ -30,7 +45,7 @@ final class ScreenSampler {
     private var loop: Task<Void, Never>?
 
     init(hasPermission: @escaping @MainActor () -> Bool = { ScreenCapture.hasPermission() },
-         capture: @escaping Capture = { try await ScreenCapture.regionImage($0, maxSamples: ScreenSampler.maxSamples) },
+         capture: @escaping Capture = ScreenSampler.live,
          refresh: Duration = .seconds(1)) {
         self.hasPermission = hasPermission
         self.capture = capture

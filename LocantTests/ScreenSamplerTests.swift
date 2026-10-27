@@ -222,6 +222,84 @@ final class ScreenSamplerTests: XCTestCase {
         sampler.stop()
     }
 
+    // R126, amended Oct 27: while the screen is frozen (specs/frozen-screen.md R119), the sample is cut from the
+    // frozen image, the pixels the user sees. A freeze still being taken is waited for; ScreenCaptureKit is not asked.
+
+    private nonisolated static func blueImage(width: Int, height: Int) -> CGImage {
+        let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                                space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        context.setFillColor(red: 0, green: 0, blue: 1, alpha: 1)
+        context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        return context.makeImage()!
+    }
+
+    /// A sampler that reads `freeze` first; its live capture records the area and returns a plain gray image.
+    private func frozenFirstSampler(calls: Calls, freeze: @escaping @Sendable () async -> FrozenScreen?) -> ScreenSampler {
+        ScreenSampler(hasPermission: { true }, capture: ScreenSampler.frozenFirst(freeze, live: { area in
+            await calls.add(area)
+            return (Self.image(width: Int(area.width) * 2, height: Int(area.height) * 2), area, 2)
+        }), refresh: .seconds(600))
+    }
+
+    func testWhileFrozenTheSampleIsCutFromTheFrozenImage() async throws {
+        let calls = Calls()
+        let gate = Gate()
+        let display = CGRect(x: 0, y: 0, width: 400, height: 300)
+        let frozen = FrozenScreen(shots: [.init(display: display, scale: 2, image: Self.blueImage(width: 800, height: 600))])
+        let sampler = frozenFirstSampler(calls: calls, freeze: {
+            await gate.wait() // the freeze has not answered yet
+            return frozen
+        })
+        sampler.start()
+        let landed = expectation(description: "the frozen image")
+        sampler.onUpdate = { landed.fulfill() }
+        sampler.want(first)
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertNil(sampler.image(for: first), "waits for the freeze")
+        await gate.release()
+        await fulfillment(of: [landed], timeout: 2)
+        let grid = try XCTUnwrap(sampler.image(for: first))
+        XCTAssertEqual(grid.width, 200)
+        XCTAssertEqual(grid.height, 400)
+        XCTAssertEqual(grid.scale, 2)
+        XCTAssertLessThanOrEqual(grid.color(x: 100, y: 200).difference(RGB(r: 0, g: 0, b: 255)), 2, "the frozen pixels")
+        let count = await calls.count
+        XCTAssertEqual(count, 0, "nothing captured live")
+        sampler.stop()
+    }
+
+    func testWithoutAFreezeTheSampleIsLive() async throws {
+        let calls = Calls()
+        let sampler = frozenFirstSampler(calls: calls, freeze: { nil }) // no permission, failed, or timed out
+        sampler.start()
+        let landed = expectation(description: "the live image")
+        sampler.onUpdate = { landed.fulfill() }
+        sampler.want(first)
+        await fulfillment(of: [landed], timeout: 2)
+        let asked = await calls.areas
+        XCTAssertEqual(asked, [first])
+        XCTAssertEqual(sampler.image(for: first)?.width, 200)
+        sampler.stop()
+    }
+
+    func testAnAreaOffEveryFrozenDisplayIsSampledLive() async throws {
+        let calls = Calls()
+        let elsewhere = CGRect(x: 0, y: -1000, width: 400, height: 300)
+        let frozen = FrozenScreen(shots: [.init(display: elsewhere, scale: 2, image: Self.blueImage(width: 800, height: 600))])
+        let sampler = frozenFirstSampler(calls: calls, freeze: { frozen })
+        sampler.start()
+        let landed = expectation(description: "the live image")
+        sampler.onUpdate = { landed.fulfill() }
+        sampler.want(first)
+        await fulfillment(of: [landed], timeout: 2)
+        let asked = await calls.areas
+        XCTAssertEqual(asked, [first])
+        let grid = try XCTUnwrap(sampler.image(for: first))
+        XCTAssertGreaterThan(grid.color(x: 100, y: 200).difference(RGB(r: 0, g: 0, b: 255)), 100, "not the frozen pixels")
+        sampler.stop()
+    }
+
     // The refresh still takes a failed area again.
     func testTheRefreshTakesAFailedAreaAgain() async {
         let calls = Calls()
