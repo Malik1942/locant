@@ -738,13 +738,15 @@ final class AppState {
         #if DEBUG
         NSLog("Locant shapes: %.2f ms", (ContinuousClock.now - started) / .milliseconds(1))
         #endif
-        // R127: the line under the pointer goes ahead of the ladder, which keeps the answer and what follows.
-        guard let line = textRung(for: snapshot, at: point, in: grid) else { return levels }
+        // R127: in Point, the line under the pointer goes ahead of the ladder, which keeps the answer and what
+        // follows. Not in Text, which would read one line instead of the card, nor in Snap and Cut, whose first ⌥
+        // from the window would land on a line.
+        guard action == .point, let line = textRung(for: snapshot, at: point, in: grid) else { return levels }
         return [line] + levels
     }
 
     /// R127: on Device Hub's screen, the line of text under the pointer inside an answer that merges its lines,
-    /// once they are read from the sample. Until then, and anywhere else, nil.
+    /// once they are read from the sample. Until then, and anywhere else, nil. Point only.
     private func textRung(for snapshot: ElementSnapshot, at point: CGPoint, in grid: PixelGrid) -> ResolvedElement? {
         guard let area = HitRefiner.textArea(of: snapshot, at: point), let answer = ElementResolver.resolve(snapshot),
               let lines = textReader.lines(in: area, of: grid, label: answer.label) else { return nil }
