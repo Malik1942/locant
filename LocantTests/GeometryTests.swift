@@ -118,4 +118,52 @@ final class GeometryTests: XCTestCase {
         XCTAssertTrue(Geometry.answerIsVisible(frame: nil, window: nil, owner: wispr, at: card, candidates: candidates))
         XCTAssertTrue(Geometry.answerIsVisible(frame: CGRect(x: 380, y: 450, width: 40, height: 20), window: CGRect(x: 900, y: 900, width: 200, height: 100), owner: deviceHub, at: card, candidates: candidates))
     }
+
+    // specs/frozen-screen.md R121: a standard menu closes when the overlay takes key focus. Over the
+    // spot it covered, the hover takes the menu as it was, not the window now behind it.
+    func testVanishedWindowIsTheFrontmostWindowUnderThePointThatLeftTheScreen() {
+        let cursor: pid_t = 3121, claude: pid_t = 702
+        let menu = Geometry.WindowRecord(ownerPID: cursor, layer: 101, bounds: CGRect(x: 2261, y: -1661, width: 596, height: 630), windowID: 9001)
+        let windows: [Geometry.WindowRecord] = [
+            .init(ownerPID: 999, layer: 1000, bounds: CGRect(x: 0, y: -1692, width: 3008, height: 1692), windowID: 1), // Locant overlay
+            menu,
+            .init(ownerPID: 500, layer: 24, bounds: CGRect(x: 0, y: -1692, width: 3008, height: 30), windowID: 2), // menu bar
+            .init(ownerPID: claude, layer: 0, bounds: CGRect(x: 1500, y: -1600, width: 1400, height: 1200), windowID: 3),
+        ]
+        let onMenu = CGPoint(x: 2400, y: -1500)
+        XCTAssertEqual(Geometry.vanishedWindow(at: onMenu, windows: windows, excludingPID: 999, isOnScreen: { $0.windowID != 9001 }), menu)
+        XCTAssertNil(Geometry.vanishedWindow(at: onMenu, windows: windows, excludingPID: 999, isOnScreen: { _ in true }), "still open: read it as before")
+        XCTAssertNil(Geometry.vanishedWindow(at: CGPoint(x: 1600, y: -1000), windows: windows, excludingPID: 999, isOnScreen: { $0.windowID != 9001 }),
+                     "the menu was not under this point")
+        XCTAssertNil(Geometry.vanishedWindow(at: CGPoint(x: 100, y: -100), windows: windows, excludingPID: 999, isOnScreen: { $0.windowID == 1 }),
+                     "only Locant's own window is there")
+    }
+
+    // R121 against the real window server: a window from the list is on screen, an unknown id is
+    // not. Oct 26: an array of numbers found nothing, so every window read as closed and only
+    // whole windows (the menu bar's items) could be selected.
+    func testIsOnScreenFindsAWindowFromTheListAndNotAnUnknownOne() throws {
+        let window = try XCTUnwrap(WindowList.onScreen().first { $0.windowID != 0 }, "the test host sees no windows")
+        XCTAssertTrue(WindowList.isOnScreen(window))
+        XCTAssertFalse(WindowList.isOnScreen(Geometry.WindowRecord(ownerPID: 1, layer: 0, bounds: .zero, windowID: 0)))
+        XCTAssertFalse(WindowList.isOnScreen(Geometry.WindowRecord(ownerPID: 1, layer: 0, bounds: .zero, windowID: 0x7fff_fff0)))
+    }
+
+    // R122: a menu is open when another app shows a window from the pop-up menu level up to, not
+    // including, the screen saver level.
+    func testOpenMenuIsAnotherAppsWindowFromPopUpMenuLevelToBelowScreenSaver() {
+        let statusItems: [Geometry.WindowRecord] = [
+            .init(ownerPID: 1109, layer: 25, bounds: CGRect(x: 2208, y: -1692, width: 34, height: 30)),     // Monister's status item
+            .init(ownerPID: 4242, layer: 24, bounds: CGRect(x: 0, y: -1692, width: 3008, height: 30)),      // menu bar
+            .init(ownerPID: 1282, layer: 20, bounds: CGRect(x: 0, y: -1692, width: 3008, height: 1692)),    // Dock
+            .init(ownerPID: 702, layer: 0, bounds: CGRect(x: 235, y: 193, width: 1371, height: 1137)),      // a normal window
+            .init(ownerPID: 65585, layer: 1000, bounds: CGRect(x: 0, y: 86, width: 490, height: 1144)),     // Wispr Flow's panel
+            .init(ownerPID: 999, layer: 101, bounds: CGRect(x: 10, y: 10, width: 100, height: 100)),        // Locant's own
+        ]
+        XCTAssertFalse(Geometry.hasOpenMenu(windows: statusItems, excludingPID: 999))
+        let monister = Geometry.WindowRecord(ownerPID: 9456, layer: 101, bounds: CGRect(x: 2208, y: -1660, width: 360, height: 468))
+        XCTAssertTrue(Geometry.hasOpenMenu(windows: statusItems + [monister], excludingPID: 999))
+        let dragging = Geometry.WindowRecord(ownerPID: 9456, layer: 500, bounds: CGRect(x: 0, y: 0, width: 40, height: 40))
+        XCTAssertTrue(Geometry.hasOpenMenu(windows: statusItems + [dragging], excludingPID: 999))
+    }
 }

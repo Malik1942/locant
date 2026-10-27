@@ -99,14 +99,45 @@ enum WindowList {
                   let bounds = CGRect(dictionaryRepresentation: boundsDict as! CFDictionary),
                   (info[kCGWindowAlpha as String] as? Double ?? 1) > 0
             else { return nil }
+            let id = info[kCGWindowNumber as String] as? CGWindowID ?? 0
             if NSRunningApplication(processIdentifier: pid) == nil {
                 // Window Server draws the menu bar backdrop, the cursor, and the display backstop.
                 // Only the menu bar is a target, and its titles belong to the app that owns the menu bar.
                 guard layer == menuBarLayer, let menuBarOwner else { return nil }
-                return Geometry.WindowRecord(ownerPID: menuBarOwner, layer: layer, bounds: bounds)
+                return Geometry.WindowRecord(ownerPID: menuBarOwner, layer: layer, bounds: bounds, windowID: id)
             }
-            return Geometry.WindowRecord(ownerPID: pid, layer: layer, bounds: bounds)
+            return Geometry.WindowRecord(ownerPID: pid, layer: layer, bounds: bounds, windowID: id)
         }
+    }
+
+    /// specs/frozen-screen.md R121: whether a window from an earlier list is still on screen. One
+    /// window's description, so it is cheap enough for every hover.
+    static func isOnScreen(_ window: Geometry.WindowRecord) -> Bool {
+        // The array holds the ids themselves as its values, not numbers: an array of NSNumbers
+        // finds nothing, and every window would read as closed (Oct 26, Malik could select only
+        // menu bar items).
+        var id = UnsafeRawPointer(bitPattern: UInt(window.windowID))
+        guard window.windowID != 0,
+              let ids = CFArrayCreate(kCFAllocatorDefault, &id, 1, nil),
+              let list = CGWindowListCreateDescriptionFromArray(ids) as? [[String: Any]],
+              let info = list.first else { return false }
+        return info[kCGWindowIsOnscreen as String] as? Bool ?? false
+    }
+
+    /// R122: whether another app has a menu open. Only windows at a menu's level are looked up, so
+    /// it is quick enough to run on a mouse press.
+    static func hasOpenMenu(excludingPID: pid_t) -> Bool {
+        guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] else { return false }
+        let windows = list.compactMap { info -> Geometry.WindowRecord? in
+            guard let pid = info[kCGWindowOwnerPID as String] as? pid_t,
+                  let layer = info[kCGWindowLayer as String] as? Int,
+                  Geometry.menuLayers.contains(layer),
+                  (info[kCGWindowAlpha as String] as? Double ?? 1) > 0,
+                  NSRunningApplication(processIdentifier: pid) != nil // not Window Server's own
+            else { return nil }
+            return Geometry.WindowRecord(ownerPID: pid, layer: layer, bounds: .zero)
+        }
+        return Geometry.hasOpenMenu(windows: windows, excludingPID: excludingPID)
     }
 }
 
