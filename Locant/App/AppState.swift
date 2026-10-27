@@ -848,12 +848,12 @@ final class AppState {
         return CaptureTarget(element: element, app: source?.app ?? AppInfo(bundleId: "unknown", name: "unknown"), window: source?.window, url: snapshot?.url)
     }
 
-    /// R121: a shape Point commits lists every element the drawn-frame walk and R122's hit-test grid find
-    /// inside it; the members known at hover stay when they find none.
+    /// R121: a shape Point commits lists every element the drawn-frame walk finds inside it; the members
+    /// known at hover stay when it finds none.
     private func withWalkedMembers(_ element: ResolvedElement?, pid: pid_t) async -> ResolvedElement? {
         guard var shape = element, shape.rawRole == ElementResolver.shapeRawRole, pid > 0 else { return element }
         let rect = shape.frame.cgRect
-        let found = RegionResolver.elements(in: rect, among: await reader.visibleElements(in: rect, pid: pid))
+        let found = RegionResolver.elements(in: rect, among: await reader.elements(in: rect, pid: pid))
         if !found.isEmpty {
             shape.members = found.map { ElementMember(role: $0.role, label: $0.label, identifier: $0.identifier) }
         }
@@ -1045,8 +1045,8 @@ final class AppState {
             fail(.noScreenRecordingPermission, nearRect: rect)
             return
         }
-        // R110: the crop is the drawn frame itself, so it starts now, before the walk, its lazy-tree
-        // retry, and the hit-test grid. It doubles as this session's token below.
+        // R110: the crop is the drawn frame itself, so it starts now, before the walk and its lazy-tree
+        // retry. It doubles as this session's token below.
         let display = SelectionOverlay.displayFrameCG(containing: clickPoint)
         let area = Geometry.cropRect(element: rect, clickPoint: clickPoint, window: nil, display: display, padding: 0)
         let crop = Task { try await ScreenCapture.crop(area) }
@@ -1066,8 +1066,6 @@ final class AppState {
                 try? await Task.sleep(for: .milliseconds(100))
                 snapshots = await reader.elements(in: rect, pid: pid)
             }
-            guard phase == .resolving, cropTask == crop else { return } // no grid for a frame cancelled during the walk
-            snapshots += await reader.hitElements(in: rect, pid: pid) // R122: once, after the retry
             guard phase == .resolving, cropTask == crop else { return }
             await recollectContextIfNeeded(window: window, snapshot: hit)
             guard phase == .resolving, cropTask == crop else { return }

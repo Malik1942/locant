@@ -9,9 +9,8 @@
 Amended Oct 26, after the R122 check and the final review:
 - **R118:** the sample stops as soon as hover ends, not when the overlay closes, and an area whose capture failed waits for the next refresh.
 - **R120:** a container under the pointer reads its children, not its siblings, so the sibling cluster that used to follow a small container hit is gone.
-- **R121:** a committed shape's members come from the walk and R122's hit-test grid (`visibleElements(in:pid:)`), not the walk alone, read after the crop has started.
-- **R122:** the walk missed two buttons hover reads on the thought-detail screen, so a hit-test grid follows it for drawn frames and committed shapes.
-- **R122:** the grid is bounded: a quarter second per call, and it stops after 200 ms or at an app that does not answer. It visits its points coarse to fine, so a stopped grid still covers the whole frame.
+- **R121:** a committed shape's members are read after the crop has started, so the crop never waits for them.
+- **R122:** no change to the walk; the Oct 26 "miss" was the probe's 12-element cap.
 
 **Scope of this spec:** finding shapes, hover and the ⌥ ladder with shapes in them, the cluster under any parent, the readout and payload of a shape, and the drawn frame that found nothing in Device Hub.
 **Out of scope:** drawn frames snapping to shapes; a gesture that steps inside a shape (⌥ goes up, pointing goes in); the 40 pt crop padding; a setting to turn shapes off; new schema fields; shapes in apps with no accessibility tree at all (iPhone Mirroring, canvases), which keep the fallback square because a shape there has no members to grep.
@@ -115,7 +114,7 @@ That covers no image yet, a fill that leaked or covered too much, and glass whos
 
 **R121. What a shape says.**
 - **The readout** names the members: `cluster · Recent, Currents`. At hover, the members are the non-container nodes the hover snapshot already holds that lie at least half inside the shape: the element, its `siblings`, and its `children` (R120 reads both under any parent). Each is named by its label, else its identifier, in reading order, joined by `, `; nodes with neither are left out. A long list is cut in the middle by the label, as today. With no names, the readout is `cluster`. The fallback cluster reads the same way, instead of `cluster · 2 elements`.
-- **Members on commit.** When Point commits a shape (a click, Return, or a Shift-click into a set), its `members` come from the drawn-frame walk over its frame and R122's hit-test grid (`AccessibilityReader.visibleElements(in:pid:)`, then `RegionResolver.elements`): every non-container element at least half inside, in reading order, at most 12. So the payload can list more members than the readout named. If the walk and the grid find none, the members known at hover are kept. They run after the crop has started, so the crop never waits for them (`specs/capture-recovery.md` R110). The frame is the one that was outlined. Snap, Text, and Cut write no members, as today.
+- **Members on commit.** When Point commits a shape (a click, Return, or a Shift-click into a set), its `members` come from the drawn-frame walk over its frame (`AccessibilityReader.elements(in:pid:)`, then `RegionResolver.elements`): every non-container element at least half inside, in reading order, at most 12. So the payload can list more members than the readout named. If the walk finds none, the members known at hover are kept. They run after the crop has started, so the crop never waits for them (`specs/capture-recovery.md` R110). The frame is the one that was outlined. Snap, Text, and Cut write no members, as today.
 - **The Markdown head line** for a `LocantShape` reads `cluster · N elements (shape found on screen by Locant, not an accessibility element; frame from its visible edges)`. A `LocantCluster` keeps today's line, which ends `frame approximate`.
 - **The crop** is the shape's frame plus the usual 40 pt (v0.1 R4).
 - **The schema** gains no field. The `role` description in `schema/capture.schema.json` names both computed kinds: `LocantShape`, found from the visible edges, and `LocantCluster`, computed from neighboring elements.
@@ -128,14 +127,9 @@ Before any change, the thought-detail toolbar is checked with the probe:
 - **If hover reads buttons there that the walk misses,** the walk is fixed until it finds every non-container element hover reads inside the frame.
 - **If hover too reads only the group,** the tree exposes no buttons, and the walk stays as it is.
 
-**The check, Oct 26.** On the thought-detail screen the walk found the toolbar's buttons: the Oct 18 miss did not reproduce. It missed two buttons hover reads there, "Ask Ocean" and "Grow a branch", and lifting the walk's depth and node limits did not help. So a grid of hit tests is added to the walk (`AccessibilityReader.hitElements(in:pid:)`):
-- a test every 8 pt or wider, at most about 400 tests, each element read once;
-- a quarter second per call; the grid stops after 200 ms, or at the first test the app does not answer, and keeps what it found. Its points are visited coarse to fine (rows and columns each in bit-reversed order: first, middle, quarters, eighths), so a grid that stops early still covers the whole frame evenly, only more sparsely;
-- a drawn frame runs it once, after the walk's lazy-tree retry; a committed shape's members (R121) take the walk and the grid together (`visibleElements(in:pid:)`); auto-verify's refind (v0.6 R52) keeps the plain walk.
+**The check, Oct 18–26.** The Oct 18 toolbar miss did not reproduce: on the thought-detail screen the toolbar's buttons are in the tree, and the walk finds them. An Oct 26 probe seemed to show a miss of two buttons hover reads there, "Ask Ocean" and "Grow a branch", but that was the probe comparing hover's list against `RegionResolver.elements(in:among:)`, which caps a frame's list at 12, and those two buttons come last in reading order. The plain `AccessibilityReader.elements(in:pid:)` walk over the whole simulated screen returned all 29 elements, both buttons included. So the walk stays as it is and nothing is added. A probe that checks the walk compares against the walk's own list, not the capped one.
 
-An element smaller than the grid's step inside a large frame can still be missed.
-
-The existing region tests keep passing either way. R121's members depend on the walk and the grid.
+The existing region tests keep passing either way. R121's members depend on the walk.
 
 **R123. Words elsewhere.** CHANGELOG's Unreleased section gains one bullet: Point lands on the capsule, card, or panel under the pointer whose edges are drawn on screen, even where the app exposes none to accessibility. No hint text changes.
 
@@ -149,7 +143,7 @@ The existing region tests keep passing either way. R121's members depend on the 
   - `scripts/blur-fixture-text.swift`: finds text with Vision and blurs it with Core Image, so fixtures from Malik's own screens can be public.
 - Changed:
   - `ElementResolver.swift`: `HitRefiner`, R117 and R120.
-  - `AccessibilityReader.swift`: R120, and R122's hit-test grid (`hitElements(in:pid:)`, `visibleElements(in:pid:)`).
+  - `AccessibilityReader.swift`: R120. R122 changes nothing here.
   - `ScreenCapture.swift` (`regionImage`) and `Geometry.swift` (`sampleScale`), R118.
   - `AppState.swift`: hover, commit, and members, R117 and R121.
   - `SelectionOverlay.swift`: `Readout`, R121.

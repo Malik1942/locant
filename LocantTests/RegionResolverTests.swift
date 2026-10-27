@@ -64,40 +64,4 @@ final class RegionResolverTests: XCTestCase {
         XCTAssertEqual(RegionResolver.offsetText(from: CGPoint(x: 10, y: 50), to: CGRect(x: 50, y: 40, width: 20, height: 20)), "40 pt right")
         XCTAssertEqual(RegionResolver.offsetText(from: CGPoint(x: 60, y: 50), to: CGRect(x: 50, y: 40, width: 20, height: 20)), "inside")
     }
-
-    // specs/capture-shapes.md R122: the hit-test grid's points come coarse to fine. Every point of the full
-    // grid comes once, and the first quarter already reaches all four sides of the frame, so a grid
-    // stopped at its time limit still covers the whole frame.
-    func testHitGridVisitsEveryPointOnceCoarseToFine() {
-        let regions = [
-            CGRect(x: 20, y: 60, width: 360, height: 726), // a phone screen in Device Hub
-            CGRect(x: 40, y: 100, width: 360, height: 48), // a toolbar
-            CGRect(x: 0, y: 0, width: 1512, height: 982), // a display
-        ]
-        for region in regions {
-            let step = max(8, ((region.width * region.height) / 400).squareRoot())
-            let points = AccessibilityReader.gridPoints(in: region, step: step)
-            var expected: [CGPoint] = []
-            var y = region.minY + min(step / 2, region.height / 2)
-            while y < region.maxY {
-                var x = region.minX + min(step / 2, region.width / 2)
-                while x < region.maxX {
-                    expected.append(CGPoint(x: x, y: y))
-                    x += step
-                }
-                y += step
-            }
-            XCTAssertEqual(points.count, expected.count, "\(region)")
-            XCTAssertEqual(Set(points.map { [$0.x, $0.y] }), Set(expected.map { [$0.x, $0.y] }), "\(region)")
-            let early = points.prefix(points.count / 4)
-            XCTAssertTrue(early.contains { $0.y < region.minY + region.height / 4 }, "top quarter, \(region)")
-            XCTAssertTrue(early.contains { $0.y > region.maxY - region.height / 4 }, "bottom quarter, \(region)")
-            XCTAssertTrue(early.contains { $0.x < region.minX + region.width / 4 }, "left quarter, \(region)")
-            XCTAssertTrue(early.contains { $0.x > region.maxX - region.width / 4 }, "right quarter, \(region)")
-        }
-        // A frame thinner than the step still gets one row, through its middle.
-        let thin = AccessibilityReader.gridPoints(in: CGRect(x: 0, y: 0, width: 100, height: 4), step: 8)
-        XCTAssertEqual(Set(thin.map(\.y)), [2])
-        XCTAssertEqual(thin.count, 12)
-    }
 }
