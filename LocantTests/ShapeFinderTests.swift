@@ -282,6 +282,69 @@ final class ShapeFinderTests: XCTestCase {
         XCTAssertTrue(ShapeLookup(grid: canvas.grid(generation: 2), bound: canvas.bounds, memo: lookup.memo).memo.ink.isEmpty, "a newer sample")
     }
 
+    // MARK: Padded frames tighten, in the phone (R126)
+
+    /// The tightened frame of `frame` on this canvas, as the ladder takes it from the live source.
+    private func tightened(_ frame: CGRect, on canvas: Canvas) -> CGRect {
+        var lookup = ShapeLookup(grid: canvas.grid(), bound: canvas.bounds, memo: .init())
+        return HitRefiner.tightFrame(frame, ink: lookup.ink(inside: frame))
+    }
+
+    // A button's frame around a card drawn 6 pt inside it, top and bottom: the card. A drawn step marks the
+    // sample on each side, so the frame ends one sample (half a point) and the 1 pt past the card.
+    func testAButtonFrameTightensToTheCardDrawnInIt() {
+        var canvas = Canvas(400, 300, background: dark)
+        let button = CGRect(x: 50, y: 50, width: 300, height: 76)
+        let card = CGRect(x: 50, y: 56, width: 300, height: 64)
+        canvas.paint(card, RGB(r: 50, g: 50, b: 54))
+        canvas.paint(CGRect(x: 66, y: 72, width: 140, height: 14), RGB(r: 220, g: 220, b: 220)) // its title
+        assertRect(tightened(button, on: canvas), card.insetBy(dx: 0, dy: -1.5), within: 0.5)
+    }
+
+    // The Product Ideas header: a frame around a line of text and a "1 >" at its right: the text's edges
+    // and 1 pt.
+    func testAFrameAroundTextTightensToTheText() {
+        var canvas = Canvas(400, 300, background: dark)
+        let header = CGRect(x: 20, y: 100, width: 331, height: 62)
+        let light = RGB(r: 230, g: 230, b: 230)
+        for x in stride(from: 36, through: 136, by: 8) {
+            canvas.paint(CGRect(x: CGFloat(x), y: 122, width: 5, height: 18), light) // glyphs
+        }
+        canvas.paint(CGRect(x: 316, y: 125, width: 7, height: 12), light) // "1 >"
+        let edges = CGRect(x: 35.5, y: 121.5, width: 288, height: 19) // the glyphs and the sample on each side
+        assertRect(tightened(header, on: canvas), edges.insetBy(dx: -1, dy: -1), within: 0.01)
+    }
+
+    // Nothing drawn inside a frame, or nothing more than 2 pt inside it once grown by 1 pt: the frame stays.
+    func testAFrameWithNothingDrawnWellInsideItStays() {
+        var canvas = Canvas(400, 300, background: dark)
+        let empty = CGRect(x: 20, y: 20, width: 120, height: 40)
+        let near = CGRect(x: 200, y: 20, width: 120, height: 40)
+        let farther = CGRect(x: 200, y: 120, width: 120, height: 40)
+        canvas.paint(near.insetBy(dx: 3, dy: 3), RGB(r: 60, g: 60, b: 64))    // edges from 2.5 pt in, grown to 1.5
+        canvas.paint(farther.insetBy(dx: 4, dy: 4), RGB(r: 60, g: 60, b: 64)) // edges from 3.5 pt in, grown to 2.5
+        XCTAssertEqual(tightened(empty, on: canvas), empty)
+        XCTAssertEqual(tightened(near, on: canvas), near)
+        assertRect(tightened(farther, on: canvas), farther.insetBy(dx: 2.5, dy: 2.5), within: 0.01)
+    }
+
+    // The ladder tightens only on Device Hub's simulated screen, with the live source.
+    func testOnlyTheSimulatedScreenTightens() {
+        var canvas = Canvas(400, 300, background: dark)
+        let button = AttributeSet(role: "AXButton", description: "Weeknight noodles", frame: Frame(x: 50, y: 50, w: 300, h: 76))
+        canvas.paint(CGRect(x: 50, y: 56, width: 300, height: 64), RGB(r: 50, g: 50, b: 54))
+        let phone = AttributeSet(role: "AXGroup", subrole: HitRefiner.simulatedScreenSubrole, frame: Frame(canvas.bounds))
+        let window = AttributeSet(role: "AXGroup", frame: Frame(canvas.bounds))
+        let point = CGPoint(x: 200, y: 52) // in the button's padding, above the card
+        func rung0(under screen: AttributeSet) -> Frame? {
+            var lookup = ShapeLookup(grid: canvas.grid(), bound: canvas.bounds, memo: .init())
+            let snapshot = ElementSnapshot(element: button, ancestors: [screen])
+            return HitRefiner.selectionLevels(for: snapshot, at: point, shapes: &lookup, holding: nil).first??.frame
+        }
+        XCTAssertEqual(rung0(under: phone), Frame(x: 50, y: 54.5, w: 300, h: 67))
+        XCTAssertEqual(rung0(under: window), button.frame, "off the simulated screen")
+    }
+
     // MARK: Real screens (section 3)
 
     private struct FixtureFile: Decodable {

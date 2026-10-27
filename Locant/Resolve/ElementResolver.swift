@@ -639,33 +639,45 @@ extension HitRefiner {
     /// R117: a shape and an accessibility rung within this on every edge are one rung, since pixel edges
     /// are read a sample at a time. Two accessibility rungs still merge within 1 pt (`collapsingSameFrames`).
     static let shapeMerge: Double = 2
+    /// specs/capture-shapes.md R126: a tightened frame keeps this much room around what is drawn inside it.
+    static let inkMargin: Double = 1
 
     /// R117: the ladder with the shapes under the pointer.
     /// - Rung 0 is the element the pointer is on; else the element still held inside a shape; else the
     ///   shape at the point; else today's ladder, unchanged.
     /// - After rung 0 come the shapes around it, then today's rungs that hold it, ordered by containment.
     /// - With no accessibility answer: nothing, and no shape is asked for.
+    /// - R126: on Device Hub's simulated screen, the accessibility rungs (rung 0 too) are tightened to what
+    ///   is drawn inside them before they are ordered and merged. Rung 0 is still chosen by the frames the
+    ///   accessibility tree reports, since the pointer may be in an element's padding.
     static func selectionLevels(for snapshot: ElementSnapshot?, at point: CGPoint,
                                 shapes: inout some ShapeSource, holding previous: ResolvedElement?) -> [ResolvedElement?] {
         guard let snapshot else { return [] }
-        let today = selectionLevels(for: snapshot, at: point)
+        let tightens = simulatedScreen(in: snapshot) != nil
+        var today = selectionLevels(for: snapshot, at: point)
+        if tightens {
+            for index in today.indices {
+                if let rung = today[index] { today[index] = tightened(rung, shapes: &shapes) }
+            }
+        }
         let rung0: ResolvedElement
         var shapeAtPoint: CGRect?
         var heldIn: CGRect?
         if let hit = ElementResolver.resolve(snapshot), isElement(hit), hit.frame.cgRect.contains(point) {
-            rung0 = hit
+            rung0 = tightens ? tightened(hit, shapes: &shapes) : hit
         } else if let shape = shapes.shape(at: point) {
             shapeAtPoint = shape
             if let previous, isElement(previous),
                previous.frame.cgRect.insetBy(dx: -shapeHold, dy: -shapeHold).contains(point),
                holds(shape, previous.frame.cgRect) {
-                rung0 = previous
+                // Held from the step before, which tightened it already where it could.
+                rung0 = tightens ? tightened(previous, shapes: &shapes) : previous
                 heldIn = shape
             } else {
                 rung0 = shapeElement(frame: shape, snapshot: snapshot)
             }
         } else {
-            return today
+            return tightens ? collapsingSameFrames(today) : today
         }
         var around = shapes.shapes(around: rung0.frame.cgRect)
         // A held element is not the shape it sits in: that shape is the next rung even where nothing is
@@ -748,6 +760,27 @@ extension HitRefiner {
                           label: ElementResolver.nonEmpty(node.title) ?? ElementResolver.nonEmpty(node.description),
                           identifier: ElementResolver.nonEmpty(node.identifier))
         }
+    }
+
+    /// R126: the frame of an accessibility rung on Device Hub's simulated screen. What is drawn inside `frame`
+    /// (`ink`, from `ShapeSource.ink(inside:)`) grown by `inkMargin` and cut to `frame`, when that lies more
+    /// than `shapeMerge` inside `frame` on at least one side; else `frame`, as with nothing drawn inside it.
+    static func tightFrame(_ frame: CGRect, ink: CGRect?) -> CGRect {
+        guard let ink else { return frame }
+        let tight = ink.insetBy(dx: -inkMargin, dy: -inkMargin).intersection(frame)
+        guard !tight.isNull, !tight.isEmpty else { return frame }
+        let inset = max(tight.minX - frame.minX, frame.maxX - tight.maxX, tight.minY - frame.minY, frame.maxY - tight.maxY)
+        return inset > shapeMerge ? tight : frame
+    }
+
+    /// R126: `rung` with its frame tightened, when it is an accessibility rung that is neither a container
+    /// nor computed (a shape, a cluster, or a group). Its role, label, identifier, path, and members stay.
+    private static func tightened(_ rung: ResolvedElement, shapes: inout some ShapeSource) -> ResolvedElement {
+        guard isElement(rung) else { return rung }
+        let frame = rung.frame.cgRect
+        var tight = rung
+        tight.frame = Frame(tightFrame(frame, ink: shapes.ink(inside: frame)))
+        return tight
     }
 
     /// `outer` holds `inner`, give or take `shapeMerge`.
