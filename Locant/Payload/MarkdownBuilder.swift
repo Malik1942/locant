@@ -78,9 +78,12 @@ enum MarkdownBuilder {
         if element.role == ElementResolver.clusterRole {
             let members = element.members ?? []
             // specs/capture-shapes.md R121: a shape's frame is the edges seen on screen; a cluster's, an estimate.
-            let kind = element.rawRole == ElementResolver.shapeRawRole
-                ? "shape found on screen by Locant, not an accessibility element; frame from its visible edges"
-                : "visual grouping computed by Locant, not an accessibility element; frame approximate"
+            // R124: a group's frame is the union of its controls.
+            let kind = switch element.rawRole {
+            case ElementResolver.shapeRawRole: "shape found on screen by Locant, not an accessibility element; frame from its visible edges"
+            case ElementResolver.groupRawRole: "controls in one row or column, grouped by Locant, not an accessibility element; frame is their union"
+            default: "visual grouping computed by Locant, not an accessibility element; frame approximate"
+            }
             var lines = [
                 "cluster · \(members.count) elements (\(kind))",
                 "Members: " + members.map(memberText).joined(separator: " · "),

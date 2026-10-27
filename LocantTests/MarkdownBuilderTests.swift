@@ -136,6 +136,22 @@ final class MarkdownBuilderTests: XCTestCase {
         XCTAssertFalse(md.contains("frame approximate"))
     }
 
+    // specs/capture-shapes.md R124: a row of touching controls says what it is, and that its frame is their union.
+    func testGroupHeadLineSaysItsFrameIsTheUnionOfTheControls() {
+        let group = ResolvedElement(
+            role: "cluster", rawRole: "LocantGroup", label: nil, identifier: nil, identifierSource: .unknown, value: nil,
+            frame: Frame(x: 559.6, y: 398.2, w: 118.1, h: 39.3),
+            path: [PathEntry(role: "group", identifier: nil), PathEntry(role: "cluster", identifier: nil)],
+            members: [ElementMember(role: "button", label: nil, identifier: "folder"),
+                      ElementMember(role: "button", label: nil, identifier: "square.and.arrow.up"),
+                      ElementMember(role: "button", label: nil, identifier: "trash")]
+        )
+        let md = MarkdownBuilder.build(capture(element: group))
+        XCTAssertTrue(md.contains("cluster · 3 elements (controls in one row or column, grouped by Locant, not an accessibility element; frame is their union)\nMembers: button#folder · button#square.and.arrow.up · button#trash\n"), md)
+        XCTAssertFalse(md.contains("frame approximate"))
+        XCTAssertFalse(md.contains("visible edges"))
+    }
+
     func testNullElementHintsAtIdentifier() {
         let md = MarkdownBuilder.build(capture(element: nil))
         XCTAssertTrue(md.contains("Use the image.\nIf this view is yours, give it .accessibilityElement() and .accessibilityIdentifier(\"…\") so Locant can point at it next time.\n"))
