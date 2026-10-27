@@ -2,6 +2,10 @@
 
 Every release is a signed, notarized `Locant.dmg` on [GitHub Releases](https://github.com/Malik1942/locant/releases). Drag the new copy over the old one; the permissions carry over.
 
+## Unreleased
+
+- **Hover over the iPhone screen in Device Hub keeps up better.** Locant now asks Device Hub for an element's details in one request instead of one per detail, and no longer reads the same thing twice for one position of the pointer. Each lookup under the pointer takes about 90 ms instead of 140, and the slowest ones about 150 ms instead of 270 or more. What the outline lands on is unchanged.
+
 ## 1.1.0 (2026-10-27)
 
 - **Menus and menu bar windows can be captured.** The screen now freezes when Point, Snap, Text, or Cut opens, and the image is cut from that frozen screen. A window that opens from the menu bar used to close at your click and come out as wallpaper; now it comes out as you saw it, and you can still pick a control inside it. A standard menu closes as soon as the overlay opens, so it is taken as one window. Clicking the ball while a menu is open no longer closes the menu.
