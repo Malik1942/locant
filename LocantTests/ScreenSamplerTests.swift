@@ -39,14 +39,14 @@ final class ScreenSamplerTests: XCTestCase {
     }
 
     /// A sampler whose capture records the area, runs `before` (which can hold it or throw), and returns
-    /// a plain image at 2x; refresh far off, so only `want` captures.
-    private func makeSampler(permitted: Bool, calls: Calls,
+    /// a plain image at 2x; refresh far off unless asked, so only `want` captures.
+    private func makeSampler(permitted: Bool, calls: Calls, refresh: Duration = .seconds(600),
                              before: @escaping @Sendable (CGRect) async throws -> Void = { _ in }) -> ScreenSampler {
         ScreenSampler(hasPermission: { permitted }, capture: { area in
             await calls.add(area)
             try await before(area)
             return (Self.image(width: Int(area.width) * 2, height: Int(area.height) * 2), area, 2)
-        }, refresh: .seconds(600))
+        }, refresh: refresh)
     }
 
     private let first = CGRect(x: 0, y: 0, width: 100, height: 200)
@@ -182,6 +182,49 @@ final class ScreenSamplerTests: XCTestCase {
         let asked = await calls.areas
         XCTAssertEqual(asked, [first, second])
         XCTAssertEqual(sampler.image(for: second)?.generation, 2)
+        sampler.stop()
+    }
+
+    // A wedged capture service throws at once. Hover wants the same area about 30 times a second; the
+    // failed area is asked again only at the next refresh, not at hover's rate.
+    func testAFailedAreaWaitsForTheNextRefresh() async throws {
+        let calls = Calls()
+        let refused = first
+        let failed = expectation(description: "the area was asked for and failed")
+        failed.assertForOverFulfill = false
+        let sampler = makeSampler(permitted: true, calls: calls, before: { area in
+            guard area == refused else { return }
+            failed.fulfill()
+            throw Refused()
+        })
+        sampler.start()
+        sampler.want(first)
+        await fulfillment(of: [failed], timeout: 2)
+        for _ in 0..<6 {
+            try await Task.sleep(for: .milliseconds(33))
+            sampler.want(first)
+        }
+        try await Task.sleep(for: .milliseconds(100)) // settle: nothing more is asked
+        let count = await calls.count
+        XCTAssertEqual(count, 1)
+        sampler.stop()
+    }
+
+    // The refresh still takes a failed area again.
+    func testTheRefreshTakesAFailedAreaAgain() async {
+        let calls = Calls()
+        let asked = expectation(description: "asked at want, then again at the refresh")
+        asked.expectedFulfillmentCount = 2
+        asked.assertForOverFulfill = false
+        let sampler = makeSampler(permitted: true, calls: calls, refresh: .milliseconds(300), before: { _ in
+            asked.fulfill()
+            throw Refused()
+        })
+        sampler.start()
+        sampler.want(first)
+        await fulfillment(of: [asked], timeout: 3)
+        let areas = await calls.areas
+        XCTAssertEqual(Array(areas.prefix(2)), [first, first])
         sampler.stop()
     }
 }

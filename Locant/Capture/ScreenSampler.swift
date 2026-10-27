@@ -20,6 +20,9 @@ final class ScreenSampler {
     private var latest: PixelGrid?
     private var latestArea: CGRect?
     private var wanted: CGRect?
+    /// The area the last capture failed on. `want` leaves it to the refresh: a wedged capture service
+    /// throws at once, and hover wants an area about 30 times a second.
+    private var failedArea: CGRect?
     private var inFlight = false
     private var generation = 0
     /// Each `start()` and `stop()` opens a new one; a capture only lands in the session that asked for it.
@@ -58,13 +61,16 @@ final class ScreenSampler {
         latest = nil
         latestArea = nil
         wanted = nil
+        failedArea = nil
     }
 
-    /// The area hover reads shapes in now. Taken at once unless the newest image already shows it.
+    /// The area hover reads shapes in now. Taken at once unless the newest image already shows it, or
+    /// the last capture of it failed, which the next refresh takes again.
     func want(_ area: CGRect) {
         guard loop != nil, area.width > 0, area.height > 0 else { return }
         wanted = area
         if let latestArea, HitRefiner.matches(Frame(latestArea), Frame(area)) { return }
+        if let failedArea, HitRefiner.matches(Frame(failedArea), Frame(area)) { return }
         take()
     }
 
@@ -91,6 +97,7 @@ final class ScreenSampler {
             }.value
             guard let self, self.session == session else { return }
             self.inFlight = false
+            self.failedArea = grid == nil ? area : nil
             if let grid {
                 self.latest = grid
                 self.latestArea = area
