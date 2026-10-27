@@ -837,6 +837,18 @@ final class AppState {
         return CaptureTarget(element: element, app: source?.app ?? AppInfo(bundleId: "unknown", name: "unknown"), window: source?.window, url: snapshot?.url)
     }
 
+    /// specs/capture-shapes.md R121: a shape Point commits lists every element the drawn-frame walk finds
+    /// inside it; the members known at hover stay when the walk finds none.
+    private func withWalkedMembers(_ element: ResolvedElement?, pid: pid_t) async -> ResolvedElement? {
+        guard var shape = element, shape.rawRole == ElementResolver.shapeRawRole, pid > 0 else { return element }
+        let rect = shape.frame.cgRect
+        let found = RegionResolver.elements(in: rect, among: await reader.visibleElements(in: rect, pid: pid))
+        if !found.isEmpty {
+            shape.members = found.map { ElementMember(role: $0.role, label: $0.label, identifier: $0.identifier) }
+        }
+        return shape
+    }
+
     /// v0.8 R58: Shift-click adds the element under the cursor to the set, or removes it again. The
     /// overlay stays open; the first element's app becomes the capture's source.
     private func pin(at point: CGPoint) {
@@ -848,7 +860,9 @@ final class AppState {
             if let index = pinned.firstIndex(where: { $0.element.frame == element.frame }) {
                 pinned.remove(at: index)
             } else {
-                let target = await describeTarget(element, snapshot: snapshot, window: window)
+                let walked = await withWalkedMembers(element, pid: window?.ownerPID ?? context?.frontPID ?? 0) ?? element
+                guard phase == .hovering else { return }
+                let target = await describeTarget(walked, snapshot: snapshot, window: window)
                 guard phase == .hovering else { return }
                 if pinned.isEmpty, let context {
                     let pid = window?.ownerPID ?? context.frontPID
@@ -921,10 +935,12 @@ final class AppState {
         Task {
             // What the user saw is what they clicked: keep the hovered selection (and its Option
             // depth) when the click is on or near it; otherwise resolve fresh with the lazy-tree retry.
-            let (element, snapshot) = await resolveClicked(at: point)
+            let (clicked, snapshot) = await resolveClicked(at: point)
             guard phase == .resolving else { return }
             // The window that answered the hit test, else the normal window under the point.
             let window = snapshot?.window ?? Geometry.windowOwner(at: point, windows: windows, excludingPID: ownPID)
+            let element = await withWalkedMembers(clicked, pid: window?.ownerPID ?? context?.frontPID ?? 0)
+            guard phase == .resolving else { return }
             if !pinned.isEmpty {
                 await finishSet(clicked: element, snapshot: snapshot, window: window, point: point)
                 return

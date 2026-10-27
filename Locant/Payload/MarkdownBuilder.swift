@@ -77,8 +77,12 @@ enum MarkdownBuilder {
     private static func elementLines(_ element: ResolvedElement) -> [String] {
         if element.role == ElementResolver.clusterRole {
             let members = element.members ?? []
+            // specs/capture-shapes.md R121: a shape's frame is the edges seen on screen; a cluster's, an estimate.
+            let kind = element.rawRole == ElementResolver.shapeRawRole
+                ? "shape found on screen by Locant, not an accessibility element; frame from its visible edges"
+                : "visual grouping computed by Locant, not an accessibility element; frame approximate"
             var lines = [
-                "cluster · \(members.count) elements (visual grouping computed by Locant, not an accessibility element; frame approximate)",
+                "cluster · \(members.count) elements (\(kind))",
                 "Members: " + members.map(memberText).joined(separator: " · "),
             ]
             let f = element.frame

@@ -2,6 +2,10 @@
 
 Every release is a signed, notarized `Locant.dmg` on [GitHub Releases](https://github.com/Malik1942/locant/releases). Drag the new copy over the old one; the permissions carry over.
 
+## Unreleased
+
+- **Point lands on the shape you see.** A capsule, card, or panel whose edges are drawn on screen is now found there, even when the app does not expose it to accessibility, as SwiftUI often does not. Point into its padding and the outline takes the whole shape; ⌥ from a button inside steps to it; the payload lists what it holds. Where a shape shows no clear edge, nearby elements still group as before, now inside small containers too.
+
 ## 1.0.1 (2026-10-21)
 
 - **Stuck screen capture is fixed from Locant.** When the macOS process behind screen capture stops answering, every capture used to say "Capture failed", even after relaunching Locant. Now Locant says what is wrong, offers Restart Screen Capture, and opens the same action again. Point stops right at the click instead of after you type the note.

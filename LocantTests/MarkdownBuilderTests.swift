@@ -122,6 +122,20 @@ final class MarkdownBuilderTests: XCTestCase {
         XCTAssertNil((plain?["element"] as? [String: Any])?["members"], "members only exist on clusters")
     }
 
+    // specs/capture-shapes.md R121: a shape's frame is its visible edges; a cluster's stays approximate.
+    func testShapeHeadLineSaysItsFrameIsTheVisibleEdges() {
+        let shape = ResolvedElement(
+            role: "cluster", rawRole: "LocantShape", label: nil, identifier: nil, identifierSource: .unknown, value: nil,
+            frame: Frame(x: 2036, y: -1147, w: 163, h: 37),
+            path: [PathEntry(role: "group", identifier: nil), PathEntry(role: "cluster", identifier: nil)],
+            members: [ElementMember(role: "button", label: "Recent", identifier: nil),
+                      ElementMember(role: "button", label: "Currents", identifier: nil)]
+        )
+        let md = MarkdownBuilder.build(capture(element: shape))
+        XCTAssertTrue(md.contains("cluster · 2 elements (shape found on screen by Locant, not an accessibility element; frame from its visible edges)\nMembers: button \"Recent\" · button \"Currents\"\n"), md)
+        XCTAssertFalse(md.contains("frame approximate"))
+    }
+
     func testNullElementHintsAtIdentifier() {
         let md = MarkdownBuilder.build(capture(element: nil))
         XCTAssertTrue(md.contains("Use the image.\nIf this view is yours, give it .accessibilityElement() and .accessibilityIdentifier(\"…\") so Locant can point at it next time.\n"))
