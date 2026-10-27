@@ -14,10 +14,14 @@ final class TextLineReader {
         case latin
         /// One `.accurate` read in `hanLanguages`, Simplified Chinese first.
         case han
+        /// One `.accurate` read in which Vision detects the language among `hanLanguages`: the second read, when no
+        /// line of the first matches a part of the label (`lines(for:reading:read:)`). Never chosen from a label.
+        case detected
     }
 
-    /// The lines in `image`, which shows `frame` in global points, read as `reading` says.
-    typealias Recognize = @Sendable (_ image: CGImage, _ frame: CGRect, _ reading: Reading) async throws -> [TextLine]
+    /// The lines in `image`, which shows `frame` in global points, for an element labeled `label`, read as `reading`
+    /// says, and again when the label names none of them (`lines(for:reading:read:)`).
+    typealias Recognize = @Sendable (_ image: CGImage, _ frame: CGRect, _ reading: Reading, _ label: String?) async throws -> [TextLine]
 
     /// Rectangles whose lines are kept; past this the cache starts over.
     static let cacheLimit = 32
@@ -60,7 +64,9 @@ final class TextLineReader {
     /// Each `stop()` opens a new one; lines only land in the session that asked for them.
     private var session = 0
 
-    init(recognize: @escaping Recognize = { image, frame, reading in try TextLineReader.read(image, showing: frame, reading: reading) }) {
+    init(recognize: @escaping Recognize = { image, frame, reading, label in
+        try await TextLineReader.lines(for: label, reading: reading) { try TextLineReader.read(image, showing: frame, reading: $0) }
+    }) {
         self.recognize = recognize
     }
 
@@ -137,7 +143,7 @@ final class TextLineReader {
                 defer { NSLog("Locant text lines: %.1f ms", (ContinuousClock.now - started) / .milliseconds(1)) }
                 #endif
                 guard let cut = request.grid.image(of: request.frame) else { return nil }
-                return try? await recognize(cut.image, cut.frame, request.key.reading)
+                return try? await recognize(cut.image, cut.frame, request.key.reading, request.label)
             }.value
             guard let self, self.session == session else { return }
             self.inFlight = nil
@@ -175,16 +181,32 @@ final class TextLineReader {
         return han ? .han : .latin
     }
 
+    /// R127: an answer's lines, read with `read` first as its label chose (`reading`). The label is evidence for how
+    /// to read only when it names what was read: when no line of that read matches a ", "-part of `label`
+    /// (`HitRefiner.textMatches`), as the tab bar's "Tab Bar" names none of its tabs and a tab bar in Chinese read the
+    /// English way gives junk ("4 1JBIJ"), the lines are read once more, `.detected`. That read's lines, or none when
+    /// one holds kana or Hangul (`reading(for:)`), which no reading is calibrated for yet.
+    nonisolated static func lines(for label: String?, reading: Reading,
+                                  read: @Sendable (Reading) async throws -> [TextLine]) async throws -> [TextLine] {
+        let first = try await read(reading)
+        let parts = (label ?? "").components(separatedBy: ", ")
+        if first.contains(where: { line in parts.contains { HitRefiner.textMatches($0, line.text) } }) { return first }
+        let second = try await read(.detected)
+        return second.contains { Self.reading(for: $0.text) == nil } ? [] : second
+    }
+
     /// Simplified Chinese first: `.accurate` with en-US first read 周末面条 / 昨天 as "BFE", and 周末面条 / 4 秒前 as
     /// nothing (Oct 26, synthetic renders); language correction made no difference.
     nonisolated static let hanLanguages = ["zh-Hans", "en-US"]
 
     /// Vision's lines in `image`, which shows `frame` in global points, top to bottom then left to right, with
-    /// no language correction: `.latin` at `.fast` in en-US, `.han` at `.accurate` in `hanLanguages`.
+    /// no language correction: `.latin` at `.fast` in en-US, `.han` at `.accurate` in `hanLanguages`, `.detected`
+    /// at `.accurate` detecting the language among `hanLanguages`.
     nonisolated static func read(_ image: CGImage, showing frame: CGRect, reading: Reading) throws -> [TextLine] {
         let found = switch reading {
         case .latin: try observations(in: image, level: .fast, languages: ["en-US"])
         case .han: try observations(in: image, level: .accurate, languages: hanLanguages)
+        case .detected: try observations(in: image, level: .accurate, languages: hanLanguages, detectsLanguage: true)
         }
         let lines = found.compactMap { observation -> TextLine? in
             guard let text = observation.topCandidates(1).first?.string.trimmingCharacters(in: .whitespaces),
@@ -194,11 +216,12 @@ final class TextLineReader {
         return lines.sorted { a, b in abs(a.frame.y - b.frame.y) > 4 ? a.frame.y < b.frame.y : a.frame.x < b.frame.x }
     }
 
-    private nonisolated static func observations(in image: CGImage, level: VNRequestTextRecognitionLevel,
-                                                 languages: [String]) throws -> [VNRecognizedTextObservation] {
+    private nonisolated static func observations(in image: CGImage, level: VNRequestTextRecognitionLevel, languages: [String],
+                                                 detectsLanguage: Bool = false) throws -> [VNRecognizedTextObservation] {
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = level
         request.recognitionLanguages = languages
+        request.automaticallyDetectsLanguage = detectsLanguage
         request.usesLanguageCorrection = false
         try VNImageRequestHandler(cgImage: image, options: [:]).perform([request])
         return request.results ?? []

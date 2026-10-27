@@ -9,13 +9,21 @@ final class TextLineReaderTests: XCTestCase {
     private actor Calls {
         var frames: [CGRect] = []
         var readings: [TextLineReader.Reading] = []
+        var labels: [String?] = []
         /// Records a read; its number, from 1.
-        func add(_ frame: CGRect, reading: TextLineReader.Reading) -> Int {
+        func add(_ frame: CGRect, reading: TextLineReader.Reading, label: String?) -> Int {
             frames.append(frame)
             readings.append(reading)
+            labels.append(label)
             return frames.count
         }
         var count: Int { frames.count }
+    }
+
+    /// The readings asked for, in order.
+    private actor Asked {
+        var readings: [TextLineReader.Reading] = []
+        func add(_ reading: TextLineReader.Reading) { readings.append(reading) }
     }
 
     /// Holds a read until the test opens it.
@@ -45,8 +53,8 @@ final class TextLineReaderTests: XCTestCase {
     /// throw), and reads what `lines` gives for the read's number (from 1): by default two lines in it.
     private func makeReader(calls: Calls, before: @escaping @Sendable (CGRect) async throws -> Void = { _ in },
                             lines: @escaping @Sendable (Int, CGRect) -> [TextLine] = { _, frame in two(in: frame) }) -> TextLineReader {
-        TextLineReader(recognize: { _, frame, reading in
-            let number = await calls.add(frame, reading: reading)
+        TextLineReader(recognize: { _, frame, reading, label in
+            let number = await calls.add(frame, reading: reading, label: label)
             try await before(frame)
             return lines(number, frame)
         })
@@ -329,7 +337,48 @@ final class TextLineReaderTests: XCTestCase {
         try await Task.sleep(for: .milliseconds(100))
         let readings = await calls.readings
         XCTAssertEqual(readings, [.han, .latin])
+        let labels = await calls.labels
+        XCTAssertEqual(labels, ["周末面条, 昨天", "Weeknight noodles, yesterday"], "the label goes with the read, to check the lines against")
         reader.stop()
+    }
+
+    /// The lines `TextLineReader.lines(for:reading:read:)` keeps for an answer labeled `label`, with a stand-in for
+    /// Vision that reads `first` the way the label chose and `detected` the second way; and the readings asked for.
+    private func lines(for label: String?, first: [String], detected: [String] = []) async throws
+        -> (texts: [String], readings: [TextLineReader.Reading]) {
+        let asked = Asked()
+        let reading = try XCTUnwrap(TextLineReader.reading(for: label))
+        let lines = try await TextLineReader.lines(for: label, reading: reading) { reading in
+            await asked.add(reading)
+            return (reading == .detected ? detected : first).enumerated().map { index, text in
+                TextLine(text: text, frame: Frame(x: 0, y: Double(index) * 20, w: 50, h: 12))
+            }
+        }
+        return (lines.map(\.text), await asked.readings)
+    }
+
+    /// The label is evidence for how to read only when it names what was read. The tab bar's "Tab Bar" names none of
+    /// its tabs, so they are read once more, with Vision detecting the language among Simplified Chinese and English.
+    func testLinesTheLabelDoesNotNameAreReadAgainDetectingTheLanguage() async throws {
+        var read = try await lines(for: "Tab Bar", first: ["Tide", "Ask", "Library"], detected: ["Tide", "Ask", "Library"])
+        XCTAssertEqual(read.texts, ["Tide", "Ask", "Library"], "a Latin tab bar keeps its lines, from the second read")
+        XCTAssertEqual(read.readings, [.latin, .detected])
+        read = try await lines(for: "Tab Bar", first: ["4 1JBIJ", "xu"], detected: ["周末", "昨天"])
+        XCTAssertEqual(read.texts, ["周末", "昨天"], "junk read the English way, then the Han lines")
+        read = try await lines(for: "Tab Bar", first: ["xu", "X41"], detected: ["주말", "어제"])
+        XCTAssertEqual(read.texts, [], "Hangul in the second read: no lines, as no reading is calibrated for it")
+        read = try await lines(for: "Tab Bar", first: ["Tide"], detected: ["Tide", "カード"])
+        XCTAssertEqual(read.texts, [], "nor for kana, in any line")
+        read = try await lines(for: nil, first: ["Tide", "Ask"], detected: ["Tide", "Ask"])
+        XCTAssertEqual(read.readings, [.latin, .detected], "no label names nothing")
+
+        read = try await lines(for: "Weeknight noodles, yesterday", first: ["Weeknight noodles", "= yesterday"])
+        XCTAssertEqual(read.texts, ["Weeknight noodles", "= yesterday"])
+        XCTAssertEqual(read.readings, [.latin], "a card whose lines match its label's parts never pays the second read")
+        read = try await lines(for: "Random, 4 seconds ago", first: ["Random", "= 1 seconds ago"])
+        XCTAssertEqual(read.readings, [.latin], "one line that matches is enough")
+        read = try await lines(for: "周末面条, 昨天", first: ["周末面条", "昨天"])
+        XCTAssertEqual(read.readings, [.han])
     }
 
     func testVisionsBoxIsPlacedInGlobalPoints() {
@@ -436,5 +485,40 @@ final class TextLineReaderTests: XCTestCase {
         let lines = try read(CGRect(x: 1010, y: 505, width: 300, height: 90), of: grid, reading: .han)
         XCTAssertEqual(lines.map(\.text), ["周末面条", "昨天"])
         assertWhereDrawn(lines, drawn)
+    }
+
+    /// Reads `texts`, drawn as two lines, as hover reads an answer labeled "Tab Bar", with Vision; and the readings
+    /// asked for.
+    private func readUnderTabBar(_ texts: (String, String)) async throws -> (lines: [TextLine], drawn: [CGRect], readings: [TextLineReader.Reading]) {
+        let (grid, drawn) = try drawnSample(CGRect(x: 1000, y: 500, width: 320, height: 100), lines: [
+            (texts.0, 17, .semibold, NSPoint(x: 30, y: 58)), (texts.1, 15, .regular, NSPoint(x: 30, y: 24)),
+        ])
+        let (image, frame) = try XCTUnwrap(grid.image(of: CGRect(x: 1010, y: 505, width: 300, height: 90)))
+        let asked = Asked()
+        let lines = try await TextLineReader.lines(for: "Tab Bar", reading: try XCTUnwrap(TextLineReader.reading(for: "Tab Bar"))) { reading in
+            await asked.add(reading)
+            let read = try TextLineReader.read(image, showing: frame, reading: reading)
+            NSLog("Locant text lines (test, Tab Bar, %@): %@", "\(reading)", "\(read)")
+            return read
+        }
+        return (lines, drawn, await asked.readings)
+    }
+
+    /// Runs Vision: tabs in Chinese under the label "Tab Bar", which names none of them, so the label chooses the English
+    /// read, whose lines match no part of it; the second read, detecting the language, gives both lines where they
+    /// were drawn. Calibrated on this synthetic render only, not yet on a real sample.
+    func testVisionReadsChineseTabsUnderALabelThatNamesNoneOfThemTheSecondWay() async throws {
+        let read = try await readUnderTabBar(("周末", "昨天"))
+        XCTAssertEqual(read.readings, [.latin, .detected])
+        XCTAssertEqual(read.lines.map(\.text), ["周末", "昨天"])
+        assertWhereDrawn(read.lines, read.drawn)
+    }
+
+    /// Runs Vision: Latin tabs under "Tab Bar" are read twice too, and keep the second read's lines.
+    func testVisionReadsLatinTabsUnderALabelThatNamesNoneOfThemTheSecondWay() async throws {
+        let read = try await readUnderTabBar(("Tide", "Library"))
+        XCTAssertEqual(read.readings, [.latin, .detected])
+        XCTAssertEqual(read.lines.map(\.text), ["Tide", "Library"])
+        assertWhereDrawn(read.lines, read.drawn)
     }
 }
