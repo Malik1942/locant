@@ -137,6 +137,8 @@ enum ElementResolver {
     static let shapeRawRole = "LocantShape"
     /// specs/capture-shapes.md R124: controls in one row or column, lined up with small gaps.
     static let groupRawRole = "LocantGroup"
+    /// specs/capture-shapes.md R127: a line of text Locant read from the screen inside an element that merges it.
+    static let textRawRole = "LocantText"
 
     /// A visual grouping computed from neighbouring elements. SwiftUI exposes leaves but not the
     /// cards that hold them; this stands in for the missing container and says so in its role.
@@ -668,7 +670,8 @@ extension HitRefiner {
             rung0 = inPhone ? tightened(hit, shapes: &shapes) : hit
         } else if let shape = shapes.shape(at: point) {
             shapeAtPoint = shape
-            if let previous, isElement(previous),
+            // R127: a line read from the screen is never held; it is read again at each step.
+            if let previous, isElement(previous), previous.rawRole != ElementResolver.textRawRole,
                previous.frame.cgRect.insetBy(dx: -shapeHold, dy: -shapeHold).contains(point),
                holds(shape, previous.frame.cgRect) {
                 // Held from the step before, which tightened it already where it could.
@@ -809,4 +812,72 @@ extension HitRefiner {
     private static func isShape(_ rung: ResolvedElement) -> Bool { rung.rawRole == ElementResolver.shapeRawRole }
 
     private static func rungArea(_ rung: ResolvedElement) -> Double { rung.frame.w * rung.frame.h }
+}
+
+// MARK: - Text lines (R127)
+
+/// R127: a line of text read from the screen sample, and its box in global points.
+struct TextLine: Sendable, Equatable {
+    var text: String
+    var frame: Frame
+}
+
+extension HitRefiner {
+    /// R127: a line takes the pointer within this of its box, and its rung's frame is the box grown by it.
+    static let textReach: Double = 2
+
+    /// R127: the accessibility frame to read lines of text in, for the hover answer on Device Hub's simulated
+    /// screen when it has no accessibility children (a leaf, or a container whose children read empty, like
+    /// the tab bar) and its frame holds `point`. Nil elsewhere.
+    static func textArea(of snapshot: ElementSnapshot, at point: CGPoint) -> CGRect? {
+        guard simulatedScreen(in: snapshot) != nil, let frame = snapshot.element.frame, frame.w > 0, frame.h > 0,
+              frame.cgRect.contains(point) else { return nil }
+        let childless = ElementResolver.isContainer(snapshot.element)
+            ? (snapshot.children ?? []).isEmpty
+            : (snapshot.element.childCount ?? 0) == 0
+        return childless ? frame.cgRect : nil
+    }
+
+    /// R127: the line under the pointer as a rung of its own, ahead of `answer`, the element that merges it,
+    /// whose accessibility frame is `answerFrame`. Only when the answer holds two or more lines (one alone, a
+    /// heading, adds nothing) and `point` lies within `textReach` of a line's box; of two, the nearer. Its
+    /// frame is that box grown by `textReach`, cut to `answerFrame`; its label the part of the answer's label
+    /// the line reads (`textLabel`); its path the answer's, then `staticText`.
+    static func textRung(lines: [TextLine], at point: CGPoint, answer: ResolvedElement, answerFrame: Frame) -> ResolvedElement? {
+        let area = answerFrame.cgRect
+        let held = lines.filter { line in
+            !line.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && line.frame.w > 0 && line.frame.h > 0 && line.frame.cgRect.intersects(area)
+        }
+        guard held.count >= 2 else { return nil }
+        func distance(to line: TextLine) -> Double {
+            let box = line.frame.cgRect
+            return hypot(max(box.minX - point.x, 0, point.x - box.maxX), max(box.minY - point.y, 0, point.y - box.maxY))
+        }
+        guard let line = held.filter({ $0.frame.cgRect.insetBy(dx: -textReach, dy: -textReach).contains(point) })
+            .min(by: { distance(to: $0) < distance(to: $1) }) else { return nil }
+        let frame = line.frame.cgRect.insetBy(dx: -textReach, dy: -textReach).intersection(area)
+        guard !frame.isNull, !frame.isEmpty else { return nil }
+        return ResolvedElement(
+            role: "staticText", rawRole: ElementResolver.textRawRole, label: textLabel(line.text, within: answer.label),
+            identifier: nil, identifierSource: .unknown, value: nil, frame: Frame(frame),
+            path: answer.path + [PathEntry(role: "staticText", identifier: nil)]
+        )
+    }
+
+    /// R127: the part of `label`, split on ", ", that the line `text` reads, compared case-insensitively on
+    /// letters and digits only: an equal part, else one that contains the line or that the line contains.
+    /// Else the text as read. So a card's "= yesterday" (Vision reads its list icon as "=") is "yesterday".
+    static func textLabel(_ text: String, within label: String?) -> String {
+        func letters(_ s: String) -> String { String(s.lowercased().filter { $0.isLetter || $0.isNumber }) }
+        let read = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let key = letters(read)
+        guard !key.isEmpty, let label else { return read }
+        let parts = label.components(separatedBy: ", ")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !letters($0).isEmpty }
+        if let equal = parts.first(where: { letters($0) == key }) { return equal }
+        if let near = parts.first(where: { part in letters(part).contains(key) || key.contains(letters(part)) }) { return near }
+        return read
+    }
 }

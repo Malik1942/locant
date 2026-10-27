@@ -766,6 +766,107 @@ final class ElementResolverTests: XCTestCase {
         }
     }
 
+    // MARK: Text lines (specs/capture-shapes.md R127)
+
+    /// The card's two lines as Vision might read them; it reads the list icon before "yesterday" as "=".
+    private let cardLines = [TextLine(text: "Weeknight noodles", frame: Frame(x: 377.0, y: 560.0, w: 120.0, h: 12.0)),
+                             TextLine(text: "= yesterday", frame: Frame(x: 377.0, y: 582.0, w: 70.0, h: 11.0))]
+    /// The floating tab bar Device Hub reports with no children (R125), and its three labels as read.
+    private let tabBar = AttributeSet(role: "AXGroup", description: "Tab Bar", frame: Frame(x: 347.9, y: 844.3, w: 359.7, h: 74.2), childCount: 0)
+    private let tabLines = [TextLine(text: "Tide", frame: Frame(x: 445.5, y: 844.0, w: 18.0, h: 6.5)),
+                            TextLine(text: "Ask", frame: Frame(x: 520.5, y: 844.0, w: 14.5, h: 6.5)),
+                            TextLine(text: "Library", frame: Frame(x: 587.0, y: 844.0, w: 28.5, h: 8.0))]
+
+    private func textRung(_ lines: [TextLine], at point: CGPoint, in snapshot: ElementSnapshot) throws -> ResolvedElement? {
+        let answer = try XCTUnwrap(ElementResolver.resolve(snapshot))
+        return HitRefiner.textRung(lines: lines, at: point, answer: answer, answerFrame: try XCTUnwrap(snapshot.element.frame))
+    }
+
+    func testOnACardEachLineIsARungLabeledByThePartOfTheCardsLabelItReads() throws {
+        let l = library()
+        let card = ElementSnapshot(element: cardButton, ancestors: [l.inner, l.screen])
+        let first = try XCTUnwrap(try textRung(cardLines, at: CGPoint(x: 400, y: 566), in: card))
+        XCTAssertEqual(first.role, "staticText")
+        XCTAssertEqual(first.rawRole, ElementResolver.textRawRole)
+        XCTAssertEqual(first.label, "Weeknight noodles")
+        assertFrame(first.frame, CGRect(x: 375.0, y: 558.0, width: 124.0, height: 16.0), "the line's box grown by 2 pt")
+        XCTAssertNil(first.identifier)
+        XCTAssertEqual(first.identifierSource, .unknown)
+        XCTAssertNil(first.value)
+        XCTAssertNil(first.members)
+        XCTAssertEqual(first.path, try XCTUnwrap(ElementResolver.resolve(card)).path + [PathEntry(role: "staticText", identifier: nil)])
+
+        let second = try XCTUnwrap(try textRung(cardLines, at: CGPoint(x: 410, y: 581), in: card), "1 pt above the box: within 2 pt")
+        XCTAssertEqual(second.label, "yesterday", "the label's part wins over \"= yesterday\"")
+        assertFrame(second.frame, CGRect(x: 375.0, y: 580.0, width: 74.0, height: 15.0))
+
+        XCTAssertNil(try textRung(cardLines, at: CGPoint(x: 400, y: 577), in: card), "between the lines, 5 pt from each")
+        XCTAssertNil(try textRung(cardLines, at: CGPoint(x: 400, y: 574.5), in: card), "2.5 pt below the first")
+        XCTAssertNil(try textRung(Array(cardLines.prefix(1)), at: CGPoint(x: 400, y: 566), in: card), "one line alone adds nothing")
+
+        var unnamed = cardButton
+        unnamed.description = "Dinner"
+        let read = try XCTUnwrap(try textRung(cardLines, at: CGPoint(x: 400, y: 588), in: ElementSnapshot(element: unnamed, ancestors: [l.inner, l.screen])))
+        XCTAssertEqual(read.label, "= yesterday", "no part of the label matches: the text as read")
+    }
+
+    func testOnTheTabBarALineIsARungInsideTheGroup() throws {
+        let l = library()
+        let bar = ElementSnapshot(element: tabBar, ancestors: [l.screen], children: [])
+        let ask = try XCTUnwrap(try textRung(tabLines, at: CGPoint(x: 527, y: 847), in: bar))
+        XCTAssertEqual(ask.role, "staticText")
+        XCTAssertEqual(ask.label, "Ask", "\"Tab Bar\" names none of them")
+        assertFrame(ask.frame, CGRect(x: 518.5, y: 844.3, width: 18.5, height: 8.2), "grown by 2 pt, cut to the tab bar's frame")
+        XCTAssertEqual(ask.path.map(\.role), ["group", "group", "staticText"])
+        XCTAssertNil(try textRung(tabLines, at: CGPoint(x: 527, y: 880), in: bar), "below the labels: the tab bar")
+    }
+
+    func testALineMatchesALabelPartOnLettersAndDigitsAlone() {
+        XCTAssertEqual(HitRefiner.textLabel("WEEKNIGHT  noodles!", within: "Weeknight noodles, yesterday"), "Weeknight noodles")
+        XCTAssertEqual(HitRefiner.textLabel("Weeknight nood", within: "Weeknight noodles, yesterday"), "Weeknight noodles", "the part holds the line")
+        XCTAssertEqual(HitRefiner.textLabel("= 4 seconds ago", within: "Random, 4 seconds ago"), "4 seconds ago")
+        XCTAssertEqual(HitRefiner.textLabel("Random 4 seconds ago", within: "Random, 4 seconds ago"), "Random", "the line holds a part")
+        XCTAssertEqual(HitRefiner.textLabel("=", within: "Random, 4 seconds ago"), "=", "no letters or digits: as read")
+        XCTAssertEqual(HitRefiner.textLabel(" Ask ", within: nil), "Ask")
+    }
+
+    func testLinesAreReadOnlyInAnAnswerOnTheSimulatedScreenThatHasNoChildren() {
+        let l = library()
+        let onCard = CGPoint(x: 400, y: 566)
+        XCTAssertEqual(HitRefiner.textArea(of: ElementSnapshot(element: cardButton, ancestors: [l.inner, l.screen]), at: onCard),
+                       cardButton.frame?.cgRect, "a leaf: its accessibility frame")
+        XCTAssertNil(HitRefiner.textArea(of: ElementSnapshot(element: cardButton, ancestors: [l.inner, l.screen]), at: CGPoint(x: 400, y: 630)),
+                     "its frame does not hold the point")
+        var parent = cardButton
+        parent.childCount = 2
+        XCTAssertNil(HitRefiner.textArea(of: ElementSnapshot(element: parent, ancestors: [l.inner, l.screen]), at: onCard), "it has children")
+        XCTAssertNil(HitRefiner.textArea(of: ElementSnapshot(element: cardButton, ancestors: [l.inner, AttributeSet(role: "AXGroup", frame: hubScreen)]), at: onCard),
+                     "off the simulated screen")
+
+        let onBar = CGPoint(x: 527, y: 880)
+        XCTAssertEqual(HitRefiner.textArea(of: ElementSnapshot(element: tabBar, ancestors: [l.screen], children: []), at: onBar), tabBar.frame?.cgRect,
+                       "a container whose children read empty")
+        XCTAssertNil(HitRefiner.textArea(of: ElementSnapshot(element: l.inner, ancestors: [l.screen], children: l.children), at: onBar),
+                     "a container with children")
+    }
+
+    /// R117 step 2 holds an element inside a shape; a line is read again at each step instead.
+    func testALineIsNeverHeldInsideAShape() throws {
+        let l = library()
+        let bar = ElementSnapshot(element: tabBar, ancestors: [l.screen], children: [])
+        let capsule = CGRect(x: 352, y: 844.3, width: 351, height: 70) // the tab bar's glass
+        let ask = try XCTUnwrap(try textRung(tabLines, at: CGPoint(x: 527, y: 847), in: bar))
+        let near = CGPoint(x: 527, y: 854) // 1.5 pt below the line's rung: inside R117's 3 pt hold
+        var shapes = FixedShapes(rects: [capsule])
+        let levels = HitRefiner.selectionLevels(for: bar, at: near, shapes: &shapes, holding: ask)
+        XCTAssertEqual(levels.first??.rawRole, ElementResolver.shapeRawRole)
+
+        var element = ask
+        element.rawRole = "AXStaticText"
+        let held = HitRefiner.selectionLevels(for: bar, at: near, shapes: &shapes, holding: element)
+        XCTAssertEqual(held.first??.rawRole, "AXStaticText", "an accessibility element there would be held")
+    }
+
     /// SwiftUI nests several containers in one frame (three 456×900 groups in the Simulator, five
     /// 470×1000 ones in Device Hub), and so does the web. They outline the same rectangle, so they
     /// are one rung, and Option always moves the outline. Of a run the window stays, else the one
