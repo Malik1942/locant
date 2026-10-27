@@ -368,14 +368,16 @@ actor AccessibilityReader {
             snapshot.children = neighbors(of: element, attributes: elementAttributes)
         } else if let parent = parents.first, let parentAttributes = ancestors.first, ElementResolver.isContainer(parentAttributes) {
             // R125: Device Hub names the screen's content group as the parent of what the group inside it
-            // holds. The siblings come from the container that lists the element, which joins the path.
-            if let holder = listingParent(of: element, frame: elementAttributes.frame, below: parent) {
+            // holds. The siblings come from the container that lists the element, which joins the path. One
+            // read of the parent's children, through the neighbor cache, serves the check and the siblings.
+            let listed = neighborhood(of: parent, attributes: parentAttributes)
+            if let holder = listingParent(of: element, frame: elementAttributes.frame, below: parent, listing: listed.elements) {
                 let holderAttributes = cachedAttributes(of: holder, web: web)
                 snapshot.ancestors = Array(([holderAttributes] + ancestors).prefix(ElementResolver.maxAncestors))
                 parents = Array(([holder] + parents).prefix(ElementResolver.maxAncestors))
                 snapshot.siblings = neighbors(of: holder, attributes: holderAttributes)
             } else {
-                snapshot.siblings = neighbors(of: parent, attributes: parentAttributes)
+                snapshot.siblings = listed.nodes
             }
         }
         snapshot.ancestors = zip(snapshot.ancestors, parents).map { framingDetachedScreen($0, of: $1) }
@@ -397,15 +399,15 @@ actor AccessibilityReader {
     /// R125: the answer of `listingParent`, found or not, per element for `neighborTTL`.
     private var listingParentCache: [ElementKey: (stamp: ContinuousClock.Instant, parent: AXUIElement?)] = [:]
 
-    /// R125: when `parent` does not list `element` among its children, the container below it that does.
-    /// Depth first through containers whose frame holds the element's within 1 pt, at most 4 levels below
-    /// `parent` and 200 nodes. Nil when `parent` lists the element or nothing below it does.
-    private func listingParent(of element: AXUIElement, frame: Frame?, below parent: AXUIElement) -> AXUIElement? {
+    /// R125: when `parent` does not list `element` among its children (`kids`, as the neighbor cache has
+    /// them), the container below it that does. Depth first through containers whose frame holds the
+    /// element's within 1 pt, at most 4 levels below `parent` and 200 nodes. Nil when `parent` lists the
+    /// element or nothing below it does.
+    private func listingParent(of element: AXUIElement, frame: Frame?, below parent: AXUIElement, listing kids: [AXUIElement]) -> AXUIElement? {
         let key = ElementKey(pid: pidOf(element), hash: CFHash(element))
         let now = ContinuousClock.now
         if let cached = listingParentCache[key], now - cached.stamp < Self.neighborTTL { return cached.parent }
         var found: AXUIElement?
-        let kids = children(of: parent)
         if let target = frame?.cgRect, !kids.contains(where: { CFEqual($0, element) }) {
             var stack: [(node: AXUIElement, depth: Int)] = kids.reversed().map { ($0, 1) }
             var visited = 0
@@ -513,22 +515,28 @@ actor AccessibilityReader {
         let hash: CFHashCode
     }
 
-    private var neighborCache: [NeighborKey: (stamp: ContinuousClock.Instant, nodes: [AttributeSet])] = [:]
+    private var neighborCache: [NeighborKey: (stamp: ContinuousClock.Instant, elements: [AXUIElement], nodes: [AttributeSet])] = [:]
     private static let neighborTTL: Duration = .milliseconds(400)
     private static let neighborLimit = 60
 
-    private func neighbors(of container: AXUIElement, attributes: AttributeSet) -> [AttributeSet] {
+    /// A container's children: all of them as elements, and the first `neighborLimit` as attributes.
+    private func neighborhood(of container: AXUIElement, attributes: AttributeSet) -> (elements: [AXUIElement], nodes: [AttributeSet]) {
         var pid: pid_t = 0
         AXUIElementGetPid(container, &pid)
         let key = NeighborKey(pid: pid, role: attributes.role, subrole: attributes.subrole, frame: attributes.frame, hash: CFHash(container))
         let now = ContinuousClock.now
         if let cached = neighborCache[key], now - cached.stamp < Self.neighborTTL {
-            return cached.nodes
+            return (cached.elements, cached.nodes)
         }
-        let nodes = children(of: container).prefix(Self.neighborLimit).map { lightAttributes(of: $0) }
+        let elements = children(of: container)
+        let nodes = elements.prefix(Self.neighborLimit).map { lightAttributes(of: $0) }
         if neighborCache.count > 32 { neighborCache.removeAll() }
-        neighborCache[key] = (now, nodes)
-        return nodes
+        neighborCache[key] = (now, elements, nodes)
+        return (elements, nodes)
+    }
+
+    private func neighbors(of container: AXUIElement, attributes: AttributeSet) -> [AttributeSet] {
+        neighborhood(of: container, attributes: attributes).nodes
     }
 
     /// What clustering needs and nothing more: six reads instead of eight.
