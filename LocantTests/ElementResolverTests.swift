@@ -496,6 +496,56 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertEqual(groups(in: bare).count, 1)
     }
 
+    // MARK: Device Hub's tree (specs/capture-shapes.md R125)
+
+    /// Oryne's Library screen in Device Hub (probe of Oct 26). The screen's direct children: the content
+    /// group with the screen's frame, a generic element of no size at its origin, and the tab bar, drawn
+    /// over the content group's last card.
+    private let hubScreen = Frame(x: 347.9, y: 137.5, w: 359.7, h: 780.9)
+
+    private func hubChildren() -> [AttributeSet] {
+        [AttributeSet(role: "AXGroup", frame: hubScreen),
+         AttributeSet(role: "AXGenericElement", frame: Frame(x: 347.9, y: 137.5, w: 0, h: 0)),
+         AttributeSet(role: "AXGroup", description: "Tab Bar", frame: Frame(x: 347.9, y: 844.3, w: 359.7, h: 74.2))]
+    }
+
+    /// Currents as the repaired reader reads it: the inner group, which lists it, heads its ancestors ahead
+    /// of the screen that Device Hub reports as its parent, and its siblings are the inner group's children.
+    func testTheRepairedSnapshotOfCurrentsFeedsTheRowOfButtons() throws {
+        let inner = AttributeSet(role: "AXGroup", frame: hubScreen)
+        let screen = AttributeSet(role: "AXGroup", subrole: HitRefiner.simulatedScreenSubrole, frame: hubScreen)
+        let recent = AttributeSet(role: "AXButton", description: "Recent", identifier: "square.grid.2x2", frame: Frame(x: 567.1, y: 220.0, w: 39.4, h: 39.3))
+        let currents = AttributeSet(role: "AXButton", description: "Currents", identifier: "water.waves", frame: Frame(x: 606.5, y: 220.0, w: 39.4, h: 39.3))
+        let library = [
+            AttributeSet(role: "AXHeading", description: "Library", frame: Frame(x: 362.2, y: 218.2, w: 113.6, h: 42.9)),
+            recent,
+            currents,
+            AttributeSet(role: "AXPopUpButton", description: "Filter", identifier: "library.filter", frame: Frame(x: 653.9, y: 220.0, w: 39.4, h: 39.3)),
+            AttributeSet(role: "AXImage", description: "Search", frame: Frame(x: 378.3, y: 284.1, w: 14.6, h: 14.9)),
+            AttributeSet(role: "AXTextField", frame: Frame(x: 401.9, y: 281.7, w: 277.1, h: 19.7)),
+            AttributeSet(role: "AXButton", description: "Product Ideas", frame: Frame(x: 362.2, y: 318.3, w: 331.1, h: 61.7)),
+            AttributeSet(role: "AXButton", frame: Frame(x: 362.2, y: 380.0, w: 331.1, h: 75.9)),
+            AttributeSet(role: "AXButton", description: "Cooking", frame: Frame(x: 362.2, y: 455.9, w: 331.1, h: 67.9)),
+            AttributeSet(role: "AXButton", frame: Frame(x: 362.2, y: 523.8, w: 331.1, h: 75.9)),
+        ]
+        let point = center(currents)
+        let repaired = ElementSnapshot(element: currents, ancestors: [inner, screen], siblings: library)
+        let levels = HitRefiner.selectionLevels(for: repaired, at: point)
+        XCTAssertEqual(levels.map { $0?.rawRole }, ["AXButton", "LocantGroup", "LocantCluster", "AXGroup"])
+        XCTAssertEqual(levels.first??.identifier, "water.waves")
+        let group = try XCTUnwrap(levels[1])
+        XCTAssertEqual(group.members?.compactMap(\.identifier), ["square.grid.2x2", "water.waves"], "Filter, 8 pt on, is not in the row")
+        XCTAssertEqual(group.frame.x, 567.1, accuracy: 0.1)
+        XCTAssertEqual(group.frame.w, 78.8, accuracy: 0.1)
+        XCTAssertEqual(group.path.map(\.role), ["group", "group", "cluster"], "the inner group joins the path")
+        XCTAssertEqual(HitRefiner.simulatedScreen(in: repaired), hubScreen.cgRect)
+
+        // As read before the repair: the screen as the parent, its own children as the siblings.
+        let unrepaired = ElementSnapshot(element: currents, ancestors: [screen], siblings: hubChildren())
+        XCTAssertEqual(HitRefiner.selectionLevels(for: unrepaired, at: point).map { $0?.rawRole }, ["AXButton", "AXGroup"],
+                       "from the button straight to the screen")
+    }
+
     /// SwiftUI nests several containers in one frame (three 456×900 groups in the Simulator, five
     /// 470×1000 ones in Device Hub), and so does the web. They outline the same rectangle, so they
     /// are one rung, and Option always moves the outline. Of a run the window stays, else the one

@@ -335,9 +335,51 @@ actor AccessibilityReader {
         if ElementResolver.isContainer(elementAttributes) {
             snapshot.children = neighbors(of: element, attributes: elementAttributes)
         } else if let parent = parents.first, let parentAttributes = ancestors.first, ElementResolver.isContainer(parentAttributes) {
-            snapshot.siblings = neighbors(of: parent, attributes: parentAttributes)
+            // specs/capture-shapes.md R125: Device Hub names the screen's content group as the parent of what
+            // the group inside it holds. The siblings come from the container that lists the element, which
+            // joins the path.
+            if let holder = listingParent(of: element, frame: elementAttributes.frame, below: parent) {
+                let holderAttributes = cachedAttributes(of: holder, web: web)
+                snapshot.ancestors = Array(([holderAttributes] + ancestors).prefix(ElementResolver.maxAncestors))
+                snapshot.siblings = neighbors(of: holder, attributes: holderAttributes)
+            } else {
+                snapshot.siblings = neighbors(of: parent, attributes: parentAttributes)
+            }
         }
         return snapshot
+    }
+
+    /// R125: the answer of `listingParent`, found or not, per element for `neighborTTL`.
+    private var listingParentCache: [ElementKey: (stamp: ContinuousClock.Instant, parent: AXUIElement?)] = [:]
+
+    /// R125: when `parent` does not list `element` among its children, the container below it that does.
+    /// Depth first through containers whose frame holds the element's within 1 pt, at most 4 levels below
+    /// `parent` and 200 nodes. Nil when `parent` lists the element or nothing below it does.
+    private func listingParent(of element: AXUIElement, frame: Frame?, below parent: AXUIElement) -> AXUIElement? {
+        let key = ElementKey(pid: pidOf(element), hash: CFHash(element))
+        let now = ContinuousClock.now
+        if let cached = listingParentCache[key], now - cached.stamp < Self.neighborTTL { return cached.parent }
+        var found: AXUIElement?
+        let kids = children(of: parent)
+        if let target = frame?.cgRect, !kids.contains(where: { CFEqual($0, element) }) {
+            var stack: [(node: AXUIElement, depth: Int)] = kids.reversed().map { ($0, 1) }
+            var visited = 0
+            while let (node, depth) = stack.popLast(), visited < 200 {
+                visited += 1
+                guard let nodeFrame = self.frame(copy(node, Self.frameAttribute)),
+                      nodeFrame.cgRect.insetBy(dx: -1, dy: -1).contains(target),
+                      ElementResolver.isContainer(cachedAttributes(of: node)) else { continue }
+                let grandchildren = children(of: node)
+                if grandchildren.contains(where: { CFEqual($0, element) }) {
+                    found = node
+                    break
+                }
+                if depth < 4 { stack.append(contentsOf: grandchildren.reversed().map { ($0, depth + 1) }) }
+            }
+        }
+        if listingParentCache.count > 256 { listingParentCache.removeAll() }
+        listingParentCache[key] = (now, found)
+        return found
     }
 
     // MARK: Attribute cache
