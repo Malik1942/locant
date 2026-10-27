@@ -173,6 +173,31 @@ final class ShapeFinderTests: XCTestCase {
         assertRect(ShapeFinder.fill(at: CGPoint(x: 100.75, y: 60), in: canvas.grid(), bound: canvas.bounds)?.shape, pill)
     }
 
+    // An accessibility frame from another app reaches the finder as the app reported it: infinite, NaN,
+    // or far taller than the screen. Nothing traps, and the ring is built only where the sample is.
+    func testFramesFromOtherAppsNeverTrap() {
+        var canvas = Canvas(400, 300, background: dark)
+        canvas.paint(CGRect(x: 100, y: 80, width: 160, height: 90), RGB(r: 50, g: 50, b: 54))
+        let grid = canvas.grid()
+        let nan = CGFloat.nan
+        XCTAssertNil(ShapeFinder.shape(around: .infinite, in: grid, bound: canvas.bounds))
+        XCTAssertNil(ShapeFinder.shape(around: CGRect(x: nan, y: nan, width: 20, height: 20), in: grid, bound: canvas.bounds))
+        XCTAssertNil(ShapeFinder.shape(around: CGRect(x: 120, y: -15_000, width: 20, height: 30_000), in: grid, bound: canvas.bounds))
+        XCTAssertNil(ShapeFinder.fill(at: CGPoint(x: nan, y: 125), in: grid, bound: canvas.bounds))
+        XCTAssertNil(ShapeFinder.fill(at: CGPoint(x: 1e300, y: 125), in: grid, bound: canvas.bounds))
+        XCTAssertNil(grid.sample(at: CGPoint(x: 106, y: nan)))
+        XCTAssertNil(grid.box(of: .infinite))
+        XCTAssertNil(grid.box(of: CGRect(x: 0, y: 0, width: nan, height: 10)))
+        // A bound that is not finite, or empty, finds nothing.
+        for bound in [CGRect.infinite, .null, CGRect(x: nan, y: 0, width: 400, height: 300), CGRect(x: 100, y: 100, width: 0, height: 50)] {
+            XCTAssertNil(ShapeFinder.fill(at: CGPoint(x: 106, y: 125), in: grid, bound: bound), "\(bound)")
+            XCTAssertNil(ShapeFinder.shape(around: CGRect(x: 120, y: 100, width: 20, height: 20), in: grid, bound: bound), "\(bound)")
+        }
+        // A frame inside the sample still finds the card.
+        assertRect(ShapeFinder.shape(around: CGRect(x: 120, y: 100, width: 20, height: 20), in: grid, bound: canvas.bounds),
+                   CGRect(x: 100, y: 80, width: 160, height: 90))
+    }
+
     func testSeedColorIsTheMeanOfTheLargestBucket() {
         let colors = [RGB(r: 16, g: 16, b: 16), RGB(r: 17, g: 17, b: 17), RGB(r: 23, g: 23, b: 23),
                       RGB(r: 200, g: 0, b: 0), RGB(r: 201, g: 0, b: 0)]

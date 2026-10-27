@@ -71,24 +71,34 @@ struct PixelGrid: Sendable {
         return RGB(r: bytes[i], g: bytes[i + 1], b: bytes[i + 2])
     }
 
-    /// The sample under a global point; nil off the grid.
+    /// The sample under a global point; nil off the grid, and for a point that is not finite. Compared
+    /// before converting, since a point can come from another app's accessibility frame.
     func sample(at point: CGPoint) -> (x: Int, y: Int)? {
-        let x = Int(((point.x - frame.minX) * scale).rounded(.down))
-        let y = Int(((point.y - frame.minY) * scale).rounded(.down))
-        guard x >= 0, y >= 0, x < width, y < height else { return nil }
-        return (x, y)
+        let x = ((point.x - frame.minX) * scale).rounded(.down)
+        let y = ((point.y - frame.minY) * scale).rounded(.down)
+        guard x >= 0, y >= 0, x < CGFloat(width), y < CGFloat(height) else { return nil } // NaN fails too
+        return (Int(x), Int(y))
     }
 
-    /// The samples a global rectangle covers, unclipped: they may lie off the grid.
+    /// The samples a global rectangle covers, unclipped up to 2 samples beyond the grid. An accessibility
+    /// frame can be huge, infinite, or NaN: each edge is clamped before it is converted, and a rectangle
+    /// that is not finite covers nothing.
     func span(of rect: CGRect) -> SampleBox {
-        SampleBox(minX: Int(((rect.minX - frame.minX) * scale).rounded(.down)),
-                  minY: Int(((rect.minY - frame.minY) * scale).rounded(.down)),
-                  maxX: Int(((rect.maxX - frame.minX) * scale).rounded(.up)) - 1,
-                  maxY: Int(((rect.maxY - frame.minY) * scale).rounded(.up)) - 1)
+        guard rect.isFinite else { return SampleBox(minX: 0, minY: 0, maxX: -1, maxY: -1) }
+        func index(_ points: CGFloat, from origin: CGFloat, _ rule: FloatingPointRoundingRule, count: Int) -> Int {
+            let value = ((points - origin) * scale).rounded(rule)
+            guard value > -2 else { return -2 } // NaN lands here too
+            return value < CGFloat(count + 2) ? Int(value) : count + 2
+        }
+        return SampleBox(minX: index(rect.minX, from: frame.minX, .down, count: width),
+                         minY: index(rect.minY, from: frame.minY, .down, count: height),
+                         maxX: index(rect.maxX, from: frame.minX, .up, count: width) - 1,
+                         maxY: index(rect.maxY, from: frame.minY, .up, count: height) - 1)
     }
 
-    /// `span(of:)` clipped to the grid; nil when nothing is left.
+    /// `span(of:)` clipped to the grid; nil when nothing is left, or when `rect` is not finite.
     func box(of rect: CGRect) -> SampleBox? {
+        guard rect.isFinite else { return nil }
         let raw = span(of: rect)
         let clipped = SampleBox(minX: max(raw.minX, 0), minY: max(raw.minY, 0),
                                 maxX: min(raw.maxX, width - 1), maxY: min(raw.maxY, height - 1))
@@ -99,6 +109,13 @@ struct PixelGrid: Sendable {
     func rect(of box: SampleBox) -> CGRect {
         CGRect(x: frame.minX + CGFloat(box.minX) / scale, y: frame.minY + CGFloat(box.minY) / scale,
                width: CGFloat(box.width) / scale, height: CGFloat(box.height) / scale)
+    }
+}
+
+fileprivate extension CGRect {
+    /// Not null, not `CGRect.infinite`, and every edge a finite number: what the pixel code can convert.
+    var isFinite: Bool {
+        !isNull && !isInfinite && origin.x.isFinite && origin.y.isFinite && size.width.isFinite && size.height.isFinite
     }
 }
 
@@ -155,9 +172,9 @@ enum ShapeFinder {
     }
 
     /// The fill from the 5×5 pt patch around `point`; its `shape` is nil when R119 rejects it. Nil when
-    /// the point lies outside the bound or the grid.
+    /// the point lies outside the bound or the grid, and when the bound is empty or not finite.
     static func fill(at point: CGPoint, in grid: PixelGrid, bound: CGRect) -> Fill? {
-        guard let box = grid.box(of: bound), let center = grid.sample(at: point),
+        guard !bound.isEmpty, let box = grid.box(of: bound), let center = grid.sample(at: point),
               box.contains(x: center.x, y: center.y) else { return nil }
         let half = Int((patchSide * grid.scale / 2).rounded(.down))
         var patch: [(x: Int, y: Int)] = []
@@ -177,7 +194,7 @@ enum ShapeFinder {
     /// The shape around `rect`: the fill from the ring 2 pt outside it, accepted only if it holds `rect`
     /// and is at least 2 pt larger on one side, so an element's own background is not its shape.
     static func shape(around rect: CGRect, in grid: PixelGrid, bound: CGRect) -> CGRect? {
-        guard let box = grid.box(of: bound) else { return nil }
+        guard !bound.isEmpty, let box = grid.box(of: bound) else { return nil }
         let ring = ringSamples(around: rect.insetBy(dx: -ringOffset, dy: -ringOffset), in: grid, box: box)
         guard let seed = seedColor(of: ring.map { grid.color(x: $0.x, y: $0.y) }) else { return nil }
         let seeds = ring.filter { grid.color(x: $0.x, y: $0.y).difference(seed) <= edgeTolerance }
@@ -299,9 +316,13 @@ enum ShapeFinder {
         return shape
     }
 
-    /// The samples on the outline of `rect` that lie inside `box`.
+    /// The samples on the outline of `rect` that lie inside `box`. The outline is cut to the grid grown by
+    /// 2 samples first, so a frame thousands of points tall builds only the part the sample shows.
     private static func ringSamples(around rect: CGRect, in grid: PixelGrid, box: SampleBox) -> [(x: Int, y: Int)] {
-        let r = grid.span(of: rect)
+        let margin = 2 / grid.scale
+        let visible = rect.intersection(grid.frame.insetBy(dx: -margin, dy: -margin))
+        guard visible.isFinite else { return [] }
+        let r = grid.span(of: visible)
         var ring: [(x: Int, y: Int)] = []
         for x in stride(from: r.minX, through: r.maxX, by: 1) {
             ring.append((x, r.minY))
