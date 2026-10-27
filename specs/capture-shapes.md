@@ -11,8 +11,9 @@ Amended Oct 26, after the R122 check and the final review:
 - **R120:** a container under the pointer reads its children, not its siblings, so the sibling cluster that used to follow a small container hit is gone.
 - **R121:** a committed shape's members are read after the crop has started, so the crop never waits for them.
 - **R122:** no change to the walk; the Oct 26 "miss" was the probe's 12-element cap.
+- **R124:** added Oct 26 for button rows like Oryne's toolbar capsule, after Malik's request: a row (or column) of touching controls is a rung on the ⌥ ladder.
 
-**Scope of this spec:** finding shapes, hover and the ⌥ ladder with shapes in them, the cluster under any parent, the readout and payload of a shape, and the drawn frame that found nothing in Device Hub.
+**Scope of this spec:** finding shapes, hover and the ⌥ ladder with shapes in them, the cluster under any parent, a row of touching controls as a rung, the readout and payload of a shape, and the drawn frame that found nothing in Device Hub.
 **Out of scope:** drawn frames snapping to shapes; a gesture that steps inside a shape (⌥ goes up, pointing goes in); the 40 pt crop padding; a setting to turn shapes off; new schema fields; shapes in apps with no accessibility tree at all (iPhone Mirroring, canvases), which keep the fallback square because a shape there has no members to grep.
 
 Read `CLAUDE.md`; `specs/v0.1.md` R2, R2a, and R4; `specs/v0.2.md` R11–R16; `specs/v0.8.1.md` R59; `specs/v0.9-snap.md` R77; `Locant/Resolve/ElementResolver.swift` (`HitRefiner`); `Locant/Resolve/AccessibilityReader.swift` (`refine`, `snapshot(of:)`, `elements(in:pid:)`); `Locant/Capture/ScreenCapture.swift`; `Locant/Capture/SelectionOverlay.swift` (`Readout`); `Locant/Payload/MarkdownBuilder.swift`; and in `Locant/App/AppState.swift`, `drainHover`, `renderHover`, `resolveClicked`, `click`, `pin`, and `region`.
@@ -27,7 +28,7 @@ This spec overrides `specs/v0.1.md` R2a in two places. Inside a shape, rule (1)'
 - `members`: the accessibility elements at least half inside the frame, in reading order (R121).
 - `path`: the path of the innermost node, among the hovered element and its ancestors, whose frame contains the shape, then `cluster`.
 
-The cluster computed from neighboring elements (v0.1 R2a rule 4, R120 here) keeps `rawRole` `LocantCluster`. The two differ only in `rawRole` and in the payload's wording (R121).
+The cluster computed from neighboring elements (v0.1 R2a rule 4, R120 here) keeps `rawRole` `LocantCluster`. The two differ only in `rawRole` and in the payload's wording (R121). A row of touching controls (R124) is a third, `rawRole` `LocantGroup`.
 
 **R117. Hover lands on what is under the pointer.** For a pointer at point `p`, rung 0 of the ladder is chosen in this order:
 1. **On an element.** The accessibility hit (after the reader's refinement) is a non-container and its frame contains `p`: that element.
@@ -38,6 +39,7 @@ The cluster computed from neighboring elements (v0.1 R2a rule 4, R120 here) keep
 Steps 2 and 3 apply only where the accessibility hit test answered at `p`. Where no app answers (iPhone Mirroring, a canvas), hover is unchanged.
 
 The rest of the ladder runs from rung 0 outward:
+- the row or column of touching controls that rung 0 belongs to, right after it, when there is one (R124);
 - the shapes around rung 0 (R119, up to 3);
 - the cluster (R120), only where there is no shape around rung 0;
 - today's rungs: the accessibility ancestors and, in Snap and Cut, the window (R77).
@@ -133,6 +135,21 @@ The existing region tests keep passing either way. R121's members depend on the 
 
 **R123. Words elsewhere.** CHANGELOG's Unreleased section gains one bullet: Point lands on the capsule, card, or panel under the pointer whose edges are drawn on screen, even where the app exposes none to accessibility. No hint text changes.
 
+**R124. A row of touching controls is a rung.** On Oct 26 Malik pointed at the toolbar capsule on Oryne's thought-detail screen in Device Hub (capture 20261026-190816-8ngf) and could not take its three buttons together with the pointer or with ⌥, only by dragging a frame or Shift-clicking; ⌥ went to the whole screen. The buttons (`folder` at x=559.6, `square.and.arrow.up` at 599, `trash` at 638.3; each 39.4×39.3 at y=398.2) touch and tile the glass capsule. So R117 step 3 finds no rim to point into, the pixel ring around a button lies mostly outside the capsule (R119 finds no shape), and the cluster (R120) pads by 16 pt and groups at 24 pt, so it takes the meta line 23 pt below the capsule with it, or misses.
+
+- **The group.** Among the hovered element's siblings (`ElementSnapshot.siblings`, read under any container since R120), the non-container controls that, with the element, form a chain along one axis. The chain runs outward from the element in both directions, and every member has a non-empty frame.
+  - **Row:** each next control's left edge is within 2 pt of the previous one's right edge (a gap or an overlap of up to 2 pt), and every member's top and height match the element's within 1 pt.
+  - **Column:** the same along y, with every member's left edge and width matching the element's within 1 pt.
+  - A group has at least 2 members, the element included. A row if there are two or more, else a column; else none.
+- **The rung.** `role` `cluster`, `rawRole` `LocantGroup`, `label`, `identifier`, and `value` null, `identifierSource` `unknown`. `frame`: the exact union of the members, with no padding. `members`: those controls in reading order. `path`: the ancestors' path, then `cluster`, as for any cluster.
+- **Where it sits.**
+  - **Today's ladder:** right after the element, before the sibling cluster (R120). It needs no screen sample and no permission.
+  - **The shape-aware ladder (R117):** an accessibility-side rung. The cluster rule drops only a `LocantCluster`, so the group stays where a shape is found. It must hold rung 0 like any rung, takes its place by area, and a shape within 2 pt of it merges into it with the group kept. The shape would outline the same rectangle, so it adds nothing.
+  - **Same frame as an accessibility rung** (`collapsingSameFrames`, unchanged): the one with an identifier stays, else the innermost, the group.
+- **No seam zone.** Hover on a button stays on that button. Only ⌥ reaches the group.
+- **What it says.** The readout names the members as for any cluster: `cluster · folder, square.and.arrow.up, trash` (R121, code unchanged). The Markdown head line reads `cluster · N elements (controls in one row or column, grouped by Locant, not an accessibility element; frame is their union)`; the `LocantShape` and `LocantCluster` lines are unchanged. The `role` description in `schema/capture.schema.json` gains: "rawRole LocantGroup: controls in one row or column whose frames touch, its frame their union." No field is added.
+- **Members on commit.** The members found at hover stand: the drawn-frame walk of R121 applies only to a `LocantShape`.
+
 ## 2. Files
 
 - New:
@@ -142,12 +159,12 @@ The existing region tests keep passing either way. R121's members depend on the 
   - `LocantTests/Fixtures/shape-*.png` and `LocantTests/Fixtures/shapes.json`: the real-screen fixtures and their expected rectangles, beside the existing fixtures.
   - `scripts/blur-fixture-text.swift`: finds text with Vision and blurs it with Core Image, so fixtures from Malik's own screens can be public.
 - Changed:
-  - `ElementResolver.swift`: `HitRefiner`, R117 and R120.
+  - `ElementResolver.swift`: `HitRefiner`, R117, R120, and R124 (`groupRawRole`, `HitRefiner.groupElement`; `clusterElement` and the group share `computedElement`).
   - `AccessibilityReader.swift`: R120. R122 changes nothing here.
   - `ScreenCapture.swift` (`regionImage`) and `Geometry.swift` (`sampleScale`), R118.
   - `AppState.swift`: hover, commit, and members, R117 and R121.
   - `SelectionOverlay.swift`: `Readout`, R121.
-  - `MarkdownBuilder.swift` (R121), `schema/capture.schema.json` (description only, R121), `CHANGELOG.md` (R123).
+  - `MarkdownBuilder.swift` (R121, R124), `schema/capture.schema.json` (description only, R121, R124), `CHANGELOG.md` (R123).
 - Tests changed: `ElementResolverTests.swift`, `MarkdownBuilderTests.swift`, and `GeometryTests.swift`.
 
 ## 3. Tests
@@ -183,12 +200,18 @@ The existing region tests keep passing either way. R121's members depend on the 
   - **The cluster** forms under a parent that covers less than half the window, and is not offered where a shape was found.
   - **Containers:** a container that does not span the window, with no cluster around the point, is rung 0 itself; one that spans the window gives the fallback square, as today.
   - **No answer:** with no accessibility answer at the point, no shape is asked for.
-- `MarkdownBuilderTests`: the `LocantShape` head line, and the `LocantCluster` line unchanged.
+  - **The group (R124):**
+    - The capsule fixture from capture 20261026-190816-8ngf: the three buttons as siblings under a screen-sized group, and the meta line as a sibling `AXStaticText` at x=391.5 y=460.5 (220×16, 23 pt below the capsule's bottom). From each button, rung 0 is the button and rung 1 is the group: `LocantGroup`, frame (559.6, 398.2, 118.1, 39.3) within 0.1, three members in order, the meta line not one. The sibling cluster follows, with four members.
+    - A gap or overlap of 2 pt still groups, and one of 3 pt does not. A height 2 pt off, or a top edge 2 pt off, does not group; 1 pt off still does. A container neighbor and a neighbor with an empty frame do not group. The chain stops at the first gap.
+    - A column of two touching buttons groups; a width 2 pt off does not. A lone button, and an element with no siblings read, have no group. In a grid the row comes before the column.
+    - Shape-aware: a `FixedShapes` capsule within 2 pt of the union (past it, exact, or inside it) leaves the group and no separate shape rung; one 8 pt past it is its own rung after the group. With no shape found the ladder is today's, group included.
+- `MarkdownBuilderTests`: the `LocantShape` head line, the `LocantCluster` line unchanged, and the `LocantGroup` head line.
 - R122 has no unit test: the walk reads live accessibility. The probe in R122 is its check.
 - The existing tests pass.
 - In the app, a Debug build, over Oryne in Device Hub (the five cases in the status line), first with the headless probe printing the readout and ladder, then by hand:
   - **The pill** (no edge on screen, so the fallback). In the pill's padding the outline is as today, and ⌥ from "Thought deleted" outlines the cluster `cluster · Thought deleted, Undo`. Committed, the crop holds the whole pill.
   - **The toolbar.** The pointer on the toolbar capsule's rim outlines the capsule, and on the pencil it outlines `button · pencil`. ⌥ from the pencil goes to the capsule, then up.
+  - **The toolbar's three buttons (R124).** On the thought-detail screen, ⌥ from `folder`, from `square.and.arrow.up`, or from `trash` outlines the three buttons together, the readout `cluster · folder, square.and.arrow.up, trash`, and a second ⌥ goes on, to the cluster that holds the meta line where no shape is found around the button. The pointer on a button stays on that button.
   - **Recent/Currents.** ⌥ from Recent outlines the capsule in one press.
   - **The sheet** (no edge at its bottom, so the fallback, and not solved by this spec).
     - Between the sheet's heading, button, and card, the outline is their cluster (R120).
