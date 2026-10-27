@@ -29,7 +29,17 @@ final class AppState {
         }
     }
 
-    private(set) var phase: Phase = .idle
+    private(set) var phase: Phase = .idle {
+        didSet {
+            // specs/capture-shapes.md R118: the screen sample is for hover. It stops, and is dropped with its
+            // memo, as soon as the session leaves hover: a click, a drawn frame, Snap, Text, Cut, or the end.
+            // Shift-click pins stay in hover and keep it.
+            if phase != .hovering {
+                sampler.stop()
+                shapeMemo = ShapeLookup.Memo()
+            }
+        }
+    }
     let preferences = Preferences()
     /// Which Settings tab shows next. The help page sets it before opening Settings, so a row
     /// there lands on the tab that owns it.
@@ -55,7 +65,8 @@ final class AppState {
     @ObservationIgnored private var levelIndex = 0
     /// v0.8.1 R59: whether the drawn outline moved since the last redraw; reset with each session.
     @ObservationIgnored private var outlineMoves = OutlineMoves()
-    /// specs/capture-shapes.md R118: the screen under the pointer, read for the shapes hover lands on.
+    /// R118: the screen under the pointer, read for the shapes hover lands on; stopped whenever `phase`
+    /// leaves hover.
     @ObservationIgnored private let sampler = ScreenSampler()
     /// R119: the last fill and the shapes found around rectangles, while the sample stays the same.
     @ObservationIgnored private var shapeMemo = ShapeLookup.Memo()
@@ -1226,8 +1237,6 @@ final class AppState {
         levelIndex = 0
         snapAtWindow = true
         outlineMoves = OutlineMoves()
-        sampler.stop()
-        shapeMemo = ShapeLookup.Memo()
         context = nil
         windows = []
         overlay.dismiss()
