@@ -162,27 +162,35 @@ actor AccessibilityReader {
     /// specs/capture-shapes.md R122: where the walk stops short of what hit-testing reaches (seen in
     /// Device Hub), the non-container elements a grid of hit tests finds inside `region`: every 8 pt or
     /// wider, about 400 tests at most, each element read once. A frame thinner than the step still gets
-    /// one row or column.
+    /// one row or column. Bounded: a quarter second per call, no more tests once 200 ms have passed or
+    /// the app stops answering, keeping what was found.
     func hitElements(in region: CGRect, pid: pid_t) -> [ElementSnapshot] {
         let app = AXUIElementCreateApplication(pid)
         enableAccessibilityIfNeeded(app: app, pid: pid)
+        AXUIElementSetMessagingTimeout(app, 0.25)
         let step = max(8, ((region.width * region.height) / 400).squareRoot())
+        let deadline = ContinuousClock.now + Self.hitGridBudget
         var found: [ElementSnapshot] = []
         var seenElements = Set<ElementKey>()
-        var seenShapes = Set<RoleFrame>()
+        var seenRoleFrames = Set<RoleFrame>()
         var y = region.minY + min(step / 2, region.height / 2)
-        while y < region.maxY {
+        rows: while y < region.maxY {
             var x = region.minX + min(step / 2, region.width / 2)
             while x < region.maxX {
+                guard ContinuousClock.now < deadline else { break rows }
+                let answer = hitAnswer(app, at: CGPoint(x: x, y: y))
+                if answer.error == .cannotComplete { break rows } // the app is not answering
                 // A point mostly lands on its neighbour's element, often a container: identity first,
                 // then the role alone (no subrole maps to a container), and only then the rest.
-                if let element = hit(app, at: CGPoint(x: x, y: y)),
-                   seenElements.insert(ElementKey(pid: pid, hash: CFHash(element))).inserted,
-                   !ElementResolver.containerRoles.contains(ElementResolver.mapRole(string(copy(element, kAXRoleAttribute)) ?? "", subrole: nil)) {
-                    let attributes = lightAttributes(of: element)
-                    if let frame = attributes.frame,
-                       seenShapes.insert(RoleFrame(role: ElementResolver.mapRole(attributes.role ?? "", subrole: attributes.subrole), frame: frame)).inserted {
-                        found.append(ElementSnapshot(element: attributes, ancestors: []))
+                if let element = answer.element, seenElements.insert(ElementKey(pid: pid, hash: CFHash(element))).inserted {
+                    AXUIElementSetMessagingTimeout(element, 0.25)
+                    let role = string(copy(element, kAXRoleAttribute))
+                    if !ElementResolver.containerRoles.contains(ElementResolver.mapRole(role ?? "", subrole: nil)) {
+                        let attributes = lightAttributes(of: element, role: role)
+                        if let frame = attributes.frame,
+                           seenRoleFrames.insert(RoleFrame(role: ElementResolver.mapRole(role ?? "", subrole: attributes.subrole), frame: frame)).inserted {
+                            found.append(ElementSnapshot(element: attributes, ancestors: []))
+                        }
                     }
                 }
                 x += step
@@ -191,6 +199,9 @@ actor AccessibilityReader {
         }
         return found
     }
+
+    /// R122: how long the hit-test grid may sample.
+    private static let hitGridBudget: Duration = .milliseconds(200)
 
     /// R122: the walk's elements and the grid's, for a caller with no lazy-tree retry of its own (a
     /// committed shape's members; a drawn frame runs the grid once after its retry). `RegionResolver`
@@ -350,9 +361,15 @@ actor AccessibilityReader {
     // MARK: Reading
 
     private func hit(_ root: AXUIElement, at point: CGPoint) -> AXUIElement? {
+        hitAnswer(root, at: point).element
+    }
+
+    /// The hit test with its error, for a caller that tells an app that does not answer from one with
+    /// nothing at the point.
+    private func hitAnswer(_ root: AXUIElement, at point: CGPoint) -> (element: AXUIElement?, error: AXError) {
         var out: AXUIElement?
         let error = AXUIElementCopyElementAtPosition(root, Float(point.x), Float(point.y), &out)
-        return error == .success ? out : nil
+        return (error == .success ? out : nil, error)
     }
 
     private func snapshot(of element: AXUIElement) -> ElementSnapshot {
@@ -488,8 +505,13 @@ actor AccessibilityReader {
 
     /// What clustering needs and nothing more: six reads instead of eight.
     private func lightAttributes(of element: AXUIElement) -> AttributeSet {
+        lightAttributes(of: element, role: string(copy(element, kAXRoleAttribute)))
+    }
+
+    /// The same, with the role already read.
+    private func lightAttributes(of element: AXUIElement, role: String?) -> AttributeSet {
         AttributeSet(
-            role: string(copy(element, kAXRoleAttribute)),
+            role: role,
             subrole: string(copy(element, kAXSubroleAttribute)),
             title: string(copy(element, kAXTitleAttribute)),
             description: string(copy(element, kAXDescriptionAttribute)),

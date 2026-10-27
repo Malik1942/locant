@@ -1028,6 +1028,7 @@ final class AppState {
                 try? await Task.sleep(for: .milliseconds(100))
                 snapshots = await reader.elements(in: rect, pid: pid)
             }
+            guard phase == .resolving else { return } // no grid for a frame cancelled during the walk
             snapshots += await reader.hitElements(in: rect, pid: pid) // R122: once, after the retry
             guard phase == .resolving else { return }
             await recollectContextIfNeeded(window: window, snapshot: hit)
