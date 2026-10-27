@@ -950,12 +950,21 @@ final class AppState {
             guard phase == .resolving else { return }
             // The window that answered the hit test, else the normal window under the point.
             let window = snapshot?.window ?? Geometry.windowOwner(at: point, windows: windows, excludingPID: ownPID)
-            let element = await withWalkedMembers(clicked, pid: window?.ownerPID ?? context?.frontPID ?? 0)
-            guard phase == .resolving else { return }
             if !pinned.isEmpty {
-                await finishSet(clicked: element, snapshot: snapshot, window: window, point: point)
+                await finishSet(clicked: clicked, snapshot: snapshot, window: window, point: point)
                 return
             }
+            // R110: the crop starts at the click, before the reads below. Its rectangle comes from the
+            // element's frame and window, which the members walk does not change.
+            let display = SelectionOverlay.displayFrameCG(containing: point)
+            let rect = Geometry.cropRect(element: clicked?.frame.cgRect, clickPoint: point, window: window?.bounds, display: display)
+            let crop = Task { try await ScreenCapture.crop(rect) }
+            cropTask = crop
+            watchForStuckCapture()
+
+            // The crop doubles as this session's token: a task from a session that ended stops here.
+            let element = await withWalkedMembers(clicked, pid: window?.ownerPID ?? context?.frontPID ?? 0)
+            guard phase == .resolving, cropTask == crop else { return }
             lockedElement = element
             if element == nil, let snapshot = lastHoverSnapshot {
                 // v0.2 R15: what sits around a point that has no element.
@@ -964,14 +973,9 @@ final class AppState {
             }
 
             await recollectContextIfNeeded(window: window, snapshot: snapshot)
-            guard phase == .resolving else { return }
+            guard phase == .resolving, cropTask == crop else { return }
             // v0.8: the page address of a web node; the localhost rule in mode inference reads it.
             if let url = snapshot?.url { context?.source.url = url }
-
-            let display = SelectionOverlay.displayFrameCG(containing: point)
-            let rect = Geometry.cropRect(element: element?.frame.cgRect, clickPoint: point, window: window?.bounds, display: display)
-            cropTask = Task { try await ScreenCapture.crop(rect) }
-            watchForStuckCapture()
 
             overlay.setHighlight(element?.frame.cgRect, readout: .describing(element), around: point)
             showNoteField(anchoredTo: element?.frame.cgRect, around: point)
@@ -983,21 +987,30 @@ final class AppState {
     /// the first element's app is the source; one crop of the union when it fits, else one each.
     private func finishSet(clicked: ResolvedElement?, snapshot: ElementSnapshot?, window: Geometry.WindowRecord?, point: CGPoint) async {
         var targets = pinned
-        if let clicked, !targets.contains(where: { $0.element.frame == clicked.frame }) {
-            targets.append(await describeTarget(clicked, snapshot: snapshot, window: window))
+        let joining = clicked.flatMap { clicked in targets.contains { $0.element.frame == clicked.frame } ? nil : clicked }
+        let frames = targets.map { $0.element.frame.cgRect } + (joining.map { [$0.frame.cgRect] } ?? [])
+        guard phase == .resolving, let first = frames.first else { return }
+
+        // R110: the crops start first. Their rectangles are the frames, which describing the clicked
+        // element and walking a shape's members do not change.
+        let display = SelectionOverlay.displayFrameCG(containing: CGPoint(x: first.midX, y: first.midY))
+        let rects = Geometry.cropRects(for: frames, display: display, displayFor: SelectionOverlay.displayFrameCG(containing:))
+        let crop = Task { try await ScreenCapture.crop(rects[0]) }
+        cropTask = crop
+        extraCropTasks = rects.dropFirst().map { rect in Task { try await ScreenCapture.crop(rect) } }
+        watchForStuckCapture()
+
+        if let joining {
+            // R121: a clicked shape lists what the walk finds inside it.
+            let walked = await withWalkedMembers(joining, pid: window?.ownerPID ?? context?.frontPID ?? 0) ?? joining
+            guard phase == .resolving, cropTask == crop else { return }
+            targets.append(await describeTarget(walked, snapshot: snapshot, window: window))
         }
-        guard phase == .resolving else { return }
+        guard phase == .resolving, cropTask == crop else { return }
         if let pinnedContext { context = pinnedContext }
         let last = targets.last!.element
         lockedElement = targets[0].element
         lockedTargets = targets.count > 1 ? targets : nil
-
-        let frames = targets.map { $0.element.frame.cgRect }
-        let display = SelectionOverlay.displayFrameCG(containing: CGPoint(x: frames[0].midX, y: frames[0].midY))
-        let rects = Geometry.cropRects(for: frames, display: display, displayFor: SelectionOverlay.displayFrameCG(containing:))
-        cropTask = Task { try await ScreenCapture.crop(rects[0]) }
-        extraCropTasks = rects.dropFirst().map { rect in Task { try await ScreenCapture.crop(rect) } }
-        watchForStuckCapture()
 
         overlay.setPinned(frames)
         overlay.setHighlight(last.frame.cgRect, readout: .describing(last), around: point)
@@ -1025,11 +1038,18 @@ final class AppState {
             fail(.noScreenRecordingPermission, nearRect: rect)
             return
         }
+        // R110: the crop is the drawn frame itself, so it starts now, before the walk, its lazy-tree
+        // retry, and the hit-test grid. It doubles as this session's token below.
+        let display = SelectionOverlay.displayFrameCG(containing: clickPoint)
+        let area = Geometry.cropRect(element: rect, clickPoint: clickPoint, window: nil, display: display, padding: 0)
+        let crop = Task { try await ScreenCapture.crop(area) }
+        cropTask = crop
+        watchForStuckCapture()
         Task {
             // The frame belongs to whoever answers at its first corner: a normal window, or the
             // desktop, a widget, or the menu bar behind an empty stretch of Dock or menu bar backdrop.
             let hit = await reader.snapshot(at: start, candidates: windowCandidates(at: start), fallbackPID: context.frontPID)
-            guard phase == .resolving else { return }
+            guard phase == .resolving, cropTask == crop else { return }
             let window = hit?.window ?? Geometry.windowOwner(at: start, windows: windows, excludingPID: ownPID)
             let pid = window?.ownerPID ?? context.frontPID
             var snapshots = await reader.elements(in: rect, pid: pid)
@@ -1039,19 +1059,14 @@ final class AppState {
                 try? await Task.sleep(for: .milliseconds(100))
                 snapshots = await reader.elements(in: rect, pid: pid)
             }
-            guard phase == .resolving else { return } // no grid for a frame cancelled during the walk
+            guard phase == .resolving, cropTask == crop else { return } // no grid for a frame cancelled during the walk
             snapshots += await reader.hitElements(in: rect, pid: pid) // R122: once, after the retry
-            guard phase == .resolving else { return }
+            guard phase == .resolving, cropTask == crop else { return }
             await recollectContextIfNeeded(window: window, snapshot: hit)
-            guard phase == .resolving else { return }
+            guard phase == .resolving, cropTask == crop else { return }
             let elements = RegionResolver.elements(in: rect, among: snapshots)
             lockedElement = RegionResolver.primary(among: snapshots, in: rect)
             lockedElements = elements
-
-            let display = SelectionOverlay.displayFrameCG(containing: clickPoint)
-            let crop = Geometry.cropRect(element: rect, clickPoint: clickPoint, window: nil, display: display, padding: 0)
-            cropTask = Task { try await ScreenCapture.crop(crop) }
-            watchForStuckCapture()
 
             overlay.showMarks(elements.map { $0.frame.cgRect })
             showNoteField(anchoredTo: rect, around: clickPoint)
@@ -1245,8 +1260,8 @@ final class AppState {
     // MARK: Failure (R9)
 
     /// R110: Point's crops run at the click. A stuck capture service stops
-    /// the session then, before the note is typed, instead of at Enter. Other failures still wait
-    /// for Enter (R9); a session that ended or moved on is left alone.
+    /// the session then, while the click is still being read or before the note is typed, instead of at
+    /// Enter. Other failures still wait for Enter (R9); a session that ended or moved on is left alone.
     private func watchForStuckCapture() {
         let tasks = [cropTask].compactMap { $0 } + extraCropTasks
         guard let first = tasks.first else { return }
@@ -1255,7 +1270,9 @@ final class AppState {
             for task in tasks {
                 guard case .failure(let error) = await task.result,
                       case .captureServiceStuck = CaptureError.capturing(error) else { continue }
-                guard phase == .noting, cropTask == first else { return }
+                // The crops start before the members walk, the drawn frame's walk, and the set's reads
+                // (R110), so a stuck failure can land while those still run.
+                guard phase == .resolving || phase == .noting, cropTask == first else { return }
                 fail(.captureServiceStuck, nearRect: anchor)
                 return
             }
