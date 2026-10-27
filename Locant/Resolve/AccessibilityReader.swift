@@ -396,15 +396,23 @@ actor AccessibilityReader {
         return framed
     }
 
-    /// R125: the answer of `listingParent`, found or not, per element for `neighborTTL`.
-    private var listingParentCache: [ElementKey: (stamp: ContinuousClock.Instant, parent: AXUIElement?)] = [:]
+    /// R125: the answer of `listingParent`, found or not, per element and reported parent for `neighborTTL`.
+    /// Keyed by both, so an element whose reported parent changes (to the very container found before) is
+    /// asked afresh and that container never joins the path twice.
+    private struct ListingKey: Hashable {
+        let pid: pid_t
+        let element: CFHashCode
+        let parent: CFHashCode
+    }
+
+    private var listingParentCache: [ListingKey: (stamp: ContinuousClock.Instant, parent: AXUIElement?)] = [:]
 
     /// R125: when `parent` does not list `element` among its children (`kids`, as the neighbor cache has
     /// them), the container below it that does. Depth first through containers whose frame holds the
     /// element's within 1 pt, at most 4 levels below `parent` and 200 nodes. Nil when `parent` lists the
     /// element or nothing below it does.
     private func listingParent(of element: AXUIElement, frame: Frame?, below parent: AXUIElement, listing kids: [AXUIElement]) -> AXUIElement? {
-        let key = ElementKey(pid: pidOf(element), hash: CFHash(element))
+        let key = ListingKey(pid: pidOf(element), element: CFHash(element), parent: CFHash(parent))
         let now = ContinuousClock.now
         if let cached = listingParentCache[key], now - cached.stamp < Self.neighborTTL { return cached.parent }
         var found: AXUIElement?
