@@ -5,6 +5,14 @@
 - **R119:** the fill finds edges first. The first rule, a step-to-step limit of 6, leaked out of every glass shape at every tolerance tried.
 - **R122:** the drawn-frame miss is checked before anything changes.
 - **Section 3:** the real-screen fixtures are Malik's captures of the failing cases. Two of them, the pill and the sheet, have no drawn edge to find; they fall back to the cluster. The speed target is the one measured.
+
+Amended Oct 26, after the R122 check and the final review:
+- **R118:** the sample stops as soon as hover ends, not when the overlay closes, and an area whose capture failed waits for the next refresh.
+- **R120:** a container under the pointer reads its children, not its siblings, so the sibling cluster that used to follow a small container hit is gone.
+- **R121:** a committed shape's members come from the walk and R122's hit-test grid (`visibleElements(in:pid:)`), not the walk alone, read after the crop has started.
+- **R122:** the walk missed two buttons hover reads on the thought-detail screen, so a hit-test grid follows it for drawn frames and committed shapes.
+- **R122:** the grid is bounded: a quarter second per call, and it stops after 200 ms or at an app that does not answer.
+
 **Scope of this spec:** finding shapes, hover and the ⌥ ladder with shapes in them, the cluster under any parent, the readout and payload of a shape, and the drawn frame that found nothing in Device Hub.
 **Out of scope:** drawn frames snapping to shapes; a gesture that steps inside a shape (⌥ goes up, pointing goes in); the 40 pt crop padding; a setting to turn shapes off; new schema fields; shapes in apps with no accessibility tree at all (iPhone Mirroring, canvases), which keep the fallback square because a shape there has no members to grep.
 
@@ -43,7 +51,7 @@ The rest of the ladder runs from rung 0 outward:
 
 Haptics follow R59 unchanged: a move of the outline, into a shape or out of one, taps `.alignment`, and ⌥ taps `.levelChange`.
 
-**R118. The screen sample.** `ScreenSampler` (new, `Locant/Capture/ScreenSampler.swift`, a class: it owns a capture task) keeps one recent image of the area hover reads shapes in, while the Point, Snap, Text, or Cut overlay is up. Color does not use it. The area is R119's bound: the simulated screen in Device Hub, else the window under the pointer, else the display.
+**R118. The screen sample.** `ScreenSampler` (new, `Locant/Capture/ScreenSampler.swift`, a class: it owns a capture task) keeps one recent image of the area hover reads shapes in, while the Point, Snap, Text, or Cut overlay is up for hover. Color does not use it. The area is R119's bound: the simulated screen in Device Hub, else the window under the pointer, else the display.
 
 The image is a `PixelGrid`: RGBA, 8 bits per channel, top row first, at the display's own scale (2 samples per point on a Retina display). It carries the area it shows in global CG points, its scale, a generation number that increases with each new image, and R119's edge map. The conversion and the edge map are computed off the main actor when the image lands: about 27 ms for an iPhone screen, so hover never pays for them.
 
@@ -56,9 +64,9 @@ The image is a `PixelGrid`: RGBA, 8 bits per channel, top row first, at the disp
   - When a new image lands, hover reads the spot under the pointer again.
   - The overlay takes the pointer's scrolling, so the screen under it changes only through animation and video.
 - **Hover never waits for it.** Hover reads the newest image when it shows the area it wants. Otherwise `ShapeFinder` is not asked, and R117 step 4 decides.
-- **Fails soft.** A failed or slow capture leaves the previous image, or none. No toast, no sound, no recovery alert. The click's own capture and its stuck-service handling (R109–R113) are unchanged.
+- **Fails soft.** A failed or slow capture leaves the previous image, or none. An area whose capture failed is taken again at the next refresh, not each time hover wants it: a stuck capture service fails at once. No toast, no sound, no recovery alert. The click's own capture and its stuck-service handling (R109–R113) are unchanged.
 - **Permission.** Without Screen Recording permission (`ScreenCapture.hasPermission()` false), the sampler never calls ScreenCaptureKit, so it can never cause a prompt, and hover runs on R117 step 4 alone.
-- **Privacy.** The image lives in memory only, is never written, and is dropped when the overlay closes.
+- **Privacy.** The image lives in memory only, is never written, and is dropped as soon as hover ends: at a click, a drawn frame, or when the overlay closes. Shift-clicks into a set stay in hover.
 
 **R119. Finding a shape.** `ShapeFinder` (new, `Locant/Resolve/ShapeFinder.swift`, pure) answers two questions from a `PixelGrid` and a bounding rectangle. The bound is the simulated screen in Device Hub (`HitRefiner.simulatedScreen`), else the window under the pointer, else the display.
 - **The shape at a point** `p`. The seed color is the most common color in the 5×5 pt patch around `p`, so a pointer on an icon stroke seeds from the fill around it. Every patch sample within 4 of the seed color is a seed.
@@ -93,7 +101,7 @@ Enclosing shapes repeat the second question from the shape just found, up to 3 l
 
 `ShapeFinder` runs off the main actor. While the image's generation is unchanged and `p`'s sample lies in the last fill, the last answer is reused. The 4 and 24 were set by the real-screen fixtures on Oct 23; a change to either reruns them, and the spec is amended.
 
-**R120. The cluster under any parent.** The reader reads the hovered element's siblings whenever its parent is a container, whatever the parent's size, with today's 400 ms cache and 60-child cap. When the hit is itself a container, its children are read whatever its size. v0.1 R2a rule 4 then applies under any parent: siblings group at a 24 pt gap, and the cluster's frame is the members' bounds plus 16 pt, kept inside the parent. As today, a cluster is added as a rung only when it covers less than 90% of its parent's area.
+**R120. The cluster under any parent.** The reader reads the hovered element's siblings whenever its parent is a container, whatever the parent's size, with today's 400 ms cache and 60-child cap. When the hit is itself a container, its children are read whatever its size. A container under the pointer reads its children, not its siblings, so the sibling cluster that used to follow a small container hit is gone. v0.1 R2a rule 4 then applies under any parent: siblings group at a 24 pt gap, and the cluster's frame is the members' bounds plus 16 pt, kept inside the parent. As today, a cluster is added as a rung only when it covers less than 90% of its parent's area.
 
 The cluster is the fallback for a shape:
 - **At rung 0:** offered (R117 step 4) only when there is no shape at `p`.
@@ -107,7 +115,7 @@ That covers no image yet, a fill that leaked or covered too much, and glass whos
 
 **R121. What a shape says.**
 - **The readout** names the members: `cluster · Recent, Currents`. At hover, the members are the non-container nodes the hover snapshot already holds that lie at least half inside the shape: the element, its `siblings`, and its `children` (R120 reads both under any parent). Each is named by its label, else its identifier, in reading order, joined by `, `; nodes with neither are left out. A long list is cut in the middle by the label, as today. With no names, the readout is `cluster`. The fallback cluster reads the same way, instead of `cluster · 2 elements`.
-- **Members on commit.** When Point commits a shape (a click, Return, or a Shift-click into a set), its `members` come from the drawn-frame walk over its frame (`AccessibilityReader.elements(in:pid:)`, then `RegionResolver.elements`): every non-container element at least half inside, in reading order, at most 12. So the payload can list more members than the readout named. If the walk finds none, the members known at hover are kept. The frame is the one that was outlined. Snap, Text, and Cut write no members, as today.
+- **Members on commit.** When Point commits a shape (a click, Return, or a Shift-click into a set), its `members` come from the drawn-frame walk over its frame and R122's hit-test grid (`AccessibilityReader.visibleElements(in:pid:)`, then `RegionResolver.elements`): every non-container element at least half inside, in reading order, at most 12. So the payload can list more members than the readout named. If the walk and the grid find none, the members known at hover are kept. They run after the crop has started, so the crop never waits for them (`specs/capture-recovery.md` R110). The frame is the one that was outlined. Snap, Text, and Cut write no members, as today.
 - **The Markdown head line** for a `LocantShape` reads `cluster · N elements (shape found on screen by Locant, not an accessibility element; frame from its visible edges)`. A `LocantCluster` keeps today's line, which ends `frame approximate`.
 - **The crop** is the shape's frame plus the usual 40 pt (v0.1 R4).
 - **The schema** gains no field. The `role` description in `schema/capture.schema.json` names both computed kinds: `LocantShape`, found from the visible edges, and `LocantCluster`, computed from neighboring elements.
@@ -120,7 +128,14 @@ Before any change, the thought-detail toolbar is checked with the probe:
 - **If hover reads buttons there that the walk misses,** the walk is fixed until it finds every non-container element hover reads inside the frame.
 - **If hover too reads only the group,** the tree exposes no buttons, and the walk stays as it is.
 
-The existing region tests keep passing either way. R121's members depend on the walk.
+**The check, Oct 26.** On the thought-detail screen the walk found the toolbar's buttons: the Oct 18 miss did not reproduce. It missed two buttons hover reads there, "Ask Ocean" and "Grow a branch", and lifting the walk's depth and node limits did not help. So a grid of hit tests is added to the walk (`AccessibilityReader.hitElements(in:pid:)`):
+- a test every 8 pt or wider, at most about 400 tests, each element read once;
+- a quarter second per call; the grid stops after 200 ms, or at the first test the app does not answer, and keeps what it found;
+- a drawn frame runs it once, after the walk's lazy-tree retry; a committed shape's members (R121) take the walk and the grid together (`visibleElements(in:pid:)`); auto-verify's refind (v0.6 R52) keeps the plain walk.
+
+An element smaller than the grid's step inside a large frame can still be missed.
+
+The existing region tests keep passing either way. R121's members depend on the walk and the grid.
 
 **R123. Words elsewhere.** CHANGELOG's Unreleased section gains one bullet: Point lands on the capsule, card, or panel under the pointer whose edges are drawn on screen, even where the app exposes none to accessibility. No hint text changes.
 
@@ -134,7 +149,7 @@ The existing region tests keep passing either way. R121's members depend on the 
   - `scripts/blur-fixture-text.swift`: finds text with Vision and blurs it with Core Image, so fixtures from Malik's own screens can be public.
 - Changed:
   - `ElementResolver.swift`: `HitRefiner`, R117 and R120.
-  - `AccessibilityReader.swift`: R120, and R122 if the check finds a miss.
+  - `AccessibilityReader.swift`: R120, and R122's hit-test grid (`hitElements(in:pid:)`, `visibleElements(in:pid:)`).
   - `ScreenCapture.swift` (`regionImage`) and `Geometry.swift` (`sampleScale`), R118.
   - `AppState.swift`: hover, commit, and members, R117 and R121.
   - `SelectionOverlay.swift`: `Readout`, R121.
@@ -152,6 +167,7 @@ The existing region tests keep passing either way. R121's members depend on the 
   - **Too big or too small:** 60% of the bound or more gives no shape, and so does less than 12 pt either way.
   - **A pill inside a sheet:** the pill from its padding, and the sheet as its enclosing shape; the background beyond gives nothing more.
   - **A pointer on an icon stroke** inside a pill: the pill.
+  - **Frames from other apps:** an infinite, NaN, or 30,000 pt tall rectangle, a NaN point, and a bound that is not finite or is empty give no shape, and nothing traps.
 - `ShapeFinderTests`, on six real-screen fixtures. Four are Malik's own captures of the failing cases, and two are cards outside SwiftUI. Text is blurred with `scripts/blur-fixture-text.swift`. Expected rectangles were measured on Oct 23 with a scanline tool independent of `ShapeFinder` (±2 pt):
   - `shape-segments` (capture 20261023-022759-bkzx): the Recent/Currents capsule, from its rim and from the ring around either button.
   - `shape-toolbar` (20261018-231612-95js): the share/pencil/trash capsule, from between two icons.
@@ -161,7 +177,7 @@ The existing region tests keep passing either way. R121's members depend on the 
   - `shape-web-list` (20261003-182251-7706): a row of a bordered GitHub file list in Dia, in light mode.
 
   Each fixture also has a point on its background that must give no shape. Fixtures load at the capture's 2x scale through `PixelGrid(image:frame:scale:generation:)`, the conversion `ScreenSampler` uses.
-- `ScreenSamplerTests`: without permission nothing is captured; an area is captured once, and again only when hover wants another area; stopping drops the image.
+- `ScreenSamplerTests`: without permission nothing is captured; an area is captured once, and again only when hover wants another area; an area whose capture failed is taken again at the next refresh, not when hover wants it again; stopping drops the image.
 - `GeometryTests`: `sampleScale` keeps the display's scale up to 4,000,000 samples and lowers it above.
 - **Speed:** with the probe built at `-O`, 100 shape lookups on the iPhone screen of capture 20261023-023021-yu3f, unblurred and kept out of the repo (668×1453 samples, edge map precomputed) have a median under 5 ms and a 95th percentile under 15 ms. On Oct 23 they measured 4.6 ms and 13.4 ms; the edge map took 27 ms once. On the blurred `shape-sheet` fixture the text smudges add fill work: p50 5.6 ms. The unit tests run unoptimized, so they check results, not speed. Debug builds log each lookup's time, for information only.
 - `ElementResolverTests`:
