@@ -1036,10 +1036,36 @@ final class ElementResolverTests: XCTestCase {
         let currents = l.capsule[1] // 39.4×39.3
         XCTAssertNil(HitRefiner.textArea(of: ElementSnapshot(element: currents, ancestors: [l.inner, l.screen]), at: center(currents)))
         for (w, h, reads) in [(331.1, 43.9, false), (43.9, 100.0, false), (44.0, 44.0, true), (359.7, 390.4, true), (359.7, 390.6, false)] {
-            let leaf = AttributeSet(role: "AXButton", frame: Frame(x: 347.9, y: 137.5, w: w, h: h), childCount: 0)
+            let leaf = AttributeSet(role: "AXButton", description: "Title, subtitle", frame: Frame(x: 347.9, y: 137.5, w: w, h: h), childCount: 0)
             let found = HitRefiner.textArea(of: ElementSnapshot(element: leaf, ancestors: [l.inner, l.screen]), at: CGPoint(x: 350, y: 140))
             XCTAssertEqual(found != nil, reads, "\(w)×\(h)")
         }
+    }
+
+    /// R127: a leaf merges texts when its label joins two or more with ", ", as SwiftUI joins a card's. A leaf with
+    /// a label of one part (a paragraph, an editor, a two-line button) or none gets no line rungs; a container whose
+    /// children read empty (the tab bar, whose label names none of its tabs) still does.
+    func testALeafsLinesAreReadOnlyWhenItsLabelJoinsTwoTextsOrMore() {
+        let l = library()
+        let onCard = CGPoint(x: 400, y: 566)
+        func area(_ label: String?, role: String = "AXButton") -> CGRect? {
+            let leaf = AttributeSet(role: role, description: label, frame: cardButton.frame, childCount: 0)
+            return HitRefiner.textArea(of: ElementSnapshot(element: leaf, ancestors: [l.inner, l.screen]), at: onCard)
+        }
+        XCTAssertEqual(area("Weeknight noodles, yesterday"), cardButton.frame?.cgRect)
+        XCTAssertEqual(area("周末面条, 昨天"), cardButton.frame?.cgRect)
+        XCTAssertNil(area("Weeknight noodles"), "one part")
+        XCTAssertNil(area("A long paragraph that wraps onto a second line", role: "AXStaticText"), "multi-line text")
+        XCTAssertNil(area("Save and close", role: "AXButton"), "a two-line button")
+        XCTAssertNil(area(nil), "no label")
+        XCTAssertNil(area("Weeknight noodles, "), "an empty second part is no part")
+        let editor = AttributeSet(role: "AXTextArea", title: "Notes", frame: cardButton.frame, childCount: 0)
+        XCTAssertNil(HitRefiner.textArea(of: ElementSnapshot(element: editor, ancestors: [l.inner, l.screen]), at: onCard), "an editor")
+
+        var unnamedBar = tabBar
+        unnamedBar.description = nil
+        XCTAssertEqual(HitRefiner.textArea(of: ElementSnapshot(element: unnamedBar, ancestors: [l.screen], children: []), at: CGPoint(x: 527, y: 880)),
+                       tabBar.frame?.cgRect, "a childless container, whatever its label")
     }
 
     /// R117 step 2 holds an element inside a shape; a line is read again at each step instead.

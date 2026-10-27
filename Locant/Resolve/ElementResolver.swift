@@ -884,16 +884,19 @@ extension HitRefiner {
     /// R127: the accessibility frame to read lines of text in, for the hover answer on Device Hub's simulated
     /// screen when it has no accessibility children (a leaf, or a container whose children read empty, like
     /// the tab bar), its frame holds `point`, and it is at least `tightenMinSide` both ways (smaller, it holds
-    /// one line at most) and at most half the screen's area (which bounds the pixels hashed per sample). Nil
-    /// elsewhere.
+    /// one line at most) and at most half the screen's area (which bounds the pixels hashed per sample). A leaf
+    /// only when it merges texts, its label joining two or more with ", " as SwiftUI joins a card's: a paragraph,
+    /// an editor, or a two-line button gets no lines. Nil elsewhere.
     static func textArea(of snapshot: ElementSnapshot, at point: CGPoint) -> CGRect? {
         guard let screen = simulatedScreen(in: snapshot), let frame = snapshot.element.frame,
               frame.w >= tightenMinSide, frame.h >= tightenMinSide, frame.w * frame.h <= 0.5 * screen.width * screen.height,
               frame.cgRect.contains(point) else { return nil }
-        let childless = ElementResolver.isContainer(snapshot.element)
-            ? (snapshot.children ?? []).isEmpty
-            : (snapshot.element.childCount ?? 0) == 0
-        return childless ? frame.cgRect : nil
+        if ElementResolver.isContainer(snapshot.element) {
+            return (snapshot.children ?? []).isEmpty ? frame.cgRect : nil
+        }
+        let label = ElementResolver.nonEmpty(snapshot.element.title) ?? ElementResolver.nonEmpty(snapshot.element.description)
+        guard (snapshot.element.childCount ?? 0) == 0, let label, labelParts(label).count >= 2 else { return nil }
+        return frame.cgRect
     }
 
     /// R127: the line under the pointer as a rung of its own, ahead of `answer`, the element that merges it,
