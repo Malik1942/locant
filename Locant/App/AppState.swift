@@ -448,6 +448,7 @@ final class AppState {
         // only this app's are reachable here: a set spanning apps simply never collects.
         let companions = AutoVerify.companions(of: capture)
         var found: ResolvedElement?
+        var foundScreen: CGRect?
         var others: [ResolvedElement] = []
         var windowBounds: CGRect?
         for attempt in 0..<ElementRefinder.retries {
@@ -457,6 +458,8 @@ final class AppState {
             let region = largest?.bounds ?? SelectionOverlay.displayFrameCG(containing: element.frame.cgRect.origin)
             let snapshots = await reader.elements(in: region, pid: pid)
             found = ElementRefinder.match(element, among: snapshots)
+            // specs/capture-shapes.md R126: Device Hub's simulated screen in the tree it was found in, if any.
+            foundScreen = found.flatMap { match in snapshots.first { ElementResolver.resolve($0) == match } }.flatMap(HitRefiner.simulatedScreen(in:))
             others = companions.compactMap { ElementRefinder.match($0, among: snapshots) }
             if found != nil, others.count == companions.count { break }
             if attempt < ElementRefinder.retries - 1 { try? await Task.sleep(for: ElementRefinder.retryInterval) }
@@ -470,7 +473,18 @@ final class AppState {
             let crop = companions.isEmpty
                 ? Geometry.cropRect(element: found.frame.cgRect, clickPoint: center, window: windowBounds, display: display)
                 : Geometry.cropRects(for: ([found] + others).map(\.frame.cgRect), display: display, displayFor: SelectionOverlay.displayFrameCG(containing:))[0]
-            let image = try await ScreenCapture.crop(crop)
+            let taken = try await ScreenCapture.crop(crop)
+            // R126: on Device Hub's screen the capture committed the element as drawn, inside the padded frame found
+            // here. That frame is tightened the same way, from this crop, and the after-image is cut around it from
+            // the same pixels, so the two images show one outline (`AutoVerify.afterFrame`).
+            let (screen, window) = (foundScreen, windowBounds)
+            let (frame, image) = await Task.detached { () -> (CGRect, CroppedImage) in
+                let refound = found.frame.cgRect
+                let tight = AutoVerify.afterFrame(of: capture, found: refound, screen: screen) { taken.grid()?.edgeBounds(inside: $0) }
+                let around = Geometry.cropRect(element: tight, clickPoint: CGPoint(x: tight.midX, y: tight.midY), window: window, display: display)
+                guard tight != refound, let cut = taken.cut(to: around) else { return (refound, taken) }
+                return (tight, cut)
+            }.value
             let previous = try? Data(contentsOf: URL(filePath: AutoVerify.previousImagePath(of: capture)))
             let png = image.png
             let changed = await Task.detached { previous.map { ImageDiff.differs(png: $0, png: png) } ?? true }.value
@@ -488,11 +502,11 @@ final class AppState {
                 capturedAt: FileStore.isoTimestamp(date: Date()),
                 imagePath: afterURL.path(percentEncoded: false),
                 gitBefore: change.before, gitAfter: change.after, diffStat: change.diffStat, files: change.files,
-                frame: found.frame
+                frame: Frame(frame)
             )
             _ = try IterationStore.append(iteration, to: sidecar)
             let summary = GitFacts.summaryLine(of: change.diffStat) ?? (root == nil ? "no project folder" : "no changes")
-            toast.show(HudText.plain("After #\(index) · \(summary)"), near: found.frame.cgRect)
+            toast.show(HudText.plain("After #\(index) · \(summary)"), near: frame)
         } catch {
             // Silent (R52): the element was found but the capture or the write failed; try on the next activation.
         }

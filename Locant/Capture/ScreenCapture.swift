@@ -11,6 +11,28 @@ struct CroppedImage: Sendable {
     var crop: CGRect
 }
 
+extension CroppedImage {
+    /// specs/capture-shapes.md R126: the pixels as a `PixelGrid` over `crop`, to read what is drawn inside a frame.
+    func grid() -> PixelGrid? {
+        NSBitmapImageRep(data: png)?.cgImage.flatMap { PixelGrid(image: $0, frame: crop, scale: CGFloat(scale), generation: 0) }
+    }
+
+    /// The part of the image inside `rect` (global points, out to whole points), as a crop of its own with the same
+    /// pixels a crop of that rectangle takes; nil when none of it is inside. An iteration's after-image is cut
+    /// around the outline found in the crop just taken (R126), with no second capture.
+    func cut(to rect: CGRect) -> CroppedImage? {
+        let visible = rect.intersection(crop).integral
+        guard !visible.isEmpty, let image = NSBitmapImageRep(data: png)?.cgImage else { return nil }
+        let pixels = Geometry.pixelRect(visible, inDisplay: crop, scale: CGFloat(scale))
+            .intersection(CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        guard !pixels.isEmpty, let cropped = image.cropping(to: pixels) else { return nil }
+        let rep = NSBitmapImageRep(cgImage: cropped)
+        rep.size = NSSize(width: visible.width, height: visible.height) // marks the PNG as @scale
+        guard let png = rep.representation(using: .png, properties: [:]) else { return nil }
+        return CroppedImage(png: png, widthPt: visible.width, heightPt: visible.height, scale: scale, crop: visible)
+    }
+}
+
 enum ScreenCaptureFailure: Error {
     case noDisplay
     /// specs/capture-recovery.md R109: ScreenCaptureKit lists no displays while the Mac has some.
