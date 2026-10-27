@@ -327,4 +327,6 @@ struct CaptureContext: Sendable, Equatable {
     /// Signals for mode inference (v0.3): where the bundle lives and who signed it.
     var bundlePath: String? = nil
     var teamID: String? = nil
+    /// The simulated app's running copy, in the device's container (specs/simulator-project-root.md R105).
+    var simulatedBundlePath: String? = nil
 }

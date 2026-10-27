@@ -6,6 +6,8 @@ struct ModeSignals: Sendable, Equatable {
     var bundleId: String?
     var isSimulator = false
     var simulatedBundleId: String?
+    /// The simulated app's running copy, in the device's container: the build on screen.
+    var simulatedBundlePath: String?
     /// The app bundle's path on disk (the simulated app's path for Simulator captures).
     var bundlePath: String?
     var urlHost: String?
@@ -29,8 +31,8 @@ struct ModeEnvironment: Sendable {
     var directoryEntries: @Sendable (String) -> [String]
     /// Given a DerivedData project folder, the `WorkspacePath` from its info.plist.
     var derivedDataWorkspacePath: @Sendable (String) -> String?
-    /// Given a simulated app's bundle id, the project root of the DerivedData product that built it.
-    var simulatorProjectRoot: @Sendable (String) -> String? = { _ in nil }
+    /// Given a simulated app's bundle id and its running copy's path, the project root that built it.
+    var simulatorProjectRoot: @Sendable (_ bundleId: String, _ runningAt: String?) -> String? = { _, _ in nil }
 
     static let derivedDataFolder = FileManager.default.homeDirectoryForCurrentUser
         .appending(path: "Library/Developer/Xcode/DerivedData", directoryHint: .isDirectory)
@@ -38,33 +40,39 @@ struct ModeEnvironment: Sendable {
     static let live = ModeEnvironment(
         directoryEntries: { path in (try? FileManager.default.contentsOfDirectory(atPath: path)) ?? [] },
         derivedDataWorkspacePath: { folder in workspacePath(inDerivedDataFolder: folder) },
-        simulatorProjectRoot: { bundleId in projectRoot(ofSimulatedApp: bundleId, derivedData: derivedDataFolder) }
+        simulatorProjectRoot: { bundleId, running in projectRoot(ofSimulatedApp: bundleId, runningAt: running, derivedData: derivedDataFolder) }
     )
 
-    /// Simulated apps run from the device container; the product that built them sits in
-    /// DerivedData/<Project-hash>/Build/Products/<Config>-iphonesimulator/<App>.app.
-    /// Several products can match (worktrees, old builds); the newest one wins.
-    static func projectRoot(ofSimulatedApp bundleId: String, derivedData: URL) -> String? {
+    /// Simulated apps run from the device container, not from DerivedData (specs/simulator-project-root.md
+    /// R107). The running copy's debug map names the build folder that made it, whatever was built since.
+    /// Without one, the products in DerivedData/<Project-hash>/Build/Products/<Config>-iphonesimulator/<App>.app
+    /// answer only when they all name one project: the newest of several worktrees is a guess, and the
+    /// Project line tells the agent to change that folder.
+    static func projectRoot(ofSimulatedApp bundleId: String, runningAt running: String?, derivedData: URL) -> String? {
+        if let running,
+           let binary = BuildProvenance.codeBinary(ofBundleAt: URL(filePath: running)),
+           let data = try? Data(contentsOf: binary, options: .alwaysMapped),
+           let folder = BuildProvenance.buildFolder(inMachO: data),
+           let workspace = workspacePath(inDerivedDataFolder: folder) {
+            return ModeInference.directoryPath(URL(filePath: workspace).deletingLastPathComponent())
+        }
         let fm = FileManager.default
         // DerivedData may be a symlink (to DerivedData.noindex, say); the URL listing does not follow one.
         guard let projects = try? fm.contentsOfDirectory(at: derivedData.resolvingSymlinksInPath(), includingPropertiesForKeys: nil) else { return nil }
-        var best: (modified: Date, root: String)?
+        var roots = Set<String>()
         for project in projects {
             let products = project.appending(path: "Build/Products")
             guard let configs = try? fm.contentsOfDirectory(at: products, includingPropertiesForKeys: nil) else { continue }
             for config in configs where config.lastPathComponent.contains("iphonesimulator") {
-                guard let apps = try? fm.contentsOfDirectory(at: config, includingPropertiesForKeys: [.contentModificationDateKey]) else { continue }
+                guard let apps = try? fm.contentsOfDirectory(at: config, includingPropertiesForKeys: nil) else { continue }
                 for app in apps where app.pathExtension == "app" {
                     guard Bundle(url: app)?.bundleIdentifier == bundleId,
                           let workspace = workspacePath(inDerivedDataFolder: project.path(percentEncoded: false)) else { continue }
-                    let modified = (try? app.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-                    if best == nil || modified > best!.modified {
-                        best = (modified, ModeInference.directoryPath(URL(filePath: workspace).deletingLastPathComponent()))
-                    }
+                    roots.insert(ModeInference.directoryPath(URL(filePath: workspace).deletingLastPathComponent()))
                 }
             }
         }
-        return best?.root
+        return roots.count == 1 ? roots.first : nil
     }
 
     static func workspacePath(inDerivedDataFolder folder: String) -> String? {
@@ -82,11 +90,12 @@ enum ModeInference {
     static let deviceHubBundleId = "com.apple.dt.Devices"
     static let projectMarkers = [".xcodeproj", ".xcworkspace", "Package.swift"]
     static let derivedDataMarker = "/Library/Developer/Xcode/DerivedData/"
+    static let buildProductsMarker = "/Build/Products/"
     static let localHosts: Set<String> = ["localhost", "127.0.0.1", "0.0.0.0", "::1"]
 
     static func infer(_ s: ModeSignals, environment: ModeEnvironment = .live) -> ModeDecision {
         let root = s.bundlePath.flatMap { projectRoot(forBundleAt: $0, environment: environment) }
-            ?? s.simulatedBundleId.flatMap(environment.simulatorProjectRoot)
+            ?? s.simulatedBundleId.flatMap { environment.simulatorProjectRoot($0, s.simulatedBundlePath) }
         if let id = s.bundleId, s.myApps.contains(id) { return ModeDecision(mode: .fix, projectRoot: root, rule: .myApps) }
         if let id = s.simulatedBundleId, s.myApps.contains(id) { return ModeDecision(mode: .fix, projectRoot: root, rule: .myApps) }
         if s.isSimulator || s.bundleId == simulatorBundleId { return ModeDecision(mode: .fix, projectRoot: root, rule: .simulator) }
@@ -107,18 +116,11 @@ enum ModeInference {
         return localHosts.contains(host) || host.hasSuffix(".local")
     }
 
-    /// The project directory that produced a bundle: through DerivedData's `WorkspacePath`, or the
+    /// The project directory that produced a bundle: through its build folder's `WorkspacePath`, or the
     /// nearest ancestor holding an `.xcodeproj`, `.xcworkspace`, or `Package.swift`. Nil when neither.
     static func projectRoot(forBundleAt path: String, environment: ModeEnvironment) -> String? {
-        if let range = path.range(of: derivedDataMarker) {
-            let rest = path[range.upperBound...]
-            if let slash = rest.firstIndex(of: "/") {
-                let folder = String(path[..<slash])
-                if let workspace = environment.derivedDataWorkspacePath(folder) {
-                    return directoryPath(URL(filePath: workspace).deletingLastPathComponent())
-                }
-            }
-            return nil
+        if let folder = buildFolder(ofBundleAt: path), let workspace = environment.derivedDataWorkspacePath(folder) {
+            return directoryPath(URL(filePath: workspace).deletingLastPathComponent())
         }
         var url = URL(filePath: path).deletingLastPathComponent()
         for _ in 0..<12 {
@@ -129,6 +131,19 @@ enum ModeInference {
                 return dir
             }
             url = url.deletingLastPathComponent()
+        }
+        return nil
+    }
+
+    /// specs/mac-app-project-root.md R116: the folder Xcode built a bundle into. The one right after
+    /// DerivedData's own path, else the one before `/Build/Products/`: LaunchServices reports the path a
+    /// symlinked DerivedData resolves to (DerivedData.noindex), and `-derivedDataPath` builds can be anywhere.
+    static func buildFolder(ofBundleAt path: String) -> String? {
+        if let range = path.range(of: derivedDataMarker), let slash = path[range.upperBound...].firstIndex(of: "/") {
+            return String(path[..<slash])
+        }
+        if let range = path.range(of: buildProductsMarker, options: .backwards), range.lowerBound > path.startIndex {
+            return String(path[..<range.lowerBound])
         }
         return nil
     }

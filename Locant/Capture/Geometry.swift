@@ -105,6 +105,27 @@ enum Geometry {
         var ownerPID: pid_t
         var layer: Int
         var bounds: CGRect
+        /// specs/frozen-screen.md R121: the window server's id, to ask later whether it is still on screen.
+        var windowID: CGWindowID = 0
+    }
+
+    /// R122: the levels another app's open menu sits at, from `kCGPopUpMenuWindowLevel` up to, not
+    /// including, `kCGScreenSaverWindowLevel`, where some apps keep transparent panels.
+    static let menuLayers = 101..<1000
+
+    /// R122: whether another app shows a menu, or a window that opened from the menu bar.
+    static func hasOpenMenu(windows: [WindowRecord], excludingPID: pid_t) -> Bool {
+        windows.contains { $0.ownerPID != excludingPID && menuLayers.contains($0.layer) }
+    }
+
+    /// R121: the frontmost window under `point` when the list was read, if it has left the screen
+    /// since. A standard menu closes as the overlay takes key focus; what is behind it now is not
+    /// what the frozen screen shows there.
+    static func vanishedWindow(at point: CGPoint, windows: [WindowRecord], excludingPID: pid_t,
+                               isOnScreen: (WindowRecord) -> Bool) -> WindowRecord? {
+        guard let front = windowCandidates(at: point, windows: windows, excludingPID: excludingPID).first,
+              !isOnScreen(front) else { return nil }
+        return front
     }
 
     /// Topmost normal-layer window under `point`, skipping Locant's own. `windows` is front to back.
