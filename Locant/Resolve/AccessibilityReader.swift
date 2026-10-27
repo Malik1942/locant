@@ -156,14 +156,13 @@ actor AccessibilityReader {
             }
         }
         walk(app, ancestors: [], depth: 0)
-        // specs/capture-shapes.md R122: add what hit-testing reaches that the tree's children do not.
-        return found + hitElements(in: region, pid: pid)
+        return found
     }
 
     /// specs/capture-shapes.md R122: the elements the walk's children do not lead to but hit-testing
     /// reaches (seen in Device Hub, where two buttons were in no node's children): the non-container
     /// elements a grid of hit tests finds inside `region`, every 8 pt or wider, about 400 tests at most.
-    /// `elements(in:pid:)` adds them to the walk's, and `RegionResolver` collapses the duplicates.
+    /// `visibleElements(in:pid:)` adds them to the walk's, and `RegionResolver` collapses the duplicates.
     func hitElements(in region: CGRect, pid: pid_t) -> [ElementSnapshot] {
         let app = AXUIElementCreateApplication(pid)
         let step = max(8, ((region.width * region.height) / 400).squareRoot())
@@ -184,6 +183,13 @@ actor AccessibilityReader {
             y += step
         }
         return found
+    }
+
+    /// R122: what a drawn frame or a committed shape holds: the walk's elements and, where the tree's
+    /// children stop short of what hit-testing reaches (seen in Device Hub), the grid's.
+    /// `RegionResolver` collapses the duplicates.
+    func visibleElements(in region: CGRect, pid: pid_t) -> [ElementSnapshot] {
+        elements(in: region, pid: pid) + hitElements(in: region, pid: pid)
     }
 
     /// Title of the app's focused window, falling back to its main window.

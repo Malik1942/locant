@@ -1005,12 +1005,12 @@ final class AppState {
             guard phase == .resolving else { return }
             let window = hit?.window ?? Geometry.windowOwner(at: start, windows: windows, excludingPID: ownPID)
             let pid = window?.ownerPID ?? context.frontPID
-            var snapshots = await reader.elements(in: rect, pid: pid)
+            var snapshots = await reader.visibleElements(in: rect, pid: pid)
             var retry = 0
             while snapshots.isEmpty, retry < 2 { // lazy tree
                 retry += 1
                 try? await Task.sleep(for: .milliseconds(100))
-                snapshots = await reader.elements(in: rect, pid: pid)
+                snapshots = await reader.visibleElements(in: rect, pid: pid)
             }
             guard phase == .resolving else { return }
             await recollectContextIfNeeded(window: window, snapshot: hit)
