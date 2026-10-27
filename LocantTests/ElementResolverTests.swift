@@ -927,6 +927,46 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertTrue(HitRefiner.labelsSharePart("Cooking, 1", "Cooking, 1"), "equal labels")
     }
 
+    /// R127 with R126: a line goes ahead of the ladder, and when rung 0 is the answer it was read in, outlined
+    /// tighter, the line's frame is cut to that outline too, so ⌥ never steps from a line to an outline that does
+    /// not hold it.
+    func testALineAheadOfTheTightenedAnswerIsCutToItsOutline() throws {
+        let l = library()
+        let card = ElementSnapshot(element: cardButton, ancestors: [l.inner, l.screen])
+        let answer = try XCTUnwrap(ElementResolver.resolve(card))
+        var shapes = FixedShapes(rects: [], inks: [drawnCard])
+        let point = CGPoint(x: 400, y: 551)
+        let levels = HitRefiner.selectionLevels(for: card, at: point, shapes: &shapes, holding: nil)
+        let tight = try XCTUnwrap(levels.first ?? nil)
+        assertFrame(tight.frame, drawnCard.intersection(cardButton.frame!.cgRect))
+        // A title drawn near the card's top: its box grown by 2 pt reaches 549.0, past the card drawn from 549.0.
+        let lines = [TextLine(text: "Weeknight noodles", frame: Frame(x: 377.0, y: 548.5, w: 120.0, h: 12.0)), cardLines[1]]
+        let line = try XCTUnwrap(HitRefiner.textRung(lines: lines, at: point, answer: answer, answerFrame: try XCTUnwrap(cardButton.frame)))
+        assertFrame(line.frame, CGRect(x: 375.0, y: 546.5, width: 124.0, height: 16.0), "grown by 2 pt, inside the accessibility frame")
+
+        let ladder = HitRefiner.addingLine(line, to: levels, answer: answer)
+        XCTAssertEqual(ladder.count, levels.count + 1)
+        XCTAssertEqual(Array(ladder.dropFirst()), levels, "the ladder behind it unchanged")
+        let cut = try XCTUnwrap(ladder.first ?? nil)
+        XCTAssertEqual(cut.label, "Weeknight noodles")
+        assertFrame(cut.frame, CGRect(x: 375.0, y: 549.0, width: 124.0, height: 13.5), "cut to the card as drawn")
+        XCTAssertTrue(tight.frame.cgRect.contains(cut.frame.cgRect))
+
+        // Rung 0 the answer as reported (no sample yet), or another rung (the tab bar's glass at the point): the line
+        // as read.
+        XCTAssertEqual(HitRefiner.addingLine(line, to: HitRefiner.selectionLevels(for: card, at: point), answer: answer).first??.frame, line.frame)
+        let bar = ElementSnapshot(element: tabBar, ancestors: [l.screen], children: [])
+        let glass = CGRect(x: 352, y: 846, width: 351, height: 68)
+        var shapes2 = FixedShapes(rects: [glass], inks: [glass])
+        let onAsk = CGPoint(x: 527, y: 847)
+        let barLevels = HitRefiner.selectionLevels(for: bar, at: onAsk, shapes: &shapes2, holding: nil)
+        XCTAssertEqual(barLevels.first??.rawRole, ElementResolver.shapeRawRole)
+        let barAnswer = try XCTUnwrap(ElementResolver.resolve(bar))
+        let ask = try XCTUnwrap(HitRefiner.textRung(lines: tabLines, at: onAsk, answer: barAnswer, answerFrame: try XCTUnwrap(tabBar.frame)))
+        XCTAssertEqual(HitRefiner.addingLine(ask, to: barLevels, answer: barAnswer).first??.frame, ask.frame, "the glass is not the tab bar")
+        XCTAssertEqual(HitRefiner.addingLine(nil, to: levels, answer: answer), levels, "no line")
+    }
+
     func testOfTwoLinesInReachTheNearerIsTheRung() throws {
         let l = library()
         let card = ElementSnapshot(element: cardButton, ancestors: [l.inner, l.screen])

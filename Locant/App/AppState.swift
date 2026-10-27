@@ -741,16 +741,18 @@ final class AppState {
         // R127: in Point, the line under the pointer goes ahead of the ladder, which keeps the answer and what
         // follows. Not in Text, which would read one line instead of the card, nor in Snap and Cut, whose first ⌥
         // from the window would land on a line.
-        guard action == .point, let line = textRung(for: snapshot, at: point, in: grid) else { return levels }
-        return [line] + levels
+        guard action == .point else { return levels }
+        return withLine(for: snapshot, at: point, in: grid, ahead: levels)
     }
 
-    /// R127: on Device Hub's screen, the line of text under the pointer inside an answer that merges its lines,
-    /// once they are read from the sample. Until then, and anywhere else, nil. Point only.
-    private func textRung(for snapshot: ElementSnapshot, at point: CGPoint, in grid: PixelGrid) -> ResolvedElement? {
+    /// R127: on Device Hub's screen, `levels` with the line of text under the pointer ahead of them, inside an answer
+    /// that merges its lines, once they are read from the sample; cut to the answer's tightened outline when that is
+    /// rung 0 (`HitRefiner.addingLine`). Until then, and anywhere else, `levels`. Point only.
+    private func withLine(for snapshot: ElementSnapshot, at point: CGPoint, in grid: PixelGrid, ahead levels: [ResolvedElement?]) -> [ResolvedElement?] {
         guard let area = HitRefiner.textArea(of: snapshot, at: point), let answer = ElementResolver.resolve(snapshot),
-              let lines = textReader.lines(in: area, of: grid, label: answer.label) else { return nil }
-        return HitRefiner.textRung(lines: lines, at: point, answer: answer, answerFrame: Frame(area))
+              let lines = textReader.lines(in: area, of: grid, label: answer.label) else { return levels }
+        let line = HitRefiner.textRung(lines: lines, at: point, answer: answer, answerFrame: Frame(area))
+        return HitRefiner.addingLine(line, to: levels, answer: answer)
     }
 
     /// R119's bound: the simulated screen in Device Hub, else the window under the point, else its display.

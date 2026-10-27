@@ -926,6 +926,19 @@ extension HitRefiner {
         )
     }
 
+    /// R127: `levels` with `line`, the line under the pointer read in `answer`, ahead of them. When rung 0 is that
+    /// answer outlined tighter (R126, `isRetightened`), the line's frame is cut to that outline too, so ⌥ never
+    /// steps from a line to an outline that does not hold it; a line with nothing left inside it is no rung.
+    static func addingLine(_ line: ResolvedElement?, to levels: [ResolvedElement?], answer: ResolvedElement) -> [ResolvedElement?] {
+        guard var line else { return levels }
+        if let first = levels.first ?? nil, first.frame != answer.frame, isRetightened(answer, first) {
+            let cut = line.frame.cgRect.intersection(first.frame.cgRect)
+            guard !cut.isNull, !cut.isEmpty else { return levels }
+            line.frame = Frame(cut)
+        }
+        return [line] + levels
+    }
+
     /// R127: the part of `label`, split on ", ", that the line `text` reads (`textMatches`): an equal part first,
     /// else one that contains the line or that the line contains. Else the text as read. So a card's
     /// "= yesterday" (Vision reads its list icon as "=") is "yesterday", and a stray "1" takes no part.
