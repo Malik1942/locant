@@ -407,10 +407,10 @@ actor AccessibilityReader {
 
     private var listingParentCache: [ListingKey: (stamp: ContinuousClock.Instant, parent: AXUIElement?)] = [:]
 
-    /// R125: when `parent` does not list `element` among its children (`kids`, as the neighbor cache has
-    /// them), the container below it that does. Depth first through containers whose frame holds the
-    /// element's within 1 pt, at most 4 levels below `parent` and 200 nodes. Nil when `parent` lists the
-    /// element or nothing below it does.
+    /// R125: when `parent` does not list `element` among its children (`kids`, the first `neighborLimit` as
+    /// the neighbor cache has them), the container below it that does. Depth first through containers whose
+    /// frame holds the element's within 1 pt, at most 4 levels below `parent` and 200 nodes. Nil when `parent`
+    /// lists the element or nothing below it does.
     private func listingParent(of element: AXUIElement, frame: Frame?, below parent: AXUIElement, listing kids: [AXUIElement]) -> AXUIElement? {
         let key = ListingKey(pid: pidOf(element), element: CFHash(element), parent: CFHash(parent))
         let now = ContinuousClock.now
@@ -527,7 +527,7 @@ actor AccessibilityReader {
     private static let neighborTTL: Duration = .milliseconds(400)
     private static let neighborLimit = 60
 
-    /// A container's children: all of them as elements, and the first `neighborLimit` as attributes.
+    /// A container's first `neighborLimit` children, as elements and as attributes.
     private func neighborhood(of container: AXUIElement, attributes: AttributeSet) -> (elements: [AXUIElement], nodes: [AttributeSet]) {
         var pid: pid_t = 0
         AXUIElementGetPid(container, &pid)
@@ -536,8 +536,8 @@ actor AccessibilityReader {
         if let cached = neighborCache[key], now - cached.stamp < Self.neighborTTL {
             return (cached.elements, cached.nodes)
         }
-        let elements = children(of: container)
-        let nodes = elements.prefix(Self.neighborLimit).map { lightAttributes(of: $0) }
+        let elements = Array(children(of: container).prefix(Self.neighborLimit))
+        let nodes = elements.map { lightAttributes(of: $0) }
         if neighborCache.count > 32 { neighborCache.removeAll() }
         neighborCache[key] = (now, elements, nodes)
         return (elements, nodes)
