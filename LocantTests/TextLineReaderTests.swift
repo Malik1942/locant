@@ -361,7 +361,7 @@ final class TextLineReaderTests: XCTestCase {
     /// its tabs, so they are read once more, with Vision detecting the language among Simplified Chinese and English.
     func testLinesTheLabelDoesNotNameAreReadAgainDetectingTheLanguage() async throws {
         var read = try await lines(for: "Tab Bar", first: ["Tide", "Ask", "Library"], detected: ["Tide", "Ask", "Library"])
-        XCTAssertEqual(read.texts, ["Tide", "Ask", "Library"], "a Latin tab bar keeps its lines, from the second read")
+        XCTAssertEqual(read.texts, ["Tide", "Ask", "Library"], "a Latin tab bar keeps its lines, from the first read")
         XCTAssertEqual(read.readings, [.latin, .detected])
         read = try await lines(for: "Tab Bar", first: ["4 1JBIJ", "xu"], detected: ["周末", "昨天"])
         XCTAssertEqual(read.texts, ["周末", "昨天"], "junk read the English way, then the Han lines")
@@ -379,6 +379,21 @@ final class TextLineReaderTests: XCTestCase {
         XCTAssertEqual(read.readings, [.latin], "one line that matches is enough")
         read = try await lines(for: "周末面条, 昨天", first: ["周末面条", "昨天"])
         XCTAssertEqual(read.readings, [.han])
+    }
+
+    /// The second read decides the script, not the lines, unless it finds Han: through the Liquid Glass tab bar it
+    /// also reads the card blurred behind it (Device Hub, the Tide screen, Oct 27; every line at confidence 1.00).
+    func testTheSecondReadDecidesTheScriptAndKeepsOnlyHanLinesOrLinesTheFirstReadFound() async throws {
+        var read = try await lines(for: "Tab Bar", first: ["Tide", "Ask", "Library"],
+                                   detected: ["A DUTTE", "does", "Tide", "Ask", "Library"])
+        XCTAssertEqual(read.texts, ["Tide", "Ask", "Library"], "no Han: the first read's lines, not the card behind the glass")
+        XCTAssertEqual(read.readings, [.latin, .detected])
+        read = try await lines(for: "Tab Bar", first: ["4 1JBIJ"], detected: ["A DUTTE", "潮汐", "提问", "图书馆"])
+        XCTAssertEqual(read.texts, ["潮汐", "提问", "图书馆"], "a Chinese tab bar: its Han lines, not the blurred Latin one")
+        read = try await lines(for: "Tab Bar", first: ["Library", "4 1JBIJ"], detected: ["潮汐", "Library", "A DUTTE"])
+        XCTAssertEqual(read.texts, ["潮汐", "Library"], "Han, and a Latin line the first read also found")
+        read = try await lines(for: "Tab Bar", first: ["Tide"], detected: ["潮汐", "カード"])
+        XCTAssertEqual(read.texts, [], "kana anywhere: no lines")
     }
 
     func testVisionsBoxIsPlacedInGlobalPoints() {

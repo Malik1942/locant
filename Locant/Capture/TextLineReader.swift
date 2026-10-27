@@ -184,15 +184,22 @@ final class TextLineReader {
     /// R135: an answer's lines, read with `read` first as its label chose (`reading`). The label is evidence for how
     /// to read only when it names what was read: when no line of that read matches a ", "-part of `label`
     /// (`HitRefiner.textMatches`), as the tab bar's "Tab Bar" names none of its tabs and a tab bar in Chinese read the
-    /// English way gives junk ("4 1JBIJ"), the lines are read once more, `.detected`. That read's lines, or none when
-    /// one holds kana or Hangul (`reading(for:)`), which no reading is calibrated for yet.
+    /// English way gives junk ("4 1JBIJ"), the lines are read once more, `.detected`. That read decides the script,
+    /// not the lines, unless it finds Han:
+    /// - a line with kana or Hangul (`reading(for:)`), which no reading is calibrated for yet: no lines;
+    /// - a line with Han: its lines with Han, and those the first read also found (`textMatches`);
+    /// - else the first read's lines. The second read also reads what lies blurred behind Liquid Glass ("A DUTTE"
+    ///   and "does" through the tab bar, Oct 27, at confidence 1.00), which the first read does not.
     nonisolated static func lines(for label: String?, reading: Reading,
                                   read: @Sendable (Reading) async throws -> [TextLine]) async throws -> [TextLine] {
         let first = try await read(reading)
         let parts = (label ?? "").components(separatedBy: ", ")
         if first.contains(where: { line in parts.contains { HitRefiner.textMatches($0, line.text) } }) { return first }
         let second = try await read(.detected)
-        return second.contains { Self.reading(for: $0.text) == nil } ? [] : second
+        if second.contains(where: { Self.reading(for: $0.text) == nil }) { return [] }
+        func holdsHan(_ line: TextLine) -> Bool { line.text.unicodeScalars.contains { $0.properties.isIdeographic } }
+        guard second.contains(where: holdsHan) else { return first }
+        return second.filter { line in holdsHan(line) || first.contains { HitRefiner.textMatches($0.text, line.text) } }
     }
 
     /// Simplified Chinese first: `.accurate` with en-US first read 周末面条 / 昨天 as "BFE", and 周末面条 / 4 秒前 as
