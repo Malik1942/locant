@@ -794,6 +794,22 @@ extension HitRefiner {
         frame.width >= tightenMinSide && frame.height >= tightenMinSide
     }
 
+    /// R126: whether a click at `point` is on the rung hover drew, `shown`, read from `snapshot`, so that rung is
+    /// what is committed. Within `stickiness` of `shown`'s frame, as everywhere. On Device Hub's simulated
+    /// screen also within `stickiness` of the snapshot element's own frame, when `shown` is that element outlined
+    /// tighter (equal but for its frame, which lies inside): in its padding, or in the reader's tolerance around
+    /// it, the pointer still reads that element. Not when `shown` is another rung (a shape, a held element, a
+    /// line of text) that the snapshot's element only neighbors.
+    static func clickIsOnHover(_ point: CGPoint, shown: ResolvedElement?, snapshot: ElementSnapshot?) -> Bool {
+        guard let shown else { return false }
+        if shown.frame.cgRect.insetBy(dx: -stickiness, dy: -stickiness).contains(point) { return true }
+        guard let snapshot, simulatedScreen(in: snapshot) != nil, var own = ElementResolver.resolve(snapshot) else { return false }
+        let frame = own.frame.cgRect
+        own.frame = shown.frame
+        return own == shown && frame.contains(shown.frame.cgRect)
+            && frame.insetBy(dx: -stickiness, dy: -stickiness).contains(point)
+    }
+
     /// `outer` holds `inner`, give or take `shapeMerge`.
     static func holds(_ outer: CGRect, _ inner: CGRect) -> Bool {
         outer.insetBy(dx: -shapeMerge, dy: -shapeMerge).contains(inner)

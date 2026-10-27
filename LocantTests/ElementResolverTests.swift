@@ -867,6 +867,57 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertEqual(held.first??.rawRole, "AXStaticText", "an accessibility element there would be held")
     }
 
+    /// R126: a click commits what hover drew. On the simulated screen, near the frame of the element hover
+    /// outlined tighter counts; near an element that only neighbors the rung drawn does not; off the screen
+    /// the 12 pt rule alone decides.
+    func testAClickIsOnTheTightenedRungNearItsElementsOwnFrame() throws {
+        let l = library()
+        let header = l.children[6] // 362.2,318.3 331.1×61.7
+        let title = CGRect(x: 378, y: 338, width: 300, height: 21)
+        var shapes = FixedShapes(rects: [], inks: [title])
+        // 6 pt left of the header, inside the reader's 8 pt tolerance, with no shape there: the header, tightened.
+        let ring = CGPoint(x: 356.2, y: 349)
+        let snapshot = ElementSnapshot(element: header, ancestors: [l.inner, l.screen], siblings: l.children)
+        let drawn = try XCTUnwrap(HitRefiner.selectionLevels(for: snapshot, at: ring, shapes: &shapes, holding: nil).first ?? nil)
+        assertFrame(drawn.frame, title)
+        XCTAssertTrue(HitRefiner.clickIsOnHover(ring, shown: drawn, snapshot: snapshot), "21.8 pt from the outline, 6 pt from the header")
+        XCTAssertTrue(HitRefiner.clickIsOnHover(CGPoint(x: 365, y: 378), shown: drawn, snapshot: snapshot), "in the header's padding")
+        XCTAssertFalse(HitRefiner.clickIsOnHover(CGPoint(x: 500, y: 400), shown: drawn, snapshot: snapshot), "20 pt below the header")
+
+        // Off the simulated screen, only 12 pt around what was drawn.
+        let plain = ElementSnapshot(element: header, ancestors: [l.inner, AttributeSet(role: "AXGroup", frame: hubScreen)], siblings: l.children)
+        XCTAssertFalse(HitRefiner.clickIsOnHover(ring, shown: drawn, snapshot: plain))
+        XCTAssertTrue(HitRefiner.clickIsOnHover(CGPoint(x: 370, y: 349), shown: drawn, snapshot: plain), "8 pt from the outline")
+        XCTAssertFalse(HitRefiner.clickIsOnHover(ring, shown: nil, snapshot: snapshot))
+    }
+
+    /// R126: when the rung drawn is not the snapshot's element (R117 step 3, a shape over an element reached
+    /// through the tolerance; step 2, an element held inside a shape), a click in that element's frame far
+    /// from the rung is a click elsewhere.
+    func testAClickNearTheElementReadIsNotOnAShapeOrAHeldElement() throws {
+        let l = library()
+        let pill = CGRect(x: 450, y: 528, width: 100, height: 14)
+        var shapes = FixedShapes(rects: [pill])
+        let above = CGPoint(x: 500, y: 540.2) // 3 pt above the card, in the pill
+        let nearCard = ElementSnapshot(element: cardButton, ancestors: [l.inner, l.screen])
+        let shape = try XCTUnwrap(HitRefiner.selectionLevels(for: nearCard, at: above, shapes: &shapes, holding: nil).first ?? nil)
+        XCTAssertEqual(shape.rawRole, ElementResolver.shapeRawRole)
+        XCTAssertFalse(HitRefiner.clickIsOnHover(CGPoint(x: 680, y: 610), shown: shape, snapshot: nearCard), "in the card, far from the pill")
+
+        // Oryne's toolbar on the simulated screen: the pointer 2 pt past the pencil, which holds it inside the
+        // capsule, and 2 pt short of trash, which the reader reached through its tolerance.
+        let n = toolbarNodes()
+        let phone = AttributeSet(role: "AXGroup", subrole: HitRefiner.simulatedScreenSubrole, frame: n.screen.frame)
+        let trash = AttributeSet(role: "AXButton", identifier: "trash", frame: Frame(x: 344, y: 330, w: 40, h: 40))
+        let pencil = try XCTUnwrap(ElementResolver.resolve(ElementSnapshot(element: n.pencil, ancestors: [n.hosting, phone])))
+        let reached = ElementSnapshot(element: trash, ancestors: [n.hosting, phone], siblings: [n.share, n.pencil, trash])
+        var capsuleOnly = FixedShapes(rects: [CGRect(x: 250, y: 326, width: 140, height: 44)])
+        let held = try XCTUnwrap(HitRefiner.selectionLevels(for: reached, at: CGPoint(x: 342, y: 350), shapes: &capsuleOnly, holding: pencil).first ?? nil)
+        XCTAssertEqual(held.identifier, "pencil")
+        XCTAssertFalse(HitRefiner.clickIsOnHover(CGPoint(x: 380, y: 350), shown: held, snapshot: reached), "in trash, 40 pt from the pencil")
+        XCTAssertTrue(HitRefiner.clickIsOnHover(CGPoint(x: 350, y: 350), shown: held, snapshot: reached), "10 pt from the pencil")
+    }
+
     /// SwiftUI nests several containers in one frame (three 456×900 groups in the Simulator, five
     /// 470×1000 ones in Device Hub), and so does the web. They outline the same rectangle, so they
     /// are one rung, and Option always moves the outline. Of a run the window stays, else the one
