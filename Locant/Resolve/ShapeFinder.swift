@@ -129,6 +129,26 @@ struct PixelGrid: Sendable {
         guard minX <= maxX else { return nil }
         return self.rect(of: SampleBox(minX: minX, minY: minY, maxX: maxX, maxY: maxY))
     }
+
+    /// specs/capture-shapes.md R127: the samples `rect` covers (`box(of:)`) as an image, the same sRGB RGBA bytes
+    /// copied row by row, and the rectangle they show in global points. Nil when `rect` is not finite or off the grid.
+    func image(of rect: CGRect) -> (image: CGImage, frame: CGRect)? {
+        guard let box = box(of: rect), let space = CGColorSpace(name: CGColorSpace.sRGB) else { return nil }
+        let rowBytes = box.width * 4
+        var cut = [UInt8]()
+        cut.reserveCapacity(rowBytes * box.height)
+        for y in box.minY...box.maxY {
+            let start = (y * width + box.minX) * 4
+            cut.append(contentsOf: bytes[start..<(start + rowBytes)])
+        }
+        guard let provider = CGDataProvider(data: Data(cut) as CFData),
+              let image = CGImage(width: box.width, height: box.height, bitsPerComponent: 8, bitsPerPixel: 32,
+                                  bytesPerRow: rowBytes, space: space,
+                                  bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
+                                  provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)
+        else { return nil }
+        return (image, self.rect(of: box))
+    }
 }
 
 fileprivate extension CGRect {
