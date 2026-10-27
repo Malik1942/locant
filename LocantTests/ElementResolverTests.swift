@@ -218,9 +218,11 @@ final class ElementResolverTests: XCTestCase {
     // MARK: Shapes on the ladder (specs/capture-shapes.md R117, R121)
 
     /// Shapes at fixed rectangles: at a point, the smallest that holds it; around a rectangle, the ones
-    /// holding it, innermost first. `asked` tells whether the ladder asked at all.
+    /// holding it, innermost first; inside a rectangle, the bounds of the parts of `inks` in it (R126).
+    /// `asked` tells whether the ladder asked for a shape at all.
     private struct FixedShapes: ShapeSource {
         var rects: [CGRect]
+        var inks: [CGRect] = []
         var asked = false
 
         mutating func shape(at point: CGPoint) -> CGRect? {
@@ -232,6 +234,11 @@ final class ElementResolverTests: XCTestCase {
             asked = true
             return rects.filter { $0.insetBy(dx: -1, dy: -1).contains(rect) && !HitRefiner.matches(Frame($0), Frame(rect)) }
                 .sorted { $0.width * $0.height < $1.width * $1.height }
+        }
+
+        mutating func ink(inside rect: CGRect) -> CGRect? {
+            let parts = inks.map { $0.intersection(rect) }.filter { !$0.isNull && !$0.isEmpty }
+            return parts.isEmpty ? nil : parts.reduce(CGRect.null) { $0.union($1) }
         }
     }
 
@@ -348,6 +355,7 @@ final class ElementResolverTests: XCTestCase {
 
         mutating func shape(at point: CGPoint) -> CGRect? { rect.contains(point) ? rect : nil }
         mutating func shapes(around rect: CGRect) -> [CGRect] { [] }
+        mutating func ink(inside rect: CGRect) -> CGRect? { nil }
     }
 
     /// R117: the element held inside a shape is rung 0, and the shape at the pointer is the next rung even

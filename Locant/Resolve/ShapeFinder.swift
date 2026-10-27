@@ -110,6 +110,25 @@ struct PixelGrid: Sendable {
         CGRect(x: frame.minX + CGFloat(box.minX) / scale, y: frame.minY + CGFloat(box.minY) / scale,
                width: CGFloat(box.width) / scale, height: CGFloat(box.height) / scale)
     }
+
+    /// specs/capture-shapes.md R126: the bounds, in global points, of the edge samples among those `rect`
+    /// covers (`box(of:)`): what is drawn inside it. A step marks the sample on each side, so a drawn edge's
+    /// bounds reach one sample past it. Nil when no edge is there, and when `rect` is not finite or off the grid.
+    func edgeBounds(inside rect: CGRect) -> CGRect? {
+        guard let box = box(of: rect) else { return nil }
+        var minX = Int.max, minY = Int.max, maxX = Int.min, maxY = Int.min
+        edges.withUnsafeBufferPointer { edge in
+            for y in box.minY...box.maxY {
+                let row = y * width
+                for x in box.minX...box.maxX where edge[row + x] {
+                    minX = min(minX, x); maxX = max(maxX, x)
+                    minY = min(minY, y); maxY = max(maxY, y)
+                }
+            }
+        }
+        guard minX <= maxX else { return nil }
+        return self.rect(of: SampleBox(minX: minX, minY: minY, maxX: maxX, maxY: maxY))
+    }
 }
 
 fileprivate extension CGRect {
@@ -343,16 +362,20 @@ protocol ShapeSource {
     mutating func shape(at point: CGPoint) -> CGRect?
     /// R119: the shapes around a rectangle, innermost first, at most three.
     mutating func shapes(around rect: CGRect) -> [CGRect]
+    /// R126: the bounds of what is drawn inside a rectangle (its edge samples); nil when nothing is.
+    mutating func ink(inside rect: CGRect) -> CGRect?
 }
 
-/// The live `ShapeSource` over one screen sample. `memo` carries the last fill and the shapes found around
-/// rectangles from one hover step to the next while the sample and the bound stay the same (R119).
+/// The live `ShapeSource` over one screen sample. `memo` carries the last fill, the shapes found around
+/// rectangles, and what is drawn inside them (R126) from one hover step to the next while the sample and the
+/// bound stay the same (R119).
 struct ShapeLookup: ShapeSource, Sendable {
     struct Memo: Sendable {
         var generation = -1
         var bound = CGRect.null
         var lastFill: ShapeFinder.Fill?
         var around: [Frame: [CGRect]] = [:]
+        var ink: [Frame: CGRect?] = [:]
     }
 
     let grid: PixelGrid
@@ -378,6 +401,15 @@ struct ShapeLookup: ShapeSource, Sendable {
         let found = ShapeFinder.enclosing(rect, in: grid, bound: bound)
         if memo.around.count >= 64 { memo.around.removeAll() }
         memo.around[key] = found
+        return found
+    }
+
+    mutating func ink(inside rect: CGRect) -> CGRect? {
+        let key = Frame(rect)
+        if let known = memo.ink[key] { return known }
+        let found = grid.edgeBounds(inside: rect)
+        if memo.ink.count >= 64 { memo.ink.removeAll() }
+        memo.ink.updateValue(found, forKey: key) // a nil answer is kept too
         return found
     }
 }

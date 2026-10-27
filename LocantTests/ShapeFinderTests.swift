@@ -249,6 +249,39 @@ final class ShapeFinderTests: XCTestCase {
         XCTAssertTrue(newer.memo.around.isEmpty)
     }
 
+    // R126: what is drawn inside a rectangle is the bounds of the edge samples it covers. A step marks the
+    // sample on each side of it, so the bounds reach one sample (half a point here) past what is painted.
+    func testEdgeBoundsAreWhatIsDrawnInsideARectangle() {
+        var canvas = Canvas(400, 300, background: dark)
+        let button = CGRect(x: 50, y: 50, width: 300, height: 76)
+        canvas.paint(CGRect(x: 50, y: 56, width: 300, height: 64), RGB(r: 50, g: 50, b: 54)) // a card inset 6 pt top and bottom
+        canvas.paint(CGRect(x: 70, y: 200, width: 120, height: 16), RGB(r: 200, g: 200, b: 200))
+        let grid = canvas.grid()
+        assertRect(grid.edgeBounds(inside: button), CGRect(x: 50, y: 55.5, width: 300, height: 65), within: 0.01,
+                   "the frame's own sides cut the card's left and right edges")
+        assertRect(grid.edgeBounds(inside: CGRect(x: 40, y: 180, width: 300, height: 60)), CGRect(x: 69.5, y: 199.5, width: 121, height: 17), within: 0.01)
+        XCTAssertNil(grid.edgeBounds(inside: CGRect(x: 20, y: 150, width: 300, height: 20)), "a flat background")
+        // Frames from other apps: not finite, off the grid, or far taller than the screen.
+        for rect in [CGRect.infinite, .null, CGRect(x: CGFloat.nan, y: 50, width: 300, height: 76), CGRect(x: 500, y: 50, width: 40, height: 40)] {
+            XCTAssertNil(grid.edgeBounds(inside: rect), "\(rect)")
+        }
+        assertRect(grid.edgeBounds(inside: CGRect(x: 50, y: -15_000, width: 300, height: 30_000)),
+                   CGRect(x: 50, y: 55.5, width: 300, height: 161), within: 0.01, "the card and the block, the part the sample shows")
+    }
+
+    // R126: the live source keeps what it found inside each rectangle, nothing found included.
+    func testShapeLookupKeepsWhatIsDrawnInsideEachRectangle() {
+        var canvas = Canvas(400, 300, background: dark)
+        canvas.paint(CGRect(x: 100, y: 80, width: 160, height: 90), RGB(r: 50, g: 50, b: 54))
+        var lookup = ShapeLookup(grid: canvas.grid(generation: 1), bound: canvas.bounds, memo: .init())
+        XCTAssertNotNil(lookup.ink(inside: CGRect(x: 90, y: 70, width: 180, height: 110)))
+        XCTAssertNil(lookup.ink(inside: CGRect(x: 10, y: 10, width: 40, height: 40)))
+        XCTAssertEqual(lookup.memo.ink.count, 2)
+        XCTAssertNil(lookup.ink(inside: CGRect(x: 10, y: 10, width: 40, height: 40)))
+        XCTAssertEqual(lookup.memo.ink.count, 2)
+        XCTAssertTrue(ShapeLookup(grid: canvas.grid(generation: 2), bound: canvas.bounds, memo: lookup.memo).memo.ink.isEmpty, "a newer sample")
+    }
+
     // MARK: Real screens (section 3)
 
     private struct FixtureFile: Decodable {
