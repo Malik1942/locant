@@ -105,4 +105,28 @@ final class AutoVerifyTests: XCTestCase {
         XCTAssertFalse(AutoVerify.sharesOneImage(alone), "extra crops mean the image is element 1's own")
         XCTAssertEqual(AutoVerify.companions(of: alone), [])
     }
+
+    // 9: specs/capture-shapes.md R127: a line read from the screen has no accessibility element, so a set that has to
+    // refind one with its first element would find another element in its place.
+    func testASetWithALineToRefindIsIgnored() {
+        func target(_ element: ResolvedElement, imagePath: String? = nil) -> CaptureTarget {
+            CaptureTarget(element: element, app: AppInfo(bundleId: "com.inspireocean.app", name: "Oryne"), window: nil, url: nil, imagePath: imagePath)
+        }
+        let first = ResolvedElement(role: "button", rawRole: "AXButton", label: "Save", identifier: "save", identifierSource: .declared, value: nil,
+                                    frame: Frame(x: 1, y: 2, w: 3, h: 4), path: [])
+        let line = ResolvedElement(role: "staticText", rawRole: ElementResolver.textRawRole, label: "Weeknight noodles", identifier: nil,
+                                   identifierSource: .unknown, value: nil, frame: Frame(x: 375, y: 558, w: 124, h: 16), path: [])
+        var set = capture(element: first)
+        set.targets = [target(first), target(line)]
+        XCTAssertFalse(AutoVerify.wants(set, activated: "com.inspireocean.app", now: now), "the line shares the image: it would be refound")
+
+        var text = line
+        text.rawRole = "AXStaticText"
+        set.targets = [target(first), target(text)]
+        XCTAssertTrue(AutoVerify.wants(set, activated: "com.inspireocean.app", now: now), "an accessibility staticText is refound")
+
+        set.targets = [target(first), target(line, imagePath: "/tmp/x-2.png")]
+        XCTAssertTrue(AutoVerify.wants(set, activated: "com.inspireocean.app", now: now),
+                      "with an image of its own, only the first element is refound")
+    }
 }
