@@ -85,12 +85,7 @@ final class TextLineReader {
     /// The bytes inside `box`, row by row.
     private static func hash(of grid: PixelGrid, in box: SampleBox) -> Int {
         var hasher = Hasher()
-        grid.bytes.withUnsafeBytes { raw in
-            for y in box.minY...box.maxY {
-                let start = (y * grid.width + box.minX) * 4
-                hasher.combine(bytes: UnsafeRawBufferPointer(rebasing: raw[start..<(start + box.width * 4)]))
-            }
-        }
+        grid.forEachRow(of: box) { hasher.combine(bytes: $0) }
         return hasher.finalize()
     }
 

@@ -131,23 +131,31 @@ struct PixelGrid: Sendable {
     }
 
     /// specs/capture-shapes.md R127: the samples `rect` covers (`box(of:)`) as an image, the same sRGB RGBA bytes
-    /// copied row by row, and the rectangle they show in global points. Nil when `rect` is not finite or off the grid.
+    /// copied once, row by row, and the rectangle they show in global points. Nil when `rect` is not finite or off
+    /// the grid.
     func image(of rect: CGRect) -> (image: CGImage, frame: CGRect)? {
-        guard let box = box(of: rect), let space = CGColorSpace(name: CGColorSpace.sRGB) else { return nil }
-        let rowBytes = box.width * 4
-        var cut = [UInt8]()
-        cut.reserveCapacity(rowBytes * box.height)
-        for y in box.minY...box.maxY {
-            let start = (y * width + box.minX) * 4
-            cut.append(contentsOf: bytes[start..<(start + rowBytes)])
+        guard let box = box(of: rect), let space = CGColorSpace(name: CGColorSpace.sRGB),
+              let data = CFDataCreateMutable(nil, box.width * 4 * box.height) else { return nil }
+        forEachRow(of: box) { row in
+            CFDataAppendBytes(data, row.baseAddress!.assumingMemoryBound(to: UInt8.self), row.count)
         }
-        guard let provider = CGDataProvider(data: Data(cut) as CFData),
+        guard let provider = CGDataProvider(data: data),
               let image = CGImage(width: box.width, height: box.height, bitsPerComponent: 8, bitsPerPixel: 32,
-                                  bytesPerRow: rowBytes, space: space,
+                                  bytesPerRow: box.width * 4, space: space,
                                   bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
                                   provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)
         else { return nil }
         return (image, self.rect(of: box))
+    }
+
+    /// R127: the bytes of each row of `box`, a box inside the grid (`box(of:)`), top to bottom.
+    func forEachRow(of box: SampleBox, _ body: (UnsafeRawBufferPointer) -> Void) {
+        bytes.withUnsafeBytes { raw in
+            for y in box.minY...box.maxY {
+                let start = (y * width + box.minX) * 4
+                body(UnsafeRawBufferPointer(rebasing: raw[start..<(start + box.width * 4)]))
+            }
+        }
     }
 }
 
