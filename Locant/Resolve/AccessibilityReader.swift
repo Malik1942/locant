@@ -159,22 +159,29 @@ actor AccessibilityReader {
         return found
     }
 
-    /// specs/capture-shapes.md R122: the elements the walk's children do not lead to but hit-testing
-    /// reaches (seen in Device Hub, where two buttons were in no node's children): the non-container
-    /// elements a grid of hit tests finds inside `region`, every 8 pt or wider, about 400 tests at most.
-    /// `visibleElements(in:pid:)` adds them to the walk's, and `RegionResolver` collapses the duplicates.
+    /// specs/capture-shapes.md R122: where the walk stops short of what hit-testing reaches (seen in
+    /// Device Hub), the non-container elements a grid of hit tests finds inside `region`: every 8 pt or
+    /// wider, about 400 tests at most, each element read once. A frame thinner than the step still gets
+    /// one row or column.
     func hitElements(in region: CGRect, pid: pid_t) -> [ElementSnapshot] {
         let app = AXUIElementCreateApplication(pid)
+        enableAccessibilityIfNeeded(app: app, pid: pid)
         let step = max(8, ((region.width * region.height) / 400).squareRoot())
         var found: [ElementSnapshot] = []
-        var seen = Set<Frame>()
-        var y = region.minY + step / 2
+        var seenElements = Set<ElementKey>()
+        var seenShapes = Set<RoleFrame>()
+        var y = region.minY + min(step / 2, region.height / 2)
         while y < region.maxY {
-            var x = region.minX + step / 2
+            var x = region.minX + min(step / 2, region.width / 2)
             while x < region.maxX {
-                if let element = hit(app, at: CGPoint(x: x, y: y)) {
+                // A point mostly lands on its neighbour's element, often a container: identity first,
+                // then the role alone (no subrole maps to a container), and only then the rest.
+                if let element = hit(app, at: CGPoint(x: x, y: y)),
+                   seenElements.insert(ElementKey(pid: pid, hash: CFHash(element))).inserted,
+                   !ElementResolver.containerRoles.contains(ElementResolver.mapRole(string(copy(element, kAXRoleAttribute)) ?? "", subrole: nil)) {
                     let attributes = lightAttributes(of: element)
-                    if let frame = attributes.frame, !ElementResolver.isContainer(attributes), seen.insert(frame).inserted {
+                    if let frame = attributes.frame,
+                       seenShapes.insert(RoleFrame(role: ElementResolver.mapRole(attributes.role ?? "", subrole: attributes.subrole), frame: frame)).inserted {
                         found.append(ElementSnapshot(element: attributes, ancestors: []))
                     }
                 }
@@ -185,9 +192,9 @@ actor AccessibilityReader {
         return found
     }
 
-    /// R122: what a drawn frame or a committed shape holds: the walk's elements and, where the tree's
-    /// children stop short of what hit-testing reaches (seen in Device Hub), the grid's.
-    /// `RegionResolver` collapses the duplicates.
+    /// R122: the walk's elements and the grid's, for a caller with no lazy-tree retry of its own (a
+    /// committed shape's members; a drawn frame runs the grid once after its retry). `RegionResolver`
+    /// collapses the duplicates.
     func visibleElements(in region: CGRect, pid: pid_t) -> [ElementSnapshot] {
         elements(in: region, pid: pid) + hitElements(in: region, pid: pid)
     }
@@ -380,6 +387,12 @@ actor AccessibilityReader {
     private struct ElementKey: Hashable {
         let pid: pid_t
         let hash: CFHashCode
+    }
+
+    /// What `hitElements` counts as one element: the same role over the same frame (RegionResolver's own test).
+    private struct RoleFrame: Hashable {
+        let role: String
+        let frame: Frame
     }
 
     private var attributeCache: [ElementKey: (stamp: ContinuousClock.Instant, attributes: AttributeSet)] = [:]
