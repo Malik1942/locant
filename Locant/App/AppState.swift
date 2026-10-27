@@ -848,8 +848,8 @@ final class AppState {
         return CaptureTarget(element: element, app: source?.app ?? AppInfo(bundleId: "unknown", name: "unknown"), window: source?.window, url: snapshot?.url)
     }
 
-    /// specs/capture-shapes.md R121: a shape Point commits lists every element the drawn-frame walk finds
-    /// inside it; the members known at hover stay when the walk finds none.
+    /// R121: a shape Point commits lists every element the drawn-frame walk and R122's hit-test grid find
+    /// inside it; the members known at hover stay when they find none.
     private func withWalkedMembers(_ element: ResolvedElement?, pid: pid_t) async -> ResolvedElement? {
         guard var shape = element, shape.rawRole == ElementResolver.shapeRawRole, pid > 0 else { return element }
         let rect = shape.frame.cgRect
