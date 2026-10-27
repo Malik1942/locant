@@ -67,8 +67,12 @@ final class AppState {
     /// v0.8.1 R59: whether the drawn outline moved since the last redraw; reset with each session.
     @ObservationIgnored private var outlineMoves = OutlineMoves()
     /// R126: the screen under the pointer, read for the shapes hover lands on; stopped whenever `phase`
-    /// leaves hover.
-    @ObservationIgnored private let sampler = ScreenSampler()
+    /// leaves hover. While the screen is frozen (specs/frozen-screen.md R119), cut from the frozen image: the
+    /// freeze is read on the main actor, awaited, and cut off it; a session without one samples live.
+    @ObservationIgnored private lazy var sampler = ScreenSampler(capture: ScreenSampler.frozenFirst { [weak self] in
+        let freezing = await self?.freezing
+        return await freezing?.value
+    })
     /// R127: the last fill and the shapes found around rectangles, while the sample stays the same.
     @ObservationIgnored private var shapeMemo = ShapeLookup.Memo()
     /// specs/capture-shapes.md R135: the lines of text inside an element that merges them, read from the sample;
