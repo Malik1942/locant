@@ -90,6 +90,15 @@ enum Geometry {
         return CGRect(x: local.minX * scale, y: local.minY * scale, width: local.width * scale, height: local.height * scale)
     }
 
+    // MARK: Screen sample (specs/capture-shapes.md R126)
+
+    /// The display's own scale, lowered so `size` (points) holds at most `maxSamples` samples.
+    static func sampleScale(native: CGFloat, size: CGSize, maxSamples: Int) -> CGFloat {
+        let area = size.width * size.height
+        guard area > 0 else { return native }
+        return min(native, (CGFloat(maxSamples) / area).squareRoot())
+    }
+
     // MARK: Window hit-test (R3)
 
     struct WindowRecord: Sendable, Equatable, Codable {

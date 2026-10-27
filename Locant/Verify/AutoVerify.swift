@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 /// v0.6 R52: iterations are collected by themselves. After a Point capture in an app the user
@@ -11,13 +12,29 @@ enum AutoVerify {
 
     /// Whether `capture` is worth refinding when the app with `bundleId` came forward at `now`:
     /// it is the user's own app (mode fix), the same app, it has one element (not a drawn frame),
-    /// and the capture is under a day old.
+    /// that element is one accessibility can find again (not computed: a cluster, or a line of text read
+    /// from the screen, specs/capture-shapes.md R135), so is each companion refound with it (no line: another
+    /// element would be found in its place), and the capture is under a day old.
     static func wants(_ capture: Capture, activated bundleId: String, now: Date = .now) -> Bool {
         guard capture.mode == .fix, capture.source.app.bundleId == bundleId else { return false }
-        guard let element = capture.element, element.role != ElementResolver.clusterRole else { return false }
+        guard let element = capture.element, element.role != ElementResolver.clusterRole,
+              element.rawRole != ElementResolver.textRawRole,
+              !companions(of: capture).contains(where: { $0.rawRole == ElementResolver.textRawRole }) else { return false }
         guard let created = ISO8601DateFormatter().date(from: capture.createdAt) else { return false }
         let age = now.timeIntervalSince(created)
         return age >= -60 && age <= window
+    }
+
+    /// specs/capture-shapes.md R134: the frame an iteration of `capture` is cut around, its element found again at
+    /// `found`. On Device Hub's simulated screen (`screen`, from the tree the element was found in; nil elsewhere) a
+    /// capture commits what is drawn inside the padded frame accessibility reports, so `found` is tightened by the
+    /// ladder's rule (`HitRefiner.tightFrame(_:on:ink:)`), `ink` reading what is drawn from the crop just taken around
+    /// it, and the two images show one outline. `found` as it is outside a simulator, for a set's shared image, and
+    /// when the capture's frame is `found` itself: it committed the padded frame (clicked before the sample landed).
+    static func afterFrame(of capture: Capture, found: CGRect, screen: CGRect?, ink: (CGRect) -> CGRect?) -> CGRect {
+        guard capture.source.simulator != nil, !sharesOneImage(capture), let committed = capture.element?.frame,
+              !HitRefiner.matches(committed, Frame(found)) else { return found }
+        return HitRefiner.tightFrame(found, on: screen, ink: ink)
     }
 
     /// The image the next capture is compared with: the newest iteration, else the original.

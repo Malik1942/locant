@@ -77,8 +77,15 @@ enum MarkdownBuilder {
     private static func elementLines(_ element: ResolvedElement) -> [String] {
         if element.role == ElementResolver.clusterRole {
             let members = element.members ?? []
+            // specs/capture-shapes.md R129: a shape's frame is the edges seen on screen; a cluster's, an estimate.
+            // R132: a group's frame is the union of its controls.
+            let kind = switch element.rawRole {
+            case ElementResolver.shapeRawRole: "shape found on screen by Locant, not an accessibility element; frame from its visible edges"
+            case ElementResolver.groupRawRole: "controls in one row or column, grouped by Locant, not an accessibility element; frame is their union"
+            default: "visual grouping computed by Locant, not an accessibility element; frame approximate"
+            }
             var lines = [
-                "cluster · \(members.count) elements (visual grouping computed by Locant, not an accessibility element; frame approximate)",
+                "cluster · \(members.count) elements (\(kind))",
                 "Members: " + members.map(memberText).joined(separator: " · "),
             ]
             let f = element.frame
@@ -105,7 +112,12 @@ enum MarkdownBuilder {
         let hasHandle = element.identifier != nil || element.dom?.id != nil || !(element.dom?.classes.isEmpty ?? true)
         if !hasHandle { head += " · no identifier" }
         var lines = [head]
-        if element.identifier == nil, element.dom == nil {
+        if element.rawRole == ElementResolver.textRawRole {
+            // specs/capture-shapes.md R135: a line Locant read inside an element that merges its lines. It is no view
+            // of its own, so no identifier can be added to it.
+            lines.append(Self.textLineNote)
+            lines.append(Self.textLineAdvice)
+        } else if element.identifier == nil, element.dom == nil {
             lines.append("No identifier. Grep the label text; add .accessibilityIdentifier(\"…\") to this view so the next capture is exact.")
         } else if element.identifier == nil, element.dom?.id == nil {
             lines.append(hasHandle
@@ -170,6 +182,10 @@ enum MarkdownBuilder {
 
     /// How many class names the element line shows before "(+n more)".
     static let classLimit = 6
+
+    /// R135: what a `LocantText` element is, under its head line, and how to find it.
+    static let textLineNote = "Text read from the screen by Locant; not an accessibility element. The element it sits in is the next ⌥ level."
+    static let textLineAdvice = "No identifier. Grep the label text; it is drawn by that element's view, the last step of Path before staticText."
 
     private static func pathText(_ entry: PathEntry) -> String {
         if let identifier = entry.identifier { return "\(entry.role)#\(identifier)" }

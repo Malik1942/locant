@@ -119,6 +119,14 @@ final class GeometryTests: XCTestCase {
         XCTAssertTrue(Geometry.answerIsVisible(frame: CGRect(x: 380, y: 450, width: 40, height: 20), window: CGRect(x: 900, y: 900, width: 200, height: 100), owner: deviceHub, at: card, candidates: candidates))
     }
 
+    // specs/capture-shapes.md R126: the display's own scale, lowered only above 4,000,000 samples.
+    func testSampleScaleKeepsTheDisplaysScaleUpToTheCap() {
+        XCTAssertEqual(Geometry.sampleScale(native: 2, size: CGSize(width: 341, height: 741), maxSamples: 4_000_000), 2)
+        XCTAssertEqual(Geometry.sampleScale(native: 2, size: CGSize(width: 1720, height: 1000), maxSamples: 4_000_000),
+                       (4_000_000 / 1_720_000.0).squareRoot(), accuracy: 0.0001)
+        XCTAssertEqual(Geometry.sampleScale(native: 2, size: .zero, maxSamples: 4_000_000), 2)
+    }
+
     // specs/frozen-screen.md R121: a standard menu closes when the overlay takes key focus. Over the
     // spot it covered, the hover takes the menu as it was, not the window now behind it.
     func testVanishedWindowIsTheFrontmostWindowUnderThePointThatLeftTheScreen() {

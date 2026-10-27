@@ -65,4 +65,53 @@ final class FrozenScreenTests: XCTestCase {
         XCTAssertEqual(frozen.shot(containing: CGPoint(x: 10, y: 10))?.display, builtIn)
         XCTAssertNil(try frozen.crop(CGRect(x: 4000, y: 100, width: 20, height: 20)), "no display there: crop live")
     }
+
+    // specs/capture-shapes.md R126: while the screen is frozen, hover's sample is cut from the frozen image.
+
+    private let red = RGB(r: 255, g: 0, b: 0)
+    private let blue = RGB(r: 0, g: 0, b: 255)
+
+    /// The sample's color at a global point, read the way hover reads it (`ScreenSampler` makes the grid).
+    private func color(of sample: (image: CGImage, frame: CGRect, scale: CGFloat), at point: CGPoint) throws -> RGB {
+        let grid = try XCTUnwrap(PixelGrid(image: sample.image, frame: sample.frame,
+                                           scale: CGFloat(sample.image.width) / sample.frame.width, generation: 0))
+        let at = try XCTUnwrap(grid.sample(at: point))
+        return grid.color(x: at.x, y: at.y)
+    }
+
+    func testSampleFromTheFrozenImageOfADisplayWithNegativeOrigin() throws {
+        let window = CGRect(x: 2208, y: -1660, width: 360, height: 468) // Monister's window
+        let frozen = FrozenScreen(shots: [
+            .init(display: builtIn, scale: 2, image: image(of: builtIn, scale: 2, blue: .zero)),
+            .init(display: upper, scale: 2, image: image(of: upper, scale: 2, blue: window)),
+        ])
+        let sample = try XCTUnwrap(frozen.sample(window.insetBy(dx: -40, dy: -40), maxSamples: ScreenSampler.maxSamples))
+        XCTAssertEqual(sample.frame, CGRect(x: 2168, y: -1692, width: 440, height: 540), "the part on the display")
+        XCTAssertEqual(sample.scale, 2, "the shot's own scale")
+        XCTAssertEqual(sample.image.width, 880)
+        XCTAssertEqual(sample.image.height, 1080)
+        XCTAssertLessThanOrEqual(try color(of: sample, at: CGPoint(x: 2400, y: -1400)).difference(blue), 2, "the window")
+        XCTAssertLessThanOrEqual(try color(of: sample, at: CGPoint(x: 2180, y: -1400)).difference(red), 2, "left of it")
+        XCTAssertLessThanOrEqual(try color(of: sample, at: CGPoint(x: 2400, y: -1180)).difference(red), 2, "below it")
+    }
+
+    func testALargeSampleIsCutAtALowerScale() throws {
+        let card = CGRect(x: 600, y: 400, width: 200, height: 150)
+        let frozen = FrozenScreen(shots: [.init(display: builtIn, scale: 2, image: image(of: builtIn, scale: 2, blue: card))])
+        let area = CGRect(x: 500, y: 300, width: 400, height: 300) // 480,000 samples at 2x
+        let sample = try XCTUnwrap(frozen.sample(area, maxSamples: 120_000))
+        XCTAssertEqual(sample.frame, area)
+        XCTAssertEqual(sample.scale, Geometry.sampleScale(native: 2, size: area.size, maxSamples: 120_000))
+        XCTAssertEqual(sample.scale, 1)
+        XCTAssertEqual(sample.image.width, 400)
+        XCTAssertEqual(sample.image.height, 300)
+        XCTAssertLessThanOrEqual(try color(of: sample, at: CGPoint(x: 700, y: 475)).difference(blue), 2, "the card")
+        XCTAssertLessThanOrEqual(try color(of: sample, at: CGPoint(x: 550, y: 350)).difference(red), 2, "around it")
+    }
+
+    func testNoSampleOffEveryShot() {
+        let frozen = FrozenScreen(shots: [.init(display: builtIn, scale: 2, image: image(of: builtIn, scale: 2, blue: .zero))])
+        XCTAssertNil(frozen.sample(CGRect(x: 4000, y: 100, width: 20, height: 20), maxSamples: ScreenSampler.maxSamples),
+                     "no display there: the sample is taken live")
+    }
 }

@@ -45,9 +45,11 @@ struct AttributeSet: Codable, Sendable, Equatable {
 struct ElementSnapshot: Codable, Sendable, Equatable {
     var element: AttributeSet
     var ancestors: [AttributeSet]
-    /// Direct children, read only when the element is a window-spanning container (flat trees).
+    /// Direct children, read when the element is a container, whatever its size (flat trees;
+    /// specs/capture-shapes.md R128).
     var children: [AttributeSet]? = nil
-    /// The parent's children (including this element), read only when the parent spans the window.
+    /// The parent's children (including this element), read when the element is not a container and its
+    /// parent is one, whatever the parent's size (R128).
     var siblings: [AttributeSet]? = nil
     /// The on-screen window whose owner answered the hit test (R3). Not part of fixtures.
     var window: Geometry.WindowRecord? = nil
@@ -131,6 +133,12 @@ enum ElementResolver {
 
     static let clusterRole = "cluster"
     static let clusterRawRole = "LocantCluster"
+    /// specs/capture-shapes.md R124: a shape found on screen; a cluster too, but its frame is the edges seen.
+    static let shapeRawRole = "LocantShape"
+    /// specs/capture-shapes.md R132: controls in one row or column, lined up with small gaps.
+    static let groupRawRole = "LocantGroup"
+    /// specs/capture-shapes.md R135: a line of text Locant read from the screen inside an element that merges it.
+    static let textRawRole = "LocantText"
 
     /// A visual grouping computed from neighbouring elements. SwiftUI exposes leaves but not the
     /// cards that hold them; this stands in for the missing container and says so in its role.
@@ -143,7 +151,13 @@ enum ElementResolver {
         if let container = container?.cgRect, !union.intersection(container).isEmpty {
             union = union.intersection(container)
         }
-        let ordered = framed.sorted { a, b in
+        return computedElement(rawRole: clusterRawRole, frame: union, members: framed, ancestors: ancestors)
+    }
+
+    /// What a cluster or a group stands as: role `cluster`, the members (framed nodes) in reading order,
+    /// and the ancestors' path then `cluster`.
+    static func computedElement(rawRole: String, frame: CGRect, members: [AttributeSet], ancestors: [AttributeSet]) -> ResolvedElement {
+        let ordered = members.sorted { a, b in
             let fa = a.frame!, fb = b.frame!
             return abs(fa.y - fb.y) > 4 ? fa.y < fb.y : fa.x < fb.x
         }
@@ -153,12 +167,12 @@ enum ElementResolver {
         path.append(PathEntry(role: clusterRole, identifier: nil))
         return ResolvedElement(
             role: clusterRole,
-            rawRole: clusterRawRole,
+            rawRole: rawRole,
             label: nil,
             identifier: nil,
             identifierSource: .unknown,
             value: nil,
-            frame: Frame(union),
+            frame: Frame(frame),
             path: path,
             members: ordered.map { node in
                 ElementMember(
@@ -323,6 +337,65 @@ enum HitRefiner {
         return frame.cgRect
     }
 
+    /// specs/capture-shapes.md R133–R135: the element or one of its ancestors is Device Hub's simulated screen
+    /// (subrole `iOSContentGroup`), whatever its frame, which a detached copy reports empty. The one test for what
+    /// changes only there (the container that lists an element, the ⌥ level kept for an outline tightened or a
+    /// line read again), so elsewhere it changes no answer.
+    static func isOnSimulatedScreen(_ snapshot: ElementSnapshot?) -> Bool {
+        guard let snapshot else { return false }
+        return ([snapshot.element] + snapshot.ancestors).contains { $0.subrole == simulatedScreenSubrole }
+    }
+
+    /// specs/capture-shapes.md R133: Device Hub sometimes names a detached copy of the screen's group as an
+    /// element's parent: subrole `iOSContentGroup`, an empty frame (or none), no parent or window of its own.
+    static func isDetachedScreen(_ node: AttributeSet) -> Bool {
+        node.subrole == simulatedScreenSubrole && !(node.frame.map { $0.w > 0 && $0.h > 0 } ?? false)
+    }
+
+    /// R133: a detached copy's frame. The real screen group's, `found` from the window under the pointer, when it
+    /// has one; else the union of the copy's children's non-empty frames, read only then. The union is the screen
+    /// where the copy lists a screen-sized content group (Library), but the content's bounds, scrolled content
+    /// included, where it lists the elements directly (Tide). Nil when neither has a frame.
+    static func detachedScreenFrame(found: Frame?, children: @autoclosure () -> [AttributeSet]) -> Frame? {
+        if let found, found.w > 0, found.h > 0 { return found }
+        let bounds = union(of: children().filter { ($0.frame?.w ?? 0) > 0 && ($0.frame?.h ?? 0) > 0 })
+        return bounds.isNull ? nil : Frame(bounds)
+    }
+
+    /// R133: Device Hub draws a screen-sized content group under smaller chrome (the tab bar, toolbars, a
+    /// sheet's grabber), whatever the reading order, and its hit test answers from the group. Of the screen's
+    /// direct `children`, the one that should answer at `point` instead: one with a non-empty frame that holds
+    /// the point and does not span the screen (the smallest, if several), when the child holding the hit
+    /// (`holding`, nil when not known) spans it. Nil when there is none, or when the hit already sits in a
+    /// child that does not span the screen. Spanning: the screen's frame within 1 pt.
+    static func overlayIndex(at point: CGPoint, screen: Frame, children: [AttributeSet], holding: Int?) -> Int? {
+        func spansScreen(_ node: AttributeSet) -> Bool { node.frame.map { matches($0, screen) } ?? false }
+        if let holding, children.indices.contains(holding), !spansScreen(children[holding]) { return nil }
+        return children.indices
+            .filter { index in
+                guard index != holding, let frame = children[index].frame, frame.w > 0, frame.h > 0 else { return false }
+                return !spansScreen(children[index]) && frame.cgRect.contains(point)
+            }
+            .min { area(children[$0].frame!.cgRect) < area(children[$1].frame!.cgRect) }
+    }
+
+    /// R133: on Device Hub's screen an element's frame can hang past what it draws, over smaller siblings, and
+    /// the hit test answers with it (an image whose frame covers the chips below the picture). Of the snapshot's
+    /// `siblings`, the index of the one that answers at `point` instead: the smallest non-container with a
+    /// non-empty frame that holds the point and is smaller in area than the element. Nil off the simulated
+    /// screen, for a container (refined instead, R2), or when there is none.
+    static func smallerSibling(at point: CGPoint, in snapshot: ElementSnapshot) -> Int? {
+        guard simulatedScreen(in: snapshot) != nil, !ElementResolver.isContainer(snapshot.element),
+              let own = snapshot.element.frame, let siblings = snapshot.siblings else { return nil }
+        return siblings.indices
+            .filter { index in
+                let node = siblings[index]
+                guard !ElementResolver.isContainer(node), let frame = node.frame, frame.w > 0, frame.h > 0 else { return false }
+                return frame.w * frame.h < own.w * own.h && frame.cgRect.contains(point)
+            }
+            .min { area(siblings[$0].frame!.cgRect) < area(siblings[$1].frame!.cgRect) }
+    }
+
     /// Xcode 27: Device Hub draws the simulated device beside a sidebar and under a toolbar, where
     /// Simulator.app's window was the device. On the device, Snap and Cut end in its screen instead:
     /// the rungs inside it, then the screen as the window rung.
@@ -359,7 +432,9 @@ enum HitRefiner {
     /// True when the previously shown element should stay: it is a real control and the cursor is
     /// still within `stickiness` of its frame.
     static func sticks(_ previous: ResolvedElement?, to point: CGPoint) -> Bool {
-        guard let previous, !ElementResolver.containerRoles.contains(previous.role) else { return false }
+        // R135: nor a line read from the screen, which is read again at each step.
+        guard let previous, !ElementResolver.containerRoles.contains(previous.role),
+              previous.rawRole != ElementResolver.textRawRole else { return false }
         return previous.frame.cgRect.insetBy(dx: -stickiness, dy: -stickiness).contains(point)
     }
 
@@ -413,6 +488,76 @@ enum HitRefiner {
         if let group = groups.first(where: { $0.contains(anchor) }) { return group }
         guard let f = anchor.frame?.cgRect else { return nil }
         return groups.first { union(of: $0).contains(CGPoint(x: f.midX, y: f.midY)) }
+    }
+
+    /// R132: the next control in a row or column may overlap where the chain ends by this, or start this far
+    /// past it when that is more than `groupGapShare` allows.
+    static let groupTouch: Double = 2
+    /// R132, amended Oct 26: the next control may start up to this share of the element's smaller side past
+    /// where the chain ends (9.8 pt for the Library capsule's 39.3 pt buttons; Filter sits 8 pt on, behind a
+    /// drawn divider), up to `groupGapCap`.
+    static let groupGapShare: Double = 0.25
+    /// R132, capped Oct 27: never more than this past where the chain ends, so ordinary card spacing (12 pt
+    /// between 75.9 pt cards, a quarter of which is 19 pt) does not join.
+    static let groupGapCap: Double = 10
+    /// R132: the controls of a row share their top and height (a column, their left and width) within this.
+    static let groupAlign: Double = 1
+
+    /// specs/capture-shapes.md R132: the controls among `siblings` that, with `element`, form a chain along
+    /// one axis, each a small gap at most from the next. A row if it has two or more, else a column; its
+    /// frame is the exact union. Nil when `element` is alone. Where controls tile a glass capsule there is
+    /// no rim to point into and no pixel ring (R125 step 3), and the cluster's 16 pt padding spills past it.
+    static func groupElement(around element: AttributeSet, among siblings: [AttributeSet], ancestors: [AttributeSet]) -> ResolvedElement? {
+        guard let anchor = element.frame, anchor.w > 0, anchor.h > 0 else { return nil }
+        for horizontal in [true, false] {
+            let run = chain(from: element, among: siblings, horizontal: horizontal)
+            if run.count >= 2 {
+                return ElementResolver.computedElement(rawRole: ElementResolver.groupRawRole, frame: union(of: run), members: run, ancestors: ancestors)
+            }
+        }
+        return nil
+    }
+
+    /// `element` and the controls reached outward from it in both directions along one axis (x when
+    /// `horizontal`), each starting between an overlap of `groupTouch` and a gap of
+    /// `min(groupGapCap, max(groupTouch, groupGapShare × min(w, h)))` (the element's sides) from where the
+    /// chain ends, and lined up with `element` across the axis within `groupAlign`. Of several, the nearest
+    /// joins, then the first in sibling order.
+    private static func chain(from element: AttributeSet, among siblings: [AttributeSet], horizontal: Bool) -> [AttributeSet] {
+        let anchor = element.frame!
+        let reach = min(groupGapCap, max(groupTouch, groupGapShare * min(anchor.w, anchor.h)))
+        func along(_ f: Frame) -> (start: Double, end: Double) { horizontal ? (f.x, f.x + f.w) : (f.y, f.y + f.h) }
+        func lined(_ f: Frame) -> Bool {
+            horizontal ? abs(f.y - anchor.y) <= groupAlign && abs(f.h - anchor.h) <= groupAlign
+                       : abs(f.x - anchor.x) <= groupAlign && abs(f.w - anchor.w) <= groupAlign
+        }
+        var pool = siblings.filter { node in
+            guard let f = node.frame, f.w > 0, f.h > 0, !ElementResolver.isContainer(node), lined(f) else { return false }
+            return !matches(f, anchor)   // the element's own entry, and a twin of its rectangle
+        }
+        var chain = [element]
+        var (start, end) = along(anchor)
+        // The control in `pool` whose `gap` from the chain is within the limits, the nearest first.
+        func nearest(_ gap: (Frame) -> Double) -> Int? {
+            pool.indices
+                .filter { let g = gap(pool[$0].frame!); return g >= -groupTouch && g <= reach }
+                .min { abs(gap(pool[$0].frame!)) < abs(gap(pool[$1].frame!)) }
+        }
+        var grew = true
+        while grew {
+            grew = false
+            if let i = nearest({ along($0).start - end }) {
+                end = max(end, along(pool[i].frame!).end)
+                chain.append(pool.remove(at: i))
+                grew = true
+            }
+            if let i = nearest({ start - along($0).end }) {
+                start = min(start, along(pool[i].frame!).start)
+                chain.append(pool.remove(at: i))
+                grew = true
+            }
+        }
+        return chain
     }
 
     /// Framed nodes that are content rather than backgrounds of their container.
@@ -474,19 +619,29 @@ enum HitRefiner {
         let base = ElementResolver.resolve(snapshot)
         let window = windowFrame(in: snapshot)
         var levels: [ResolvedElement?] = []
-        if let base, ElementResolver.containerRoles.contains(base.role), spans(snapshot.element.frame, window: window) {
-            // Window-sized container under the cursor: the cluster around the point, else nothing.
+        if let base, ElementResolver.containerRoles.contains(base.role) {
+            // A container under the cursor: the cluster around the point, whatever the container's size
+            // (specs/capture-shapes.md R128); else nothing when it spans the window, else the container.
+            let spanning = spans(snapshot.element.frame, window: window)
+            let containerArea = snapshot.element.frame.map { $0.w * $0.h } ?? .infinity
             let nodes = content(of: snapshot.children ?? [], within: snapshot.element.frame)
             if let members = cluster(containing: point, among: nodes),
-               let cluster = ElementResolver.clusterElement(members: members, ancestors: [snapshot.element] + snapshot.ancestors, within: snapshot.element.frame) {
+               let cluster = ElementResolver.clusterElement(members: members, ancestors: [snapshot.element] + snapshot.ancestors, within: snapshot.element.frame),
+               spanning || cluster.frame.w * cluster.frame.h < 0.9 * containerArea {
                 levels.append(cluster)
-            } else {
+            } else if spanning {
                 levels.append(nil)
             }
             levels.append(base)
         } else if let base {
             levels.append(base)
-            if let siblings = snapshot.siblings, let parent = snapshot.ancestors.first, spans(parent.frame, window: window) {
+            // R132: the row or column of controls it belongs to, before the looser cluster.
+            if let siblings = snapshot.siblings,
+               let group = groupElement(around: snapshot.element, among: siblings, ancestors: snapshot.ancestors) {
+                levels.append(group)
+            }
+            // R128: the cluster around the element under any parent.
+            if let siblings = snapshot.siblings, let parent = snapshot.ancestors.first {
                 let nodes = content(of: siblings, within: parent.frame)
                 let parentArea = parent.frame.map { $0.w * $0.h } ?? .infinity
                 if let members = cluster(around: snapshot.element, among: nodes),
@@ -514,5 +669,397 @@ enum HitRefiner {
         guard depth > 0 else { return snapshot }
         guard depth <= snapshot.ancestors.count else { return nil }
         return ElementSnapshot(element: snapshot.ancestors[depth - 1], ancestors: Array(snapshot.ancestors[depth...]))
+    }
+}
+
+// MARK: - Shapes (specs/capture-shapes.md)
+
+extension HitRefiner {
+    /// R125: inside a shape, the element under the pointer keeps the outline this far past its frame.
+    static let shapeHold: Double = 3
+    /// R125: a shape and an accessibility rung within this on every edge are one rung, since pixel edges
+    /// are read a sample at a time. Two accessibility rungs still merge within 1 pt (`collapsingSameFrames`).
+    static let shapeMerge: Double = 2
+    /// specs/capture-shapes.md R134: only a rung at least this large both ways is tightened. iOS pads a smaller
+    /// control to its 44 pt tap target on purpose, so its frame is the control.
+    static let tightenMinSide: Double = 44
+
+    /// R125: the ladder with the shapes under the pointer.
+    /// - Rung 0 is the element the pointer is on; else the element still held inside a shape; else the
+    ///   shape at the point; else today's ladder, unchanged.
+    /// - After rung 0 come the shapes around it, then today's rungs that hold it, ordered by containment.
+    /// - With no accessibility answer: nothing, and no shape is asked for.
+    /// - R134: on Device Hub's simulated screen, the accessibility rungs (rung 0 too) are tightened to what
+    ///   is drawn inside them before they are ordered and merged. Rung 0 is still chosen by the frames the
+    ///   accessibility tree reports, since the pointer may be in an element's padding.
+    static func selectionLevels(for snapshot: ElementSnapshot?, at point: CGPoint,
+                                shapes: inout some ShapeSource, holding previous: ResolvedElement?) -> [ResolvedElement?] {
+        guard let snapshot else { return [] }
+        let screen = simulatedScreen(in: snapshot)
+        var today = selectionLevels(for: snapshot, at: point)
+        for index in today.indices {
+            if let rung = today[index] { today[index] = tightened(rung, on: screen, shapes: &shapes) }
+        }
+        let rung0: ResolvedElement
+        var shapeAtPoint: CGRect?
+        var heldIn: CGRect?
+        if let hit = ElementResolver.resolve(snapshot), isElement(hit), hit.frame.cgRect.contains(point) {
+            rung0 = tightened(hit, on: screen, shapes: &shapes)
+        } else if let shape = shapes.shape(at: point) {
+            shapeAtPoint = shape
+            // R135: a line read from the screen is never held; it is read again at each step.
+            if let previous, isElement(previous), previous.rawRole != ElementResolver.textRawRole,
+               previous.frame.cgRect.insetBy(dx: -shapeHold, dy: -shapeHold).contains(point),
+               holds(shape, previous.frame.cgRect) {
+                // Held from the step before, which tightened it already where it could.
+                rung0 = tightened(previous, on: screen, shapes: &shapes)
+                heldIn = shape
+            } else {
+                rung0 = shapeElement(frame: shape, snapshot: snapshot)
+            }
+        } else {
+            return screen == nil ? today : collapsingSameFrames(today)
+        }
+        var around = shapes.shapes(around: rung0.frame.cgRect)
+        // A held element is not the shape it sits in: that shape is the next rung even where nothing is
+        // found around the element, but not twice where something is.
+        if let heldIn, !around.contains(where: { matches(Frame($0), Frame(heldIn), within: shapeMerge) }) {
+            around.append(heldIn)
+        }
+        // R128: the cluster stands in for a shape, so it is offered only where there is none.
+        let offersCluster = shapeAtPoint == nil && around.isEmpty
+        let accessibility = today.compactMap { $0 }.filter { rung in
+            !(rung.frame == rung0.frame && rung.rawRole == rung0.rawRole)
+                && holds(rung.frame.cgRect, rung0.frame.cgRect)
+                && (offersCluster || rung.rawRole != ElementResolver.clusterRawRole)
+        }
+        let candidates = (around.map { shapeElement(frame: $0, snapshot: snapshot) } + accessibility)
+            .enumerated()
+            .sorted { a, b in
+                let (x, y) = (rungArea(a.element), rungArea(b.element))
+                if x != y { return x < y }
+                if isShape(a.element) != isShape(b.element) { return !isShape(a.element) }
+                return a.offset < b.offset
+            }
+            .map(\.element)
+        var ladder: [ResolvedElement] = [rung0]
+        for candidate in candidates {
+            let last = ladder[ladder.count - 1]
+            // Two accessibility rungs are left to `collapsingSameFrames`, which merges them within 1 pt by weight.
+            if isShape(last) || isShape(candidate), matches(last.frame, candidate.frame, within: shapeMerge) {
+                // The accessibility rung is kept: it carries a handle to grep.
+                if isShape(last), !isShape(candidate) { ladder[ladder.count - 1] = candidate }
+                continue
+            }
+            if holds(candidate.frame.cgRect, last.frame.cgRect) {
+                ladder.append(candidate)
+                continue
+            }
+            // A shape that does not hold the rung below it is dropped; so is one below an accessibility
+            // rung that does not hold it.
+            guard !isShape(candidate) else { continue }
+            while ladder.count > 1, let top = ladder.last, isShape(top), !holds(candidate.frame.cgRect, top.frame.cgRect) {
+                ladder.removeLast()
+            }
+            ladder.append(candidate)
+        }
+        return collapsingSameFrames(ladder)
+    }
+
+    /// R124: a shape as an element. Its path is that of the innermost node, among the hovered element and
+    /// its ancestors, whose frame holds it; its members are what the snapshot holds inside it (R129).
+    static func shapeElement(frame: CGRect, snapshot: ElementSnapshot) -> ResolvedElement {
+        let chain = [snapshot.element] + snapshot.ancestors
+        let holder = chain.firstIndex { node in node.frame.map { holds($0.cgRect, frame) } ?? false } ?? chain.count
+        var path: [PathEntry] = chain[holder...].prefix(ElementResolver.maxAncestors).reversed().map { node in
+            PathEntry(role: ElementResolver.mapRole(node.role ?? "", subrole: node.subrole), identifier: ElementResolver.nonEmpty(node.identifier))
+        }
+        path.append(PathEntry(role: ElementResolver.clusterRole, identifier: nil))
+        return ResolvedElement(
+            role: ElementResolver.clusterRole, rawRole: ElementResolver.shapeRawRole, label: nil, identifier: nil,
+            identifierSource: .unknown, value: nil, frame: Frame(frame), path: path,
+            members: members(inside: frame, of: snapshot)
+        )
+    }
+
+    /// R129: the non-container nodes the snapshot holds (the element, its siblings, its children) at least
+    /// half inside `frame`, one per rectangle, in reading order.
+    static func members(inside frame: CGRect, of snapshot: ElementSnapshot) -> [ElementMember] {
+        var seen = Set<String>()
+        let inside = ([snapshot.element] + (snapshot.siblings ?? []) + (snapshot.children ?? [])).filter { node in
+            guard !ElementResolver.isContainer(node), let f = node.frame, f.w > 0, f.h > 0 else { return false }
+            let overlap = f.cgRect.intersection(frame)
+            guard !overlap.isNull, overlap.width * overlap.height >= RegionResolver.minimumInside * f.w * f.h else { return false }
+            return seen.insert("\(node.role ?? "")|\(f.x)|\(f.y)|\(f.w)|\(f.h)").inserted
+        }
+        let ordered = inside.sorted { a, b in
+            let fa = a.frame!, fb = b.frame!
+            return abs(fa.y - fb.y) > 4 ? fa.y < fb.y : fa.x < fb.x
+        }
+        return ordered.map { node in
+            ElementMember(role: ElementResolver.mapRole(node.role ?? "", subrole: node.subrole),
+                          label: ElementResolver.nonEmpty(node.title) ?? ElementResolver.nonEmpty(node.description),
+                          identifier: ElementResolver.nonEmpty(node.identifier))
+        }
+    }
+
+    /// R134: the frame of an accessibility rung on Device Hub's simulated screen. What is drawn inside `frame`
+    /// (`ink`, from `ShapeSource.ink(inside:)`), cut to `frame`, when `frame` is at least `tightenMinSide` both
+    /// ways and that lies more than `shapeMerge` inside it on at least one side; else `frame`, as with nothing
+    /// drawn inside it. The edge map marks the sample outside a drawn step too, so this ends one sample (half a
+    /// point at 2x) outside a card's edge or a glyph.
+    static func tightFrame(_ frame: CGRect, ink: CGRect?) -> CGRect {
+        guard tightens(frame), let ink else { return frame }
+        let tight = ink.intersection(frame)
+        guard !tight.isNull, !tight.isEmpty else { return frame }
+        let inset = max(tight.minX - frame.minX, frame.maxX - tight.maxX, tight.minY - frame.minY, frame.maxY - tight.maxY)
+        return inset > shapeMerge ? tight : frame
+    }
+
+    /// R134: `rung` with its frame tightened (`tightFrame(_:on:ink:)`), when it is an accessibility rung that is
+    /// neither a container nor computed (a shape, a cluster, or a group). Its role, label, identifier, path, and
+    /// members stay.
+    private static func tightened(_ rung: ResolvedElement, on screen: CGRect?, shapes: inout some ShapeSource) -> ResolvedElement {
+        guard isElement(rung) else { return rung }
+        let frame = rung.frame.cgRect
+        let tight = tightFrame(frame, on: screen) { shapes.ink(inside: $0) }
+        guard tight != frame else { return rung }
+        var tightened = rung
+        tightened.frame = Frame(tight)
+        return tightened
+    }
+
+    /// R134: an accessibility element's `frame` as the ladder outlines it on `screen`, Device Hub's simulated screen
+    /// the sample shows: what is drawn inside it (`ink`, asked only then: a small control costs no pixel read), cut
+    /// as `tightFrame(_:ink:)` cuts it, when the frame is at least `tightenMinSide` both ways and lies inside the
+    /// screen within 1 pt (the sample shows nothing beyond it). Else, and off the screen (`screen` nil), `frame`.
+    /// Iterations of a tightened capture tighten the element found again by the same rule (`AutoVerify.afterFrame`).
+    static func tightFrame(_ frame: CGRect, on screen: CGRect?, ink: (CGRect) -> CGRect?) -> CGRect {
+        guard let screen, tightens(frame), screen.insetBy(dx: -1, dy: -1).contains(frame) else { return frame }
+        return tightFrame(frame, ink: ink(frame))
+    }
+
+    /// R134: large enough both ways to be tightened.
+    private static func tightens(_ frame: CGRect) -> Bool {
+        frame.width >= tightenMinSide && frame.height >= tightenMinSide
+    }
+
+    /// R134: `a` and `b` are one element, one of them outlined tighter: equal but for the frame, one frame
+    /// inside the other. So the first screen sample tightening rung 0 is no move to another element.
+    static func isRetightened(_ a: ResolvedElement?, _ b: ResolvedElement?) -> Bool {
+        guard let a, var b else { return false }
+        let (fa, fb) = (a.frame.cgRect, b.frame.cgRect)
+        guard lies(fb, inside: fa) || lies(fa, inside: fb) else { return false }
+        b.frame = a.frame
+        return a == b
+    }
+
+    /// R134, R135: whether hover's new ladder, `new`, read from `fresh`, starts on the same rung as the last step's,
+    /// `old`, read from `last`, so the ⌥ level chosen before stays, mapped to that rung by frame: rung 0 of the same
+    /// frame; and on Device Hub's simulated screen only (`isOnSimulatedScreen`), so that elsewhere nothing changes,
+    /// the same element outlined tighter or no longer (`isRetightened`), or the same line read again
+    /// (`isRereadLine`).
+    static func keepsLevel(_ old: [ResolvedElement?], in last: ElementSnapshot?, _ new: [ResolvedElement?], in fresh: ElementSnapshot?) -> Bool {
+        let (a, b) = (old.first ?? nil, new.first ?? nil)
+        if a?.frame == b?.frame { return true }
+        guard isOnSimulatedScreen(fresh) else { return false }
+        return isRetightened(a, b) || isRereadLine(a, in: last, b, in: fresh)
+    }
+
+    /// R134, R135: Point's ⌥ level after a hover step from `old`, read from `last`, at `level`, to `new`, read from
+    /// `fresh`: the same rung, found by its frame, when the new ladder starts on the same rung (`keepsLevel`), or,
+    /// above rung 0 on the simulated screen, differs from the old only by a line added or removed ahead of the same
+    /// rung 0 (lines landed, or went, while ⌥ was up a level); else 0.
+    static func nextLevel(_ level: Int, from old: [ResolvedElement?], in last: ElementSnapshot?, to new: [ResolvedElement?], in fresh: ElementSnapshot?) -> Int {
+        let lineOnly = level > 0 && isOnSimulatedScreen(fresh) && differsByALine(old, new)
+        guard lineOnly || keepsLevel(old, in: last, new, in: fresh) else { return 0 }
+        let selected = old.indices.contains(level) ? old[level] : old.first ?? nil
+        if let selected, let index = new.firstIndex(where: { $0?.frame == selected.frame }) { return index } // wherever the new ladder puts it
+        return min(level, max(0, new.count - 1))
+    }
+
+    /// R135: one ladder starts with a line read from the screen and the other does not, and behind it they start on
+    /// the same rung, outlined tighter or not (`isRetightened`).
+    private static func differsByALine(_ old: [ResolvedElement?], _ new: [ResolvedElement?]) -> Bool {
+        func isLine(_ ladder: [ResolvedElement?]) -> Bool { (ladder.first ?? nil)?.rawRole == ElementResolver.textRawRole }
+        guard isLine(old) != isLine(new) else { return false }
+        let (a, b) = ((isLine(old) ? old.dropFirst() : old[...]).first ?? nil, (isLine(new) ? new.dropFirst() : new[...]).first ?? nil)
+        return isRetightened(a, b)
+    }
+
+    /// R134: whether a click at `point` is on the rung hover drew, `shown`, read from `snapshot`, so that rung is
+    /// what is committed. Within `stickiness` of `shown`'s frame, as everywhere. On Device Hub's simulated
+    /// screen also within `stickiness` of the snapshot element's own frame, when `shown` is that element outlined
+    /// tighter (equal but for its frame, which lies inside): in its padding, or in the reader's tolerance around
+    /// it, the pointer still reads that element. Not when `shown` is another rung (a shape, a held element, a
+    /// line of text) that the snapshot's element only neighbors.
+    static func clickIsOnHover(_ point: CGPoint, shown: ResolvedElement?, snapshot: ElementSnapshot?) -> Bool {
+        guard let shown else { return false }
+        if shown.frame.cgRect.insetBy(dx: -stickiness, dy: -stickiness).contains(point) { return true }
+        guard let snapshot, simulatedScreen(in: snapshot) != nil, var own = ElementResolver.resolve(snapshot) else { return false }
+        let frame = own.frame.cgRect
+        own.frame = shown.frame
+        return own == shown && lies(shown.frame.cgRect, inside: frame)
+            && frame.insetBy(dx: -stickiness, dy: -stickiness).contains(point)
+    }
+
+    /// R134: `inner` lies inside `outer`, give or take a hundredth of a point: a frame cut to another and
+    /// stored as x, y, w, h can end an ulp past it (x + w).
+    private static func lies(_ inner: CGRect, inside outer: CGRect) -> Bool {
+        outer.insetBy(dx: -0.01, dy: -0.01).contains(inner)
+    }
+
+    /// `outer` holds `inner`, give or take `shapeMerge`.
+    static func holds(_ outer: CGRect, _ inner: CGRect) -> Bool {
+        outer.insetBy(dx: -shapeMerge, dy: -shapeMerge).contains(inner)
+    }
+
+    /// The same rectangle, within `slack` on every edge.
+    static func matches(_ a: Frame, _ b: Frame, within slack: Double) -> Bool {
+        abs(a.x - b.x) <= slack && abs(a.y - b.y) <= slack
+            && abs((a.x + a.w) - (b.x + b.w)) <= slack && abs((a.y + a.h) - (b.y + b.h)) <= slack
+    }
+
+    private static func isElement(_ rung: ResolvedElement) -> Bool {
+        !ElementResolver.containerRoles.contains(rung.role) && rung.role != ElementResolver.clusterRole
+    }
+
+    private static func isShape(_ rung: ResolvedElement) -> Bool { rung.rawRole == ElementResolver.shapeRawRole }
+
+    private static func rungArea(_ rung: ResolvedElement) -> Double { rung.frame.w * rung.frame.h }
+}
+
+// MARK: - Text lines (R135)
+
+/// R135: a line of text read from the screen sample, and its box in global points.
+struct TextLine: Sendable, Equatable {
+    var text: String
+    var frame: Frame
+}
+
+extension HitRefiner {
+    /// R135: a line takes the pointer within this of its box, and its rung's frame is the box grown by it.
+    static let textReach: Double = 2
+
+    /// R135: the accessibility frame to read lines of text in, for the hover answer on Device Hub's simulated
+    /// screen when it has no accessibility children (a leaf, or a container whose children read empty, like
+    /// the tab bar), its frame holds `point`, and it is at least `tightenMinSide` both ways (smaller, it holds
+    /// one line at most) and at most half the screen's area (which bounds the pixels hashed per sample). A leaf
+    /// only when it merges texts, its label joining two or more with ", " as SwiftUI joins a card's: a paragraph,
+    /// an editor, or a two-line button gets no lines. Nil elsewhere.
+    static func textArea(of snapshot: ElementSnapshot, at point: CGPoint) -> CGRect? {
+        guard let screen = simulatedScreen(in: snapshot), let frame = snapshot.element.frame,
+              frame.w >= tightenMinSide, frame.h >= tightenMinSide, frame.w * frame.h <= 0.5 * screen.width * screen.height,
+              frame.cgRect.contains(point) else { return nil }
+        if ElementResolver.isContainer(snapshot.element) {
+            return (snapshot.children ?? []).isEmpty ? frame.cgRect : nil
+        }
+        let label = ElementResolver.nonEmpty(snapshot.element.title) ?? ElementResolver.nonEmpty(snapshot.element.description)
+        guard (snapshot.element.childCount ?? 0) == 0, let label, labelParts(label).count >= 2 else { return nil }
+        return frame.cgRect
+    }
+
+    /// R135: the line under the pointer as a rung of its own, ahead of `answer`, the element that merges it,
+    /// whose accessibility frame is `answerFrame`. Only when the answer holds two or more lines (one alone, a
+    /// heading, adds nothing) and `point` lies within `textReach` of a line's box; of two, the nearer. Its
+    /// frame is that box grown by `textReach`, cut to `answerFrame`; its label the part of the answer's label
+    /// the line reads (`textLabel`); its path the answer's, then `staticText`.
+    static func textRung(lines: [TextLine], at point: CGPoint, answer: ResolvedElement, answerFrame: Frame) -> ResolvedElement? {
+        let area = answerFrame.cgRect
+        let held = lines.filter { line in
+            !line.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && line.frame.w > 0 && line.frame.h > 0 && line.frame.cgRect.intersects(area)
+        }
+        guard held.count >= 2 else { return nil }
+        func distance(to line: TextLine) -> Double {
+            let box = line.frame.cgRect
+            return hypot(max(box.minX - point.x, 0, point.x - box.maxX), max(box.minY - point.y, 0, point.y - box.maxY))
+        }
+        guard let line = held.filter({ $0.frame.cgRect.insetBy(dx: -textReach, dy: -textReach).contains(point) })
+            .min(by: { distance(to: $0) < distance(to: $1) }) else { return nil }
+        let frame = line.frame.cgRect.insetBy(dx: -textReach, dy: -textReach).intersection(area)
+        guard !frame.isNull, !frame.isEmpty else { return nil }
+        return ResolvedElement(
+            role: "staticText", rawRole: ElementResolver.textRawRole, label: textLabel(line.text, within: answer.label),
+            identifier: nil, identifierSource: .unknown, value: nil, frame: Frame(frame),
+            path: answer.path + [PathEntry(role: "staticText", identifier: nil)]
+        )
+    }
+
+    /// R135: `levels` with `line`, the line under the pointer read in `answer`, ahead of them. When rung 0 is that
+    /// answer outlined tighter (R134, `isRetightened`), the line's frame is cut to that outline too, so ⌥ never
+    /// steps from a line to an outline that does not hold it; a line with nothing left inside it is no rung.
+    static func addingLine(_ line: ResolvedElement?, to levels: [ResolvedElement?], answer: ResolvedElement) -> [ResolvedElement?] {
+        guard var line else { return levels }
+        if let first = levels.first ?? nil, first.frame != answer.frame, isRetightened(answer, first) {
+            let cut = line.frame.cgRect.intersection(first.frame.cgRect)
+            guard !cut.isNull, !cut.isEmpty else { return levels }
+            line.frame = Frame(cut)
+        }
+        return [line] + levels
+    }
+
+    /// R135: the part of `label`, split on ", ", that the line `text` reads (`textMatches`): an equal part first,
+    /// else one that contains the line or that the line contains. Else the text as read. So a card's
+    /// "= yesterday" (Vision reads its list icon as "=") is "yesterday", and a stray "1" takes no part.
+    static func textLabel(_ text: String, within label: String?) -> String {
+        let read = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let key = textKey(read)
+        guard !key.isEmpty, let label else { return read }
+        let parts = labelParts(label)
+        if let equal = parts.first(where: { textKey($0) == key }) { return equal }
+        return parts.first { textMatches($0, read) } ?? read
+    }
+
+    /// R135: two texts read alike, compared case-insensitively on letters and digits only: equal, or one
+    /// contains the other where the shorter is long enough to mean something, 3 letters or digits or 2 Han
+    /// characters (`textMatchMinLength`, `textMatchMinHan`). Texts with no letters or digits match nothing.
+    static func textMatches(_ a: String, _ b: String) -> Bool {
+        let (x, y) = (textKey(a), textKey(b))
+        guard !x.isEmpty, !y.isEmpty else { return false }
+        if x == y { return true }
+        return longEnough(x.count <= y.count ? x : y) && (x.contains(y) || y.contains(x))
+    }
+
+    /// R135: a text key (`textKey`) long enough to mean something: `textMatchMinLength` letters or digits, or
+    /// `textMatchMinHan` Han characters.
+    private static func longEnough(_ key: String) -> Bool {
+        key.count >= textMatchMinLength || key.filter { $0.unicodeScalars.contains { $0.properties.isIdeographic } }.count >= textMatchMinHan
+    }
+
+    /// R135: letters and digits the shorter text needs before one contains the other; or Han characters, which
+    /// say as much in fewer (昨天, "yesterday").
+    static let textMatchMinLength = 3
+    static let textMatchMinHan = 2
+
+    /// R135: two labels of one element, though the text it merges has changed: equal (both nil included), or
+    /// some ", "-part of one reads like a part of the other (`textMatches`), both long enough to mean something,
+    /// equal parts too. "Random, 4 seconds ago" and "Random, 5 seconds ago" share "Random"; a pushed screen's
+    /// or a reused cell's card shares no part, and "Cooking, 1" and "Travel, 1" share no "1".
+    static func labelsSharePart(_ a: String?, _ b: String?) -> Bool {
+        if a == b { return true }
+        guard let a, let b else { return false }
+        let others = labelParts(b).filter { longEnough(textKey($0)) }
+        return labelParts(a).contains { part in longEnough(textKey(part)) && others.contains { textMatches(part, $0) } }
+    }
+
+    private static func textKey(_ s: String) -> String { String(s.lowercased().filter { $0.isLetter || $0.isNumber }) }
+
+    private static func labelParts(_ label: String) -> [String] {
+        label.components(separatedBy: ", ").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !textKey($0).isEmpty }
+    }
+
+    /// R135: `a` and `b`, the rung 0 of two hover steps, are one line read again: both read from the screen, of
+    /// the same path and with overlapping boxes, in answers (`answerA`, `answerB`) of the same frame whose labels
+    /// share a part (`labelsSharePart`; the label of a merged element ticks with the text it merges). A re-read
+    /// can move a line's box a little, and change its text with the label ("9 seconds ago", then "10 seconds
+    /// ago"); it is no move to another rung.
+    static func isRereadLine(_ a: ResolvedElement?, in answerA: ElementSnapshot?, _ b: ResolvedElement?, in answerB: ElementSnapshot?) -> Bool {
+        guard let a, let b, let answerA, let answerB,
+              a.rawRole == ElementResolver.textRawRole, b.rawRole == ElementResolver.textRawRole,
+              a.path == b.path, a.frame.cgRect.intersects(b.frame.cgRect),
+              let frame = answerA.element.frame, frame == answerB.element.frame else { return false }
+        func label(_ node: AttributeSet) -> String? { ElementResolver.nonEmpty(node.title) ?? ElementResolver.nonEmpty(node.description) }
+        return labelsSharePart(label(answerA.element), label(answerB.element))
     }
 }

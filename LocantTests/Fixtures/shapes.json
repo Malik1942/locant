@@ -1,0 +1,55 @@
+[
+  {
+    "file": "shape-segments",
+    "source": "20261023-022759-bkzx",
+    "cases": [
+      { "name": "capsule from its rim", "at": [38.5, 55], "expect": [37, 37.5, 162.5, 36.5] },
+      { "name": "capsule around Recent", "around": [40.12, 40.85, 77.82, 29.92], "expect": [37, 37.5, 162.5, 36.5] },
+      { "name": "capsule around Currents", "around": [117.94, 40.85, 77.82, 29.92], "expect": [37, 37.5, 162.5, 36.5] },
+      { "name": "background", "at": [220, 95], "expect": null }
+    ]
+  },
+  {
+    "file": "shape-toolbar",
+    "source": "20261018-231612-95js",
+    "cases": [
+      { "name": "capsule between share and pencil", "at": [290, 60], "expect": [246.5, 41, 139, 39.5] },
+      { "name": "background", "at": [420, 20], "expect": null }
+    ]
+  },
+  {
+    "file": "shape-pill",
+    "source": "20261023-023725-uoyv",
+    "cases": [
+      { "name": "pill from its padding: no edge drawn along its top", "at": [34, 48], "expect": null },
+      { "name": "pill around its text: no edge drawn along its top", "around": [40.57, 40.1, 96.66, 14.96], "expect": null },
+      { "name": "background", "at": [100, 10], "expect": null }
+    ]
+  },
+  {
+    "file": "shape-sheet",
+    "source": "20261023-023021-yu3f",
+    "bound": [40.5, 40, 334, 726.5],
+    "cases": [
+      { "name": "sheet from its margin: its bottom fades without a step", "at": [55, 500], "expect": null },
+      { "name": "sheet around Add a thought: its bottom fades without a step", "around": [60, 447.5, 122.5, 34], "expect": null },
+      { "name": "Library page behind it", "at": [200, 150], "expect": null }
+    ]
+  },
+  {
+    "file": "shape-claude-card",
+    "source": "20261019-000746-vtbd",
+    "cases": [
+      { "name": "card from its padding", "at": [50, 100], "expect": [43.5, 39.5, 481, 147] },
+      { "name": "background", "at": [600, 100], "expect": null }
+    ]
+  },
+  {
+    "file": "shape-web-list",
+    "source": "20261003-182251-7706",
+    "cases": [
+      { "name": "row from its padding", "at": [300, 60], "expect": [40, 41, 401, 40] },
+      { "name": "gap between cards", "at": [300, 90], "expect": null }
+    ]
+  }
+]

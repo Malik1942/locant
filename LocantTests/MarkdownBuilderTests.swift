@@ -122,6 +122,54 @@ final class MarkdownBuilderTests: XCTestCase {
         XCTAssertNil((plain?["element"] as? [String: Any])?["members"], "members only exist on clusters")
     }
 
+    // specs/capture-shapes.md R129: a shape's frame is its visible edges; a cluster's stays approximate.
+    func testShapeHeadLineSaysItsFrameIsTheVisibleEdges() {
+        let shape = ResolvedElement(
+            role: "cluster", rawRole: "LocantShape", label: nil, identifier: nil, identifierSource: .unknown, value: nil,
+            frame: Frame(x: 2036, y: -1147, w: 163, h: 37),
+            path: [PathEntry(role: "group", identifier: nil), PathEntry(role: "cluster", identifier: nil)],
+            members: [ElementMember(role: "button", label: "Recent", identifier: nil),
+                      ElementMember(role: "button", label: "Currents", identifier: nil)]
+        )
+        let md = MarkdownBuilder.build(capture(element: shape))
+        XCTAssertTrue(md.contains("cluster · 2 elements (shape found on screen by Locant, not an accessibility element; frame from its visible edges)\nMembers: button \"Recent\" · button \"Currents\"\n"), md)
+        XCTAssertFalse(md.contains("frame approximate"))
+    }
+
+    // specs/capture-shapes.md R132: a row of touching controls says what it is, and that its frame is their union.
+    func testGroupHeadLineSaysItsFrameIsTheUnionOfTheControls() {
+        let group = ResolvedElement(
+            role: "cluster", rawRole: "LocantGroup", label: nil, identifier: nil, identifierSource: .unknown, value: nil,
+            frame: Frame(x: 559.6, y: 398.2, w: 118.1, h: 39.3),
+            path: [PathEntry(role: "group", identifier: nil), PathEntry(role: "cluster", identifier: nil)],
+            members: [ElementMember(role: "button", label: nil, identifier: "folder"),
+                      ElementMember(role: "button", label: nil, identifier: "square.and.arrow.up"),
+                      ElementMember(role: "button", label: nil, identifier: "trash")]
+        )
+        let md = MarkdownBuilder.build(capture(element: group))
+        XCTAssertTrue(md.contains("cluster · 3 elements (controls in one row or column, grouped by Locant, not an accessibility element; frame is their union)\nMembers: button#folder · button#square.and.arrow.up · button#trash\n"), md)
+        XCTAssertFalse(md.contains("frame approximate"))
+        XCTAssertFalse(md.contains("visible edges"))
+    }
+
+    // specs/capture-shapes.md R135: a line read from the screen prints like any element, and says what it is.
+    func testATextLineSaysLocantReadItFromTheScreen() {
+        let line = ResolvedElement(
+            role: "staticText", rawRole: "LocantText", label: "Weeknight noodles", identifier: nil, identifierSource: .unknown, value: nil,
+            frame: Frame(x: 375, y: 558, w: 124, h: 16),
+            path: [PathEntry(role: "group", identifier: nil), PathEntry(role: "button", identifier: nil), PathEntry(role: "staticText", identifier: nil)]
+        )
+        let md = MarkdownBuilder.build(capture(element: line))
+        XCTAssertTrue(md.contains("### Target element\nstaticText \"Weeknight noodles\" · no identifier\nText read from the screen by Locant; not an accessibility element. The element it sits in is the next ⌥ level.\nNo identifier. Grep the label text; it is drawn by that element's view, the last step of Path before staticText.\nFrame: x=375 y=558 w=124 h=16\nPath: group > button > staticText\n"), md)
+        XCTAssertFalse(md.contains("accessibilityIdentifier"), "a line is no view of its own: nothing to add an identifier to")
+
+        var element = line
+        element.rawRole = "AXStaticText"
+        let plain = MarkdownBuilder.build(capture(element: element))
+        XCTAssertFalse(plain.contains("Text read from the screen"), "an accessibility element says nothing of the kind")
+        XCTAssertTrue(plain.contains("add .accessibilityIdentifier(\"…\") to this view"))
+    }
+
     func testNullElementHintsAtIdentifier() {
         let md = MarkdownBuilder.build(capture(element: nil))
         XCTAssertTrue(md.contains("Use the image.\nIf this view is yours, give it .accessibilityElement() and .accessibilityIdentifier(\"…\") so Locant can point at it next time.\n"))

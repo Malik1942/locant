@@ -12,6 +12,28 @@ struct CroppedImage: Sendable {
     var crop: CGRect
 }
 
+extension CroppedImage {
+    /// specs/capture-shapes.md R134: the pixels as a `PixelGrid` over `crop`, to read what is drawn inside a frame.
+    func grid() -> PixelGrid? {
+        NSBitmapImageRep(data: png)?.cgImage.flatMap { PixelGrid(image: $0, frame: crop, scale: CGFloat(scale), generation: 0) }
+    }
+
+    /// The part of the image inside `rect` (global points, out to whole points), as a crop of its own with the same
+    /// pixels a crop of that rectangle takes; nil when none of it is inside. An iteration's after-image is cut
+    /// around the outline found in the crop just taken (R134), with no second capture.
+    func cut(to rect: CGRect) -> CroppedImage? {
+        let visible = rect.intersection(crop).integral
+        guard !visible.isEmpty, let image = NSBitmapImageRep(data: png)?.cgImage else { return nil }
+        let pixels = Geometry.pixelRect(visible, inDisplay: crop, scale: CGFloat(scale))
+            .intersection(CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        guard !pixels.isEmpty, let cropped = image.cropping(to: pixels) else { return nil }
+        let rep = NSBitmapImageRep(cgImage: cropped)
+        rep.size = NSSize(width: visible.width, height: visible.height) // marks the PNG as @scale
+        guard let png = rep.representation(using: .png, properties: [:]) else { return nil }
+        return CroppedImage(png: png, widthPt: visible.width, heightPt: visible.height, scale: scale, crop: visible)
+    }
+}
+
 enum ScreenCaptureFailure: Error {
     case noDisplay
     /// specs/capture-recovery.md R109: ScreenCaptureKit lists no displays while the Mac has some.
@@ -67,6 +89,31 @@ enum ScreenCapture {
         }
         let (image, scale) = try await fullImage(of: display, in: content)
         return (image, display.frame, scale)
+    }
+
+    /// specs/capture-shapes.md R126: `rect` (global points) from the display holding its center, own
+    /// windows excluded, at the display's scale unless that would exceed `maxSamples` samples. `frame`
+    /// is the part of `rect` on that display.
+    static func regionImage(_ rect: CGRect, maxSamples: Int) async throws -> (image: CGImage, frame: CGRect, scale: CGFloat) {
+        let content = try await shareableContent()
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        guard let display = content.displays.first(where: { $0.frame.contains(center) }) ?? content.displays.first else {
+            throw ScreenCaptureFailure.noDisplay
+        }
+        let visible = rect.intersection(display.frame).integral
+        guard !visible.isEmpty else { throw ScreenCaptureFailure.cropOutsideImage }
+        let ownPID = ProcessInfo.processInfo.processIdentifier
+        let ownWindows = content.windows.filter { $0.owningApplication?.processID == ownPID }
+        let filter = SCContentFilter(display: display, excludingWindows: ownWindows)
+        let scale = Geometry.sampleScale(native: CGFloat(filter.pointPixelScale), size: visible.size, maxSamples: maxSamples)
+        let configuration = SCStreamConfiguration()
+        configuration.sourceRect = Geometry.displayLocalRect(visible, inDisplay: display.frame)
+        configuration.width = Int((visible.width * scale).rounded())
+        configuration.height = Int((visible.height * scale).rounded())
+        configuration.showsCursor = false
+        configuration.captureResolution = .best
+        let image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: configuration)
+        return (image, visible, scale)
     }
 
     /// Captures `rect` (global screen points) from the display that contains its center.
@@ -183,6 +230,30 @@ struct FrozenScreen: Sendable {
     func crop(_ rect: CGRect) throws -> CroppedImage? {
         guard let shot = shot(containing: CGPoint(x: rect.midX, y: rect.midY)) else { return nil }
         return try ScreenCapture.crop(rect, from: shot.image, display: shot.display, scale: shot.scale)
+    }
+
+    /// specs/capture-shapes.md R126: hover's screen sample of `rect` while the screen is frozen, the pixels the
+    /// user sees. The part of `rect` on the display whose shot holds its center, cut from that shot at its
+    /// scale, lowered with `Geometry.sampleScale` past `maxSamples` as a live sample is
+    /// (`ScreenCapture.regionImage`). Nil when no shot holds the center, and the sample is then taken live. Pure.
+    func sample(_ rect: CGRect, maxSamples: Int) -> (image: CGImage, frame: CGRect, scale: CGFloat)? {
+        guard let shot = shot(containing: CGPoint(x: rect.midX, y: rect.midY)) else { return nil }
+        let visible = rect.intersection(shot.display).integral
+        guard !visible.isEmpty else { return nil }
+        let pixels = Geometry.pixelRect(visible, inDisplay: shot.display, scale: shot.scale)
+            .intersection(CGRect(x: 0, y: 0, width: shot.image.width, height: shot.image.height))
+        guard !pixels.isEmpty, let cut = shot.image.cropping(to: pixels) else { return nil }
+        let scale = Geometry.sampleScale(native: shot.scale, size: visible.size, maxSamples: maxSamples)
+        guard scale < shot.scale else { return (cut, visible, shot.scale) }
+        let width = Int((visible.width * scale).rounded()), height = Int((visible.height * scale).rounded())
+        guard width > 0, height > 0, let space = CGColorSpace(name: CGColorSpace.sRGB),
+              let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                                      space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        else { return nil }
+        context.interpolationQuality = .high
+        context.draw(cut, in: CGRect(x: 0, y: 0, width: width, height: height))
+        guard let lowered = context.makeImage() else { return nil }
+        return (lowered, visible, scale)
     }
 }
 

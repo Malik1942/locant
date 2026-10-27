@@ -29,7 +29,18 @@ final class AppState {
         }
     }
 
-    private(set) var phase: Phase = .idle
+    private(set) var phase: Phase = .idle {
+        didSet {
+            // specs/capture-shapes.md R126: the screen sample is for hover. It stops, and is dropped with its
+            // memo, as soon as the session leaves hover: a click, a drawn frame, Snap, Text, Cut, or the end.
+            // Shift-click pins stay in hover and keep it.
+            if phase != .hovering {
+                sampler.stop()
+                shapeMemo = ShapeLookup.Memo()
+                textReader.stop() // R135: the lines read from the sample go with it
+            }
+        }
+    }
     let preferences = Preferences()
     /// Which Settings tab shows next. The help page sets it before opening Settings, so a row
     /// there lands on the tab that owns it.
@@ -55,6 +66,18 @@ final class AppState {
     @ObservationIgnored private var levelIndex = 0
     /// v0.8.1 R59: whether the drawn outline moved since the last redraw; reset with each session.
     @ObservationIgnored private var outlineMoves = OutlineMoves()
+    /// R126: the screen under the pointer, read for the shapes hover lands on; stopped whenever `phase`
+    /// leaves hover. While the screen is frozen (specs/frozen-screen.md R119), cut from the frozen image: the
+    /// freeze is read on the main actor, awaited, and cut off it; a session without one samples live.
+    @ObservationIgnored private lazy var sampler = ScreenSampler(capture: ScreenSampler.frozenFirst { [weak self] in
+        let freezing = await self?.freezing
+        return await freezing?.value
+    })
+    /// R127: the last fill and the shapes found around rectangles, while the sample stays the same.
+    @ObservationIgnored private var shapeMemo = ShapeLookup.Memo()
+    /// specs/capture-shapes.md R135: the lines of text inside an element that merges them, read from the sample;
+    /// started and stopped with it.
+    @ObservationIgnored private let textReader = TextLineReader()
     @ObservationIgnored private var lockedElement: ResolvedElement?
     @ObservationIgnored private var lockedElements: [RegionElement]?
     @ObservationIgnored private var lockedNearby: [RegionElement]?
@@ -126,6 +149,8 @@ final class AppState {
         overlay.onCommit = { [weak self] note in self?.commit(note: note) }
         overlay.onOptionPressed = { [weak self] in self?.optionPressed() }
         overlay.onRegion = { [weak self] rect, start in self?.region(rect, start: start) }
+        sampler.onUpdate = { [weak self] in self?.rehover() }
+        textReader.onUpdate = { [weak self] in self?.rehover() }
         restartHotkey()
     }
 
@@ -431,6 +456,7 @@ final class AppState {
         // only this app's are reachable here: a set spanning apps simply never collects.
         let companions = AutoVerify.companions(of: capture)
         var found: ResolvedElement?
+        var foundScreen: CGRect?
         var others: [ResolvedElement] = []
         var windowBounds: CGRect?
         for attempt in 0..<ElementRefinder.retries {
@@ -440,6 +466,8 @@ final class AppState {
             let region = largest?.bounds ?? SelectionOverlay.displayFrameCG(containing: element.frame.cgRect.origin)
             let snapshots = await reader.elements(in: region, pid: pid)
             found = ElementRefinder.match(element, among: snapshots)
+            // specs/capture-shapes.md R134: Device Hub's simulated screen in the tree it was found in, if any.
+            foundScreen = found.flatMap { match in snapshots.first { ElementResolver.resolve($0) == match } }.flatMap(HitRefiner.simulatedScreen(in:))
             others = companions.compactMap { ElementRefinder.match($0, among: snapshots) }
             if found != nil, others.count == companions.count { break }
             if attempt < ElementRefinder.retries - 1 { try? await Task.sleep(for: ElementRefinder.retryInterval) }
@@ -453,7 +481,18 @@ final class AppState {
             let crop = companions.isEmpty
                 ? Geometry.cropRect(element: found.frame.cgRect, clickPoint: center, window: windowBounds, display: display)
                 : Geometry.cropRects(for: ([found] + others).map(\.frame.cgRect), display: display, displayFor: SelectionOverlay.displayFrameCG(containing:))[0]
-            let image = try await ScreenCapture.crop(crop)
+            let taken = try await ScreenCapture.crop(crop)
+            // R134: on Device Hub's screen the capture committed the element as drawn, inside the padded frame found
+            // here. That frame is tightened the same way, from this crop, and the after-image is cut around it from
+            // the same pixels, so the two images show one outline (`AutoVerify.afterFrame`).
+            let (screen, window) = (foundScreen, windowBounds)
+            let (frame, image) = await Task.detached { () -> (CGRect, CroppedImage) in
+                let refound = found.frame.cgRect
+                let tight = AutoVerify.afterFrame(of: capture, found: refound, screen: screen) { taken.grid()?.edgeBounds(inside: $0) }
+                let around = Geometry.cropRect(element: tight, clickPoint: CGPoint(x: tight.midX, y: tight.midY), window: window, display: display)
+                guard tight != refound, let cut = taken.cut(to: around) else { return (refound, taken) }
+                return (tight, cut)
+            }.value
             let previous = try? Data(contentsOf: URL(filePath: AutoVerify.previousImagePath(of: capture)))
             let png = image.png
             let changed = await Task.detached { previous.map { ImageDiff.differs(png: $0, png: png) } ?? true }.value
@@ -471,11 +510,11 @@ final class AppState {
                 capturedAt: FileStore.isoTimestamp(date: Date()),
                 imagePath: afterURL.path(percentEncoded: false),
                 gitBefore: change.before, gitAfter: change.after, diffStat: change.diffStat, files: change.files,
-                frame: found.frame
+                frame: Frame(frame)
             )
             _ = try IterationStore.append(iteration, to: sidecar)
             let summary = GitFacts.summaryLine(of: change.diffStat) ?? (root == nil ? "no project folder" : "no changes")
-            toast.show(HudText.plain("After #\(index) · \(summary)"), near: found.frame.cgRect)
+            toast.show(HudText.plain("After #\(index) · \(summary)"), near: frame)
         } catch {
             // Silent (R52): the element was found but the capture or the write failed; try on the next activation.
         }
@@ -548,6 +587,8 @@ final class AppState {
             context = collected
             windows = WindowList.onScreen()
             overlay.show()
+            sampler.start()
+            textReader.start()
             showHintIfNeeded(key: Self.hintKey(for: requested), text: Self.hintText(for: requested))
             await freezeScreen()
         }
@@ -699,7 +740,8 @@ final class AppState {
             } else {
                 fresh = await reader.snapshot(at: point, candidates: windowCandidates(at: point), fallbackPID: context?.frontPID ?? 0)
                 guard phase == .hovering, !Task.isCancelled else { return }
-                freshLevels = fresh.map { HitRefiner.selectionLevels(for: $0, at: point) } ?? []
+                freshLevels = await shapeLevels(for: fresh, at: point)
+                guard phase == .hovering, !Task.isCancelled else { return }
             }
             if action == .snap || action == .cut, closed == nil {
                 // v0.9 R77: the same ladder as Point, ending in the window under the cursor, which
@@ -718,10 +760,17 @@ final class AppState {
             if freshIsVague, HitRefiner.sticks(lastHoverElement, to: point) {
                 // Crossing padding: keep the small element and its Option level.
             } else {
-                if freshElement?.frame != lastHoverElement?.frame {
-                    // v0.9 R77: Snap and Cut open on the window and stay there as the cursor moves;
-                    // once Option has left the window, the element level persists as in Point.
-                    levelIndex = startsAtWindow && snapAtWindow ? max(0, freshLevels.count - 1) : 0
+                if startsAtWindow && snapAtWindow {
+                    // v0.9 R77: Snap and Cut open on the window and stay there as the cursor moves, and as
+                    // the ladder grows or shrinks under it (specs/capture-shapes.md R126: a landing screen
+                    // sample adds shapes between the first rung and the window).
+                    levelIndex = max(0, freshLevels.count - 1)
+                } else {
+                    // Once Option has left the window, the element level persists as in Point, on the same rung
+                    // wherever the new ladder puts it. On Device Hub's screen, the same element outlined tighter
+                    // (R134), the same line read again, or lines landing or going while ⌥ is up a level (R135),
+                    // keep the level chosen before.
+                    levelIndex = HitRefiner.nextLevel(levelIndex, from: levels, in: lastHoverSnapshot, to: freshLevels, in: fresh)
                 }
                 lastHoverSnapshot = fresh
                 levels = freshLevels
@@ -731,6 +780,57 @@ final class AppState {
             renderHover()
             try? await Task.sleep(for: .milliseconds(33))
         }
+    }
+
+    /// specs/capture-shapes.md R125: the ladder at `point`, with the shapes under the pointer once the screen
+    /// sample of their area has landed (R126), and on Device Hub's screen the line of text under the pointer
+    /// (R135). Until then, today's ladder; with no answer at the point, nothing.
+    private func shapeLevels(for snapshot: ElementSnapshot?, at point: CGPoint) async -> [ResolvedElement?] {
+        guard let snapshot else { return [] }
+        let bound = shapeBound(at: point, in: snapshot)
+        sampler.want(bound)
+        guard let grid = sampler.image(for: bound) else { return HitRefiner.selectionLevels(for: snapshot, at: point) }
+        let holding = lastHoverElement
+        let memo = shapeMemo
+        let started = ContinuousClock.now
+        let (levels, kept) = await Task.detached(priority: .userInitiated) {
+            var lookup = ShapeLookup(grid: grid, bound: bound, memo: memo)
+            let levels = HitRefiner.selectionLevels(for: snapshot, at: point, shapes: &lookup, holding: holding)
+            return (levels, lookup.memo)
+        }.value
+        if phase == .hovering { shapeMemo = kept } // a session that ended during the lookup keeps no memo
+        #if DEBUG
+        NSLog("Locant shapes: %.2f ms", (ContinuousClock.now - started) / .milliseconds(1))
+        #endif
+        // R135: in Point, the line under the pointer goes ahead of the ladder, which keeps the answer and what
+        // follows. Not in Text, which would read one line instead of the card, nor in Snap and Cut, whose first ⌥
+        // from the window would land on a line.
+        guard action == .point else { return levels }
+        return withLine(for: snapshot, at: point, in: grid, ahead: levels)
+    }
+
+    /// R135: on Device Hub's screen, `levels` with the line of text under the pointer ahead of them, inside an answer
+    /// that merges its lines, once they are read from the sample; cut to the answer's tightened outline when that is
+    /// rung 0 (`HitRefiner.addingLine`). Until then, and anywhere else, `levels`. Point only.
+    private func withLine(for snapshot: ElementSnapshot, at point: CGPoint, in grid: PixelGrid, ahead levels: [ResolvedElement?]) -> [ResolvedElement?] {
+        guard let area = HitRefiner.textArea(of: snapshot, at: point), let answer = ElementResolver.resolve(snapshot),
+              let lines = textReader.lines(in: area, of: grid, label: answer.label) else { return levels }
+        let line = HitRefiner.textRung(lines: lines, at: point, answer: answer, answerFrame: Frame(area))
+        return HitRefiner.addingLine(line, to: levels, answer: answer)
+    }
+
+    /// R127's bound: the simulated screen in Device Hub, else the window under the point, else its display.
+    private func shapeBound(at point: CGPoint, in snapshot: ElementSnapshot) -> CGRect {
+        HitRefiner.simulatedScreen(in: snapshot)
+            ?? Geometry.windowOwner(at: point, windows: windows, excludingPID: ownPID)?.bounds
+            ?? SelectionOverlay.displayFrameCG(containing: point)
+    }
+
+    /// R126, R135: a new screen sample, or the lines read from it, landed; the spot under the pointer is read
+    /// again with it.
+    private func rehover() {
+        guard phase == .hovering, lastHoverSnapshot != nil else { return }
+        hover(pendingHover ?? lastHoverPoint) // a newer point queued during a lookup stays the newer one
     }
 
     /// The hovered selection at the current Option level.
@@ -814,11 +914,10 @@ final class AppState {
     }
 
     /// What a click at `point` means: the hovered selection at its Option level when the click is on or
-    /// near it, else a fresh read with the lazy-tree retry.
+    /// near it, else a fresh read with the lazy-tree retry. specs/capture-shapes.md R134: on Device Hub's
+    /// screen, near the frame of the element hover outlined tighter counts too (`HitRefiner.clickIsOnHover`).
     private func resolveClicked(at point: CGPoint) async -> (element: ResolvedElement?, snapshot: ElementSnapshot?) {
-        let slack = HitRefiner.stickiness
-        let hoverIsCurrent = !levels.isEmpty
-            && (lastHoverElement.map { $0.frame.cgRect.insetBy(dx: -slack, dy: -slack).contains(point) } ?? false)
+        let hoverIsCurrent = !levels.isEmpty && HitRefiner.clickIsOnHover(point, shown: lastHoverElement, snapshot: lastHoverSnapshot)
         if hoverIsCurrent, let shown = selectedElement() {
             return (shown, lastHoverSnapshot)
         } else if levelIndex > 0, let shown = selectedElement() {
@@ -840,6 +939,18 @@ final class AppState {
         return CaptureTarget(element: element, app: source?.app ?? AppInfo(bundleId: "unknown", name: "unknown"), window: source?.window, url: snapshot?.url)
     }
 
+    /// R129: a shape Point commits lists every element the drawn-frame walk finds inside it; the members
+    /// known at hover stay when it finds none.
+    private func withWalkedMembers(_ element: ResolvedElement?, pid: pid_t) async -> ResolvedElement? {
+        guard var shape = element, shape.rawRole == ElementResolver.shapeRawRole, pid > 0 else { return element }
+        let rect = shape.frame.cgRect
+        let found = RegionResolver.elements(in: rect, among: await reader.elements(in: rect, pid: pid))
+        if !found.isEmpty {
+            shape.members = found.map { ElementMember(role: $0.role, label: $0.label, identifier: $0.identifier) }
+        }
+        return shape
+    }
+
     /// v0.8 R58: Shift-click adds the element under the cursor to the set, or removes it again. The
     /// overlay stays open; the first element's app becomes the capture's source.
     private func pin(at point: CGPoint) {
@@ -851,15 +962,24 @@ final class AppState {
             if let index = pinned.firstIndex(where: { $0.element.frame == element.frame }) {
                 pinned.remove(at: index)
             } else {
-                let target = await describeTarget(element, snapshot: snapshot, window: window)
+                let walked = await withWalkedMembers(element, pid: window?.ownerPID ?? context?.frontPID ?? 0) ?? element
+                guard phase == .hovering else { return }
+                let target = await describeTarget(walked, snapshot: snapshot, window: window)
                 guard phase == .hovering else { return }
                 if pinned.isEmpty, let context {
                     let pid = window?.ownerPID ?? context.frontPID
                     var first = await ContextCollector.collect(reader: reader, pid: pid, windowTitle: .focused) ?? context
                     first.source.url = snapshot?.url
-                    pinnedContext = first
+                    guard phase == .hovering else { return }
+                    if pinned.isEmpty { pinnedContext = first } // another Shift-click may have landed first
                 }
-                pinned.append(target)
+                // A second Shift-click on the same element while the reads above ran toggles it, as one
+                // after them would, instead of adding it twice.
+                if let index = pinned.firstIndex(where: { $0.element.frame == element.frame }) {
+                    pinned.remove(at: index)
+                } else {
+                    pinned.append(target)
+                }
             }
             guard phase == .hovering else { return }
             overlay.setPinned(pinned.map { $0.element.frame.cgRect })
@@ -899,9 +1019,8 @@ final class AppState {
         case .snap, .cut:
             // v0.9 R77: the outline at its level, exactly, when the click is on or near it or a level
             // was chosen on purpose; else the window under the point, else the display.
-            let slack = HitRefiner.stickiness
             let hovered = selectedElement()
-            let hoverIsCurrent = hovered.map { $0.frame.cgRect.insetBy(dx: -slack, dy: -slack).contains(point) } ?? false
+            let hoverIsCurrent = HitRefiner.clickIsOnHover(point, shown: hovered, snapshot: lastHoverSnapshot) // R134
             let chosenOnPurpose = levelIndex > 0 && !snapAtWindow
             let rect = (hoverIsCurrent || chosenOnPurpose ? hovered?.frame.cgRect : nil)
                 ?? Geometry.windowOwner(at: point, windows: windows, excludingPID: ownPID)?.bounds
@@ -924,14 +1043,25 @@ final class AppState {
         Task {
             // What the user saw is what they clicked: keep the hovered selection (and its Option
             // depth) when the click is on or near it; otherwise resolve fresh with the lazy-tree retry.
-            let (element, snapshot) = await resolveClicked(at: point)
+            let (clicked, snapshot) = await resolveClicked(at: point)
             guard phase == .resolving else { return }
             // The window that answered the hit test, else the normal window under the point.
             let window = snapshot?.window ?? Geometry.windowOwner(at: point, windows: windows, excludingPID: ownPID)
             if !pinned.isEmpty {
-                await finishSet(clicked: element, snapshot: snapshot, window: window, point: point)
+                await finishSet(clicked: clicked, snapshot: snapshot, window: window, point: point)
                 return
             }
+            // R110: the crop starts at the click, before the reads below. Its rectangle comes from the
+            // element's frame and window, which the members walk does not change.
+            let display = SelectionOverlay.displayFrameCG(containing: point)
+            let rect = Geometry.cropRect(element: clicked?.frame.cgRect, clickPoint: point, window: window?.bounds, display: display)
+            let crop = startCrop(rect)
+            cropTask = crop
+            watchForStuckCapture()
+
+            // The crop doubles as this session's token: a task from a session that ended stops here.
+            let element = await withWalkedMembers(clicked, pid: window?.ownerPID ?? context?.frontPID ?? 0)
+            guard phase == .resolving, cropTask == crop else { return }
             lockedElement = element
             if element == nil, let snapshot = lastHoverSnapshot {
                 // v0.2 R15: what sits around a point that has no element.
@@ -940,14 +1070,9 @@ final class AppState {
             }
 
             await recollectContextIfNeeded(window: window, snapshot: snapshot)
-            guard phase == .resolving else { return }
+            guard phase == .resolving, cropTask == crop else { return }
             // v0.8: the page address of a web node; the localhost rule in mode inference reads it.
             if let url = snapshot?.url { context?.source.url = url }
-
-            let display = SelectionOverlay.displayFrameCG(containing: point)
-            let rect = Geometry.cropRect(element: element?.frame.cgRect, clickPoint: point, window: window?.bounds, display: display)
-            cropTask = startCrop(rect)
-            watchForStuckCapture()
 
             overlay.setHighlight(element?.frame.cgRect, readout: .describing(element), around: point)
             showNoteField(anchoredTo: element?.frame.cgRect, around: point)
@@ -959,21 +1084,30 @@ final class AppState {
     /// the first element's app is the source; one crop of the union when it fits, else one each.
     private func finishSet(clicked: ResolvedElement?, snapshot: ElementSnapshot?, window: Geometry.WindowRecord?, point: CGPoint) async {
         var targets = pinned
-        if let clicked, !targets.contains(where: { $0.element.frame == clicked.frame }) {
-            targets.append(await describeTarget(clicked, snapshot: snapshot, window: window))
+        let joining = clicked.flatMap { clicked in targets.contains { $0.element.frame == clicked.frame } ? nil : clicked }
+        let frames = targets.map { $0.element.frame.cgRect } + (joining.map { [$0.frame.cgRect] } ?? [])
+        guard phase == .resolving, let first = frames.first else { return }
+
+        // R110: the crops start first. Their rectangles are the frames, which describing the clicked
+        // element and walking a shape's members do not change.
+        let display = SelectionOverlay.displayFrameCG(containing: CGPoint(x: first.midX, y: first.midY))
+        let rects = Geometry.cropRects(for: frames, display: display, displayFor: SelectionOverlay.displayFrameCG(containing:))
+        let crop = startCrop(rects[0])
+        cropTask = crop
+        extraCropTasks = rects.dropFirst().map { startCrop($0) }
+        watchForStuckCapture()
+
+        if let joining {
+            // R129: a clicked shape lists what the walk finds inside it.
+            let walked = await withWalkedMembers(joining, pid: window?.ownerPID ?? context?.frontPID ?? 0) ?? joining
+            guard phase == .resolving, cropTask == crop else { return }
+            targets.append(await describeTarget(walked, snapshot: snapshot, window: window))
         }
-        guard phase == .resolving else { return }
+        guard phase == .resolving, cropTask == crop else { return }
         if let pinnedContext { context = pinnedContext }
         let last = targets.last!.element
         lockedElement = targets[0].element
         lockedTargets = targets.count > 1 ? targets : nil
-
-        let frames = targets.map { $0.element.frame.cgRect }
-        let display = SelectionOverlay.displayFrameCG(containing: CGPoint(x: frames[0].midX, y: frames[0].midY))
-        let rects = Geometry.cropRects(for: frames, display: display, displayFor: SelectionOverlay.displayFrameCG(containing:))
-        cropTask = startCrop(rects[0])
-        extraCropTasks = rects.dropFirst().map { startCrop($0) }
-        watchForStuckCapture()
 
         overlay.setPinned(frames)
         overlay.setHighlight(last.frame.cgRect, readout: .describing(last), around: point)
@@ -1001,6 +1135,13 @@ final class AppState {
             fail(.noScreenRecordingPermission, nearRect: rect)
             return
         }
+        // R110: the crop is the drawn frame itself, so it starts now, before the walk and its lazy-tree
+        // retry. It doubles as this session's token below.
+        let display = SelectionOverlay.displayFrameCG(containing: clickPoint)
+        let area = Geometry.cropRect(element: rect, clickPoint: clickPoint, window: nil, display: display, padding: 0)
+        let crop = startCrop(area)
+        cropTask = crop
+        watchForStuckCapture()
         Task {
             // The frame belongs to whoever answers at its first corner: a normal window, or the
             // desktop, a widget, or the menu bar behind an empty stretch of Dock or menu bar backdrop.
@@ -1009,7 +1150,7 @@ final class AppState {
             let hit = if let closed { closed.snapshot } else {
                 await reader.snapshot(at: start, candidates: windowCandidates(at: start), fallbackPID: context.frontPID)
             }
-            guard phase == .resolving else { return }
+            guard phase == .resolving, cropTask == crop else { return }
             let window = hit?.window ?? Geometry.windowOwner(at: start, windows: windows, excludingPID: ownPID)
             let pid = window?.ownerPID ?? context.frontPID
             var snapshots = closed == nil ? await reader.elements(in: rect, pid: pid) : []
@@ -1019,17 +1160,12 @@ final class AppState {
                 try? await Task.sleep(for: .milliseconds(100))
                 snapshots = await reader.elements(in: rect, pid: pid)
             }
-            guard phase == .resolving else { return }
+            guard phase == .resolving, cropTask == crop else { return }
             await recollectContextIfNeeded(window: window, snapshot: hit)
-            guard phase == .resolving else { return }
+            guard phase == .resolving, cropTask == crop else { return }
             let elements = RegionResolver.elements(in: rect, among: snapshots)
             lockedElement = RegionResolver.primary(among: snapshots, in: rect)
             lockedElements = elements
-
-            let display = SelectionOverlay.displayFrameCG(containing: clickPoint)
-            let crop = Geometry.cropRect(element: rect, clickPoint: clickPoint, window: nil, display: display, padding: 0)
-            cropTask = startCrop(crop)
-            watchForStuckCapture()
 
             overlay.showMarks(elements.map { $0.frame.cgRect })
             showNoteField(anchoredTo: rect, around: clickPoint)
@@ -1225,8 +1361,8 @@ final class AppState {
     // MARK: Failure (R9)
 
     /// R110: Point's crops run at the click. A stuck capture service stops
-    /// the session then, before the note is typed, instead of at Enter. Other failures still wait
-    /// for Enter (R9); a session that ended or moved on is left alone.
+    /// the session then, while the click is still being read or before the note is typed, instead of at
+    /// Enter. Other failures still wait for Enter (R9); a session that ended or moved on is left alone.
     private func watchForStuckCapture() {
         let tasks = [cropTask].compactMap { $0 } + extraCropTasks
         guard let first = tasks.first else { return }
@@ -1235,7 +1371,9 @@ final class AppState {
             for task in tasks {
                 guard case .failure(let error) = await task.result,
                       case .captureServiceStuck = CaptureError.capturing(error) else { continue }
-                guard phase == .noting, cropTask == first else { return }
+                // The crops start before the members walk, the drawn frame's walk, and the set's reads
+                // (R110), so a stuck failure can land while those still run.
+                guard phase == .resolving || phase == .noting, cropTask == first else { return }
                 fail(.captureServiceStuck, nearRect: anchor)
                 return
             }
