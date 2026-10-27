@@ -94,6 +94,9 @@ final class FloatingBall {
     private var holdDock = false
     /// The saved origin was off every connected display and had to be pulled onto one.
     private let restoredOffScreen: Bool
+    /// specs/frozen-screen.md R122: the tap kept while awake, and whether it took the press under way.
+    private var pressTap: BallPressTap?
+    private var takingPress = false
 
     init(origin: CGPoint?, reader: AccessibilityReader) {
         let size = NSSize(width: Tokens.panelSide, height: Tokens.panelSide)
@@ -184,6 +187,7 @@ final class FloatingBall {
 
     func hide() {
         stopMonitors()
+        stopPressTap()
         ghost.hide()
         glide.cancel()
         dockTask?.cancel()
@@ -289,14 +293,61 @@ final class FloatingBall {
             if wasDocked || safe != shownOrigin { move(to: safe, spring: .wake) }
             fade(to: 1)
             view.apply(newState, animated: true, waking: wasDocked)
+            startPressTap()
         case .rest:
             if shownOrigin != freeOrigin { move(to: freeOrigin, spring: wasDocked ? .wake : .settle) }
             fade(to: Tokens.restAlpha)
             view.apply(.rest, animated: true)
             scheduleDock()
+            stopPressTap()
         case .docked:
             fade(to: Tokens.dockedAlpha)
             view.apply(.docked, animated: true)
+            stopPressTap()
+        }
+    }
+
+    // MARK: Presses while a menu is open (specs/frozen-screen.md R122)
+
+    /// Whether a press at `point` (AppKit screen points) lands on the disc of a ball whose window
+    /// is `panelFrame`; the clear margin around the disc lets it through, as `BallView` does.
+    static func discContains(_ point: CGPoint, panelFrame: CGRect) -> Bool {
+        hypot(point.x - panelFrame.midX, point.y - panelFrame.midY) <= Tokens.diameter / 2 + 2
+    }
+
+    private func startPressTap() {
+        guard pressTap == nil else { return }
+        pressTap = BallPressTap { [weak self] kind, location in
+            self?.pressTapped(kind, at: location) ?? false
+        }
+    }
+
+    /// Kept through a press it took, so the release is taken too.
+    private func stopPressTap() {
+        guard !takingPress else { return }
+        pressTap?.stop()
+        pressTap = nil
+    }
+
+    /// A press on the disc while another app has a menu open is taken, and its release starts Point,
+    /// which freezes the menu. Everything else passes through to the ball's window or to the apps.
+    private func pressTapped(_ kind: BallPressTap.Kind, at location: CGPoint) -> Bool {
+        switch kind {
+        case .down:
+            let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
+            let point = Geometry.appKitPoint(fromCG: location, primaryHeight: primaryHeight)
+            guard Self.discContains(point, panelFrame: panel.frame),
+                  WindowList.hasOpenMenu(excludingPID: ProcessInfo.processInfo.processIdentifier) else { return false }
+            takingPress = true
+            return true
+        case .dragged:
+            return takingPress
+        case .up:
+            guard takingPress else { return false }
+            takingPress = false
+            if state == .rest || state == .docked { stopPressTap() }
+            clicked()
+            return true
         }
     }
 
@@ -500,7 +551,7 @@ final class BallView: NSView {
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
     private func onDisc(_ point: CGPoint) -> Bool {
-        hypot(point.x - bounds.midX, point.y - bounds.midY) <= FloatingBall.Tokens.diameter / 2 + 2
+        FloatingBall.discContains(point, panelFrame: bounds)
     }
 
     /// The ball is never the key window; without this the first click only activates it.

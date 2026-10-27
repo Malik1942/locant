@@ -88,6 +88,10 @@ final class AppState {
     @ObservationIgnored private(set) var recentColors: [ColorValue] = []
     @ObservationIgnored private var clickPoint: CGPoint = .zero
     @ObservationIgnored private var cropTask: Task<CroppedImage, any Error>?
+    /// specs/frozen-screen.md R119: every display as the session began; crops wait on it (R120).
+    @ObservationIgnored private var freezing: Task<FrozenScreen?, Never>?
+    /// R121: the overlay shows the frozen screen, so a window that closed since still shows there.
+    @ObservationIgnored private var isFrozen = false
     /// specs/capture-recovery.md R112: a restart is under way; a stuck failure meanwhile only shows the toast.
     @ObservationIgnored private var restartingCapture = false
     @ObservationIgnored private var openedSettingsPanes: Set<String> = []
@@ -545,7 +549,46 @@ final class AppState {
             windows = WindowList.onScreen()
             overlay.show()
             showHintIfNeeded(key: Self.hintKey(for: requested), text: Self.hintText(for: requested))
+            await freezeScreen()
         }
+    }
+
+    /// R119: how long the overlay waits for the freeze before it takes key focus over the live screen.
+    private static let freezeLimit: Duration = .seconds(1)
+
+    /// specs/frozen-screen.md R119: the overlay is up without key focus, so another app's menu is
+    /// still open. Every display is captured with the overlay left out, shown under the dim, and
+    /// only then does the overlay take key focus, which closes a standard menu.
+    private func freezeScreen() async {
+        let permitted = ScreenCapture.hasPermission()
+        let limit = Self.freezeLimit
+        let freezing = Task.detached { permitted ? await ScreenCapture.freeze(within: limit) : nil }
+        self.freezing = freezing
+        let frozen = await freezing.value
+        guard self.freezing == freezing else { return } // the session ended meanwhile
+        isFrozen = frozen != nil
+        overlay.freeze(frozen)
+    }
+
+    /// R120: a crop cut from the frozen screen when it holds the crop's display, else taken live.
+    private func startCrop(_ rect: CGRect) -> Task<CroppedImage, any Error> {
+        let freezing = freezing
+        return Task.detached {
+            if let frozen = await freezing?.value, let image = try frozen.crop(rect) { return image }
+            return try await ScreenCapture.crop(rect)
+        }
+    }
+
+    /// R121: over a window the frozen screen shows but that has closed since (a standard menu
+    /// closes as the overlay takes key focus), the selection is that window as a whole. What is
+    /// behind it now is not what the user sees there.
+    private func vanishedSelection(at point: CGPoint) -> (levels: [ResolvedElement?], snapshot: ElementSnapshot)? {
+        guard isFrozen,
+              let gone = Geometry.vanishedWindow(at: point, windows: windows, excludingPID: ownPID, isOnScreen: WindowList.isOnScreen)
+        else { return nil }
+        let appName = NSRunningApplication(processIdentifier: gone.ownerPID)?.localizedName
+        let snapshot = ElementSnapshot(element: AttributeSet(role: "AXWindow", frame: Frame(gone.bounds)), ancestors: [], window: gone)
+        return (HitRefiner.addingWindow([], window: gone.bounds, appName: appName), snapshot)
     }
 
     // MARK: Hints (v0.5 R40)
@@ -647,10 +690,18 @@ final class AppState {
         defer { hoverTask = nil }
         while phase == .hovering, !Task.isCancelled, let point = pendingHover {
             pendingHover = nil
-            let fresh = await reader.snapshot(at: point, candidates: windowCandidates(at: point), fallbackPID: context?.frontPID ?? 0)
-            guard phase == .hovering, !Task.isCancelled else { return }
-            var freshLevels = fresh.map { HitRefiner.selectionLevels(for: $0, at: point) } ?? []
-            if action == .snap || action == .cut {
+            let closed = vanishedSelection(at: point)
+            let fresh: ElementSnapshot?
+            var freshLevels: [ResolvedElement?]
+            if let closed {
+                fresh = closed.snapshot
+                freshLevels = closed.levels
+            } else {
+                fresh = await reader.snapshot(at: point, candidates: windowCandidates(at: point), fallbackPID: context?.frontPID ?? 0)
+                guard phase == .hovering, !Task.isCancelled else { return }
+                freshLevels = fresh.map { HitRefiner.selectionLevels(for: $0, at: point) } ?? []
+            }
+            if action == .snap || action == .cut, closed == nil {
                 // v0.9 R77: the same ladder as Point, ending in the window under the cursor, which
                 // comes from the window list and needs no accessibility. On a device in Xcode 27's
                 // Device Hub, ending in the device's screen.
@@ -773,6 +824,9 @@ final class AppState {
         } else if levelIndex > 0, let shown = selectedElement() {
             return (shown, lastHoverSnapshot) // an Option level chosen on purpose
         }
+        if let closed = vanishedSelection(at: point) { // specs/frozen-screen.md R121
+            return (closed.levels.first ?? nil, closed.snapshot)
+        }
         let snapshot = await ElementResolver.snapshotWithRetry(at: point, using: provider(at: point))
         return (snapshot.map { HitRefiner.selectionLevels(for: $0, at: point).first ?? nil } ?? nil, snapshot)
     }
@@ -892,7 +946,7 @@ final class AppState {
 
             let display = SelectionOverlay.displayFrameCG(containing: point)
             let rect = Geometry.cropRect(element: element?.frame.cgRect, clickPoint: point, window: window?.bounds, display: display)
-            cropTask = Task { try await ScreenCapture.crop(rect) }
+            cropTask = startCrop(rect)
             watchForStuckCapture()
 
             overlay.setHighlight(element?.frame.cgRect, readout: .describing(element), around: point)
@@ -917,8 +971,8 @@ final class AppState {
         let frames = targets.map { $0.element.frame.cgRect }
         let display = SelectionOverlay.displayFrameCG(containing: CGPoint(x: frames[0].midX, y: frames[0].midY))
         let rects = Geometry.cropRects(for: frames, display: display, displayFor: SelectionOverlay.displayFrameCG(containing:))
-        cropTask = Task { try await ScreenCapture.crop(rects[0]) }
-        extraCropTasks = rects.dropFirst().map { rect in Task { try await ScreenCapture.crop(rect) } }
+        cropTask = startCrop(rects[0])
+        extraCropTasks = rects.dropFirst().map { startCrop($0) }
         watchForStuckCapture()
 
         overlay.setPinned(frames)
@@ -950,13 +1004,17 @@ final class AppState {
         Task {
             // The frame belongs to whoever answers at its first corner: a normal window, or the
             // desktop, a widget, or the menu bar behind an empty stretch of Dock or menu bar backdrop.
-            let hit = await reader.snapshot(at: start, candidates: windowCandidates(at: start), fallbackPID: context.frontPID)
+            // specs/frozen-screen.md R121: or a window that has closed since, which keeps no elements.
+            let closed = vanishedSelection(at: start)
+            let hit = if let closed { closed.snapshot } else {
+                await reader.snapshot(at: start, candidates: windowCandidates(at: start), fallbackPID: context.frontPID)
+            }
             guard phase == .resolving else { return }
             let window = hit?.window ?? Geometry.windowOwner(at: start, windows: windows, excludingPID: ownPID)
             let pid = window?.ownerPID ?? context.frontPID
-            var snapshots = await reader.elements(in: rect, pid: pid)
+            var snapshots = closed == nil ? await reader.elements(in: rect, pid: pid) : []
             var retry = 0
-            while snapshots.isEmpty, retry < 2 { // lazy tree
+            while snapshots.isEmpty, closed == nil, retry < 2 { // lazy tree
                 retry += 1
                 try? await Task.sleep(for: .milliseconds(100))
                 snapshots = await reader.elements(in: rect, pid: pid)
@@ -970,7 +1028,7 @@ final class AppState {
 
             let display = SelectionOverlay.displayFrameCG(containing: clickPoint)
             let crop = Geometry.cropRect(element: rect, clickPoint: clickPoint, window: nil, display: display, padding: 0)
-            cropTask = Task { try await ScreenCapture.crop(crop) }
+            cropTask = startCrop(crop)
             watchForStuckCapture()
 
             overlay.showMarks(elements.map { $0.frame.cgRect })
@@ -1003,7 +1061,7 @@ final class AppState {
                 // v0.9 R76: the pixels are read while the overlay still covers the app, as Point does.
                 // Dismissing first handed the cursor back to the app, and a hover state (a lit button,
                 // a tooltip) was gone before the capture. The overlay is excluded from the capture.
-                let image = try await ScreenCapture.crop(crop)
+                let image = try await startCrop(crop).value
                 overlay.dismiss()
                 let id = FileStore.makeID(date: Date())
                 switch which {
@@ -1159,6 +1217,8 @@ final class AppState {
         outlineMoves = OutlineMoves()
         context = nil
         windows = []
+        freezing = nil // R119: the images go with the session
+        isFrozen = false
         overlay.dismiss()
     }
 

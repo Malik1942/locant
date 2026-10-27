@@ -112,8 +112,9 @@ enum HudText {
     }
 }
 
-/// R2: one transparent, non-activating panel per screen over the live desktop. Reports hover and
-/// click points in CG (accessibility) coordinates; draws highlight, label, and the note field.
+/// R2: one transparent, non-activating panel per screen over the desktop, frozen once it has been
+/// captured (specs/frozen-screen.md R119). Reports hover and click points in CG (accessibility)
+/// coordinates; draws highlight, label, and the note field.
 /// R22: what the overlay is open for. Point is the default; the one-shot actions reuse the gesture.
 enum OverlayMode: Equatable {
     case point, snap, text, cut
@@ -154,6 +155,8 @@ final class SelectionOverlay {
 
     var isShowing: Bool { !panels.isEmpty }
 
+    /// specs/frozen-screen.md R119: the panels come up without key focus. Another app's standard
+    /// menu closes once a panel becomes key, so `freeze(_:)` takes it after the screen is captured.
     func show() {
         guard panels.isEmpty else { return }
         primaryHeight = Self.currentPrimaryHeight()
@@ -164,7 +167,6 @@ final class SelectionOverlay {
             panel.orderFrontRegardless()
             return panel
         }
-        panels.first?.makeKey()
         panels.first?.makeFirstResponder(panels.first?.contentOverlay)
         mode.cursor.push()
         cursorPushed = true
@@ -173,6 +175,20 @@ final class SelectionOverlay {
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             for panel in panels { panel.animator().alphaValue = 1 }
         }
+    }
+
+    /// R119: each display's frozen image under the dim, then key focus, unless the note field
+    /// already has it. Nil keeps the live screen.
+    func freeze(_ frozen: FrozenScreen?) {
+        guard !panels.isEmpty else { return }
+        if let frozen {
+            for panel in panels {
+                let frame = Geometry.cgRect(fromAppKit: panel.frame, primaryHeight: primaryHeight)
+                guard let shot = frozen.shot(containing: CGPoint(x: frame.midX, y: frame.midY)) else { continue }
+                panel.contentOverlay.setBackdrop(shot.image)
+            }
+        }
+        if !panels.contains(where: \.isKeyWindow) { panels.first?.makeKey() }
     }
 
     func dismiss() {
@@ -329,6 +345,7 @@ final class OverlayContentView: NSView {
     private var noteAnchor: CGRect = .zero
     private var trackingArea: NSTrackingArea?
     private var locked = false
+    private var backdrop: FrozenBackdropView?
 
     // R11 region gesture
     private static let dragThreshold: CGFloat = 6
@@ -365,6 +382,17 @@ final class OverlayContentView: NSView {
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
     override var acceptsFirstResponder: Bool { true }
+
+    /// specs/frozen-screen.md R119: the display as it was, under everything else the overlay draws.
+    func setBackdrop(_ image: CGImage) {
+        if backdrop == nil {
+            let view = FrozenBackdropView(frame: bounds)
+            view.autoresizingMask = [.width, .height]
+            addSubview(view, positioned: .below, relativeTo: nil)
+            backdrop = view
+        }
+        backdrop?.image = image
+    }
 
     /// v0.5 R37: a click on a panel that is not key is still a click. Only the first display's panel
     /// is made key; without this every other display dropped the first click.
@@ -705,6 +733,43 @@ final class OverlayContentView: NSView {
         origin.x = min(max(origin.x, DesignTokens.spaceM), bounds.width - size.width - DesignTokens.spaceM)
         origin.y = min(max(origin.y, DesignTokens.spaceM), bounds.height - size.height - DesignTokens.spaceM)
         return CGRect(origin: origin, size: size)
+    }
+}
+
+// MARK: - Frozen screen
+
+/// specs/frozen-screen.md R119: one display's frozen image with `dim` over it. The panel's own
+/// background is the dim over the live screen; the opaque image covers it, so the dim is drawn again.
+final class FrozenBackdropView: NSView {
+    var image: CGImage? { didSet { needsDisplay = true } }
+    private let dim = CALayer()
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    nonisolated override func hitTest(_ point: NSPoint) -> NSView? { nil }   // AX hit tests reach this off the main thread
+
+    override var wantsUpdateLayer: Bool { true }
+
+    override func updateLayer() {
+        guard let layer else { return }
+        layer.contents = image
+        layer.contentsGravity = .resize
+        if dim.superlayer == nil { layer.addSublayer(dim) }
+        dim.backgroundColor = DesignTokens.dim.cgColor
+    }
+
+    override func layout() {
+        super.layout()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        dim.frame = bounds
+        CATransaction.commit()
     }
 }
 
