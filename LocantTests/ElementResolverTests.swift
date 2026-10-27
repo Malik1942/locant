@@ -367,6 +367,135 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertEqual(once.map { $0?.rawRole }, ["AXButton", "LocantShape", "AXGroup", "AXGroup"], "found both ways: one rung")
     }
 
+    // MARK: A row of touching controls (specs/capture-shapes.md R124)
+
+    /// Oryne's thought-detail toolbar in Device Hub (capture 20261026-190816-8ngf): folder, share, and
+    /// trash touch and tile the glass capsule, and the meta line sits 23 pt below it.
+    private func capsuleRow() -> (buttons: [AttributeSet], meta: AttributeSet, screen: AttributeSet) {
+        ([node("AXButton", id: "folder", x: 559.6, y: 398.2, w: 39.4, h: 39.3),
+          node("AXButton", id: "square.and.arrow.up", x: 599, y: 398.2, w: 39.4, h: 39.3),
+          node("AXButton", id: "trash", x: 638.3, y: 398.2, w: 39.4, h: 39.3)],
+         node("AXStaticText", x: 391.5, y: 460.5, w: 220, h: 16),
+         node("AXGroup", x: 330, y: 100, w: 400, h: 870))
+    }
+
+    private func center(_ node: AttributeSet) -> CGPoint {
+        let f = node.frame!
+        return CGPoint(x: f.x + f.w / 2, y: f.y + f.h / 2)
+    }
+
+    /// The rungs after rung 0 that are a row or column group.
+    private func groups(in levels: [ResolvedElement?]) -> [ResolvedElement] {
+        levels.compactMap { $0 }.filter { $0.rawRole == ElementResolver.groupRawRole }
+    }
+
+    func testARowOfTouchingButtonsIsTheRungAfterEachButton() throws {
+        let n = capsuleRow()
+        let ids = ["folder", "square.and.arrow.up", "trash"]
+        for (index, button) in n.buttons.enumerated() {
+            let snapshot = ElementSnapshot(element: button, ancestors: [n.screen], siblings: n.buttons + [n.meta])
+            let levels = HitRefiner.selectionLevels(for: snapshot, at: center(button))
+            XCTAssertEqual(levels.first??.identifier, ids[index], "rung 0 stays the button under the pointer")
+            XCTAssertEqual(levels.map { $0?.rawRole }, ["AXButton", "LocantGroup", "LocantCluster", "AXGroup"], ids[index])
+            let group = try XCTUnwrap(levels[1])
+            XCTAssertEqual(group.role, "cluster")
+            XCTAssertEqual(group.rawRole, ElementResolver.groupRawRole)
+            XCTAssertNil(group.label)
+            XCTAssertNil(group.identifier)
+            XCTAssertEqual(group.identifierSource, .unknown)
+            XCTAssertNil(group.value)
+            XCTAssertEqual(group.frame.x, 559.6, accuracy: 0.1)
+            XCTAssertEqual(group.frame.y, 398.2, accuracy: 0.1)
+            XCTAssertEqual(group.frame.w, 118.1, accuracy: 0.1, "the exact union, no padding")
+            XCTAssertEqual(group.frame.h, 39.3, accuracy: 0.1)
+            XCTAssertEqual(group.members?.compactMap(\.identifier), ids, "in reading order")
+            XCTAssertEqual(group.members?.count, 3, "the meta line is not a member")
+            XCTAssertEqual(group.path.map(\.role), ["group", "cluster"])
+            XCTAssertEqual(levels[2]?.members?.count, 4, "the sibling cluster that follows still takes the meta line")
+            XCTAssertEqual(Readout.describing(group),
+                           Readout(role: "cluster", identifier: nil, suffix: "folder, square.and.arrow.up, trash", isFallback: false))
+        }
+    }
+
+    func testAGapOrAMisalignmentBreaksTheRow() {
+        func rungs(_ second: AttributeSet) -> [ResolvedElement] {
+            let first = node("AXButton", id: "a", x: 100, y: 50, w: 40, h: 40)
+            let screen = node("AXGroup", x: 0, y: 0, w: 400, h: 600)
+            let snapshot = ElementSnapshot(element: first, ancestors: [screen], siblings: [first, second])
+            return groups(in: HitRefiner.selectionLevels(for: snapshot, at: center(first)))
+        }
+        XCTAssertEqual(rungs(node("AXButton", id: "b", x: 142, y: 50, w: 40, h: 40)).count, 1, "a 2 pt gap still touches")
+        XCTAssertEqual(rungs(node("AXButton", id: "b", x: 138, y: 50, w: 40, h: 40)).count, 1, "a 2 pt overlap still touches")
+        XCTAssertEqual(rungs(node("AXButton", id: "b", x: 143, y: 50, w: 40, h: 40)).count, 0, "a 3 pt gap does not")
+        XCTAssertEqual(rungs(node("AXButton", id: "b", x: 137, y: 50, w: 40, h: 40)).count, 0, "a 3 pt overlap does not")
+        XCTAssertEqual(rungs(node("AXButton", id: "b", x: 140, y: 50, w: 40, h: 42)).count, 0, "a height 2 pt off does not")
+        XCTAssertEqual(rungs(node("AXButton", id: "b", x: 140, y: 52, w: 40, h: 40)).count, 0, "a top edge 2 pt off does not")
+        XCTAssertEqual(rungs(node("AXButton", id: "b", x: 140, y: 51, w: 40, h: 41)).count, 1, "1 pt off on both still lines up")
+        XCTAssertEqual(rungs(node("AXGroup", id: "b", x: 140, y: 50, w: 40, h: 40)).count, 0, "a container is not a control")
+        XCTAssertEqual(rungs(node("AXButton", id: "b", x: 140, y: 50, w: 0, h: 40)).count, 0, "a member needs a frame")
+    }
+
+    func testTheChainStopsAtTheFirstGap() throws {
+        var n = capsuleRow()
+        n.buttons.append(node("AXButton", id: "far", x: 683.3, y: 398.2, w: 39.4, h: 39.3)) // 5 pt past trash
+        let snapshot = ElementSnapshot(element: n.buttons[1], ancestors: [n.screen], siblings: n.buttons + [n.meta])
+        let group = try XCTUnwrap(groups(in: HitRefiner.selectionLevels(for: snapshot, at: center(n.buttons[1]))).first)
+        XCTAssertEqual(group.members?.compactMap(\.identifier), ["folder", "square.and.arrow.up", "trash"])
+    }
+
+    func testAColumnOfTouchingButtonsIsAGroupAndALoneButtonIsNot() throws {
+        let top = node("AXButton", id: "top", x: 100, y: 50, w: 40, h: 40)
+        let bottom = node("AXButton", id: "bottom", x: 100, y: 90, w: 40, h: 40)
+        let screen = node("AXGroup", x: 0, y: 0, w: 400, h: 600)
+        let column = ElementSnapshot(element: bottom, ancestors: [screen], siblings: [top, bottom])
+        let group = try XCTUnwrap(groups(in: HitRefiner.selectionLevels(for: column, at: center(bottom))).first)
+        XCTAssertEqual(group.frame, Frame(x: 100, y: 50, w: 40, h: 80))
+        XCTAssertEqual(group.members?.compactMap(\.identifier), ["top", "bottom"], "top to bottom")
+
+        let narrower = node("AXButton", id: "bottom", x: 100, y: 90, w: 42, h: 40)
+        let ragged = ElementSnapshot(element: narrower, ancestors: [screen], siblings: [top, narrower])
+        XCTAssertTrue(groups(in: HitRefiner.selectionLevels(for: ragged, at: center(narrower))).isEmpty, "a width 2 pt off")
+
+        let lone = ElementSnapshot(element: top, ancestors: [screen], siblings: [top])
+        XCTAssertTrue(groups(in: HitRefiner.selectionLevels(for: lone, at: center(top))).isEmpty)
+        let alone = ElementSnapshot(element: top, ancestors: [screen])
+        XCTAssertTrue(groups(in: HitRefiner.selectionLevels(for: alone, at: center(top))).isEmpty, "no siblings read")
+    }
+
+    func testAGridOffersItsRowBeforeItsColumn() throws {
+        let tl = node("AXButton", id: "tl", x: 100, y: 50, w: 40, h: 40)
+        let tr = node("AXButton", id: "tr", x: 140, y: 50, w: 40, h: 40)
+        let bl = node("AXButton", id: "bl", x: 100, y: 90, w: 40, h: 40)
+        let br = node("AXButton", id: "br", x: 140, y: 90, w: 40, h: 40)
+        let screen = node("AXGroup", x: 0, y: 0, w: 400, h: 600)
+        let snapshot = ElementSnapshot(element: tl, ancestors: [screen], siblings: [tl, tr, bl, br])
+        let found = groups(in: HitRefiner.selectionLevels(for: snapshot, at: center(tl)))
+        XCTAssertEqual(found.count, 1)
+        XCTAssertEqual(found.first?.members?.compactMap(\.identifier), ["tl", "tr"], "the row, not the column")
+        XCTAssertEqual(found.first?.frame, Frame(x: 100, y: 50, w: 80, h: 40))
+    }
+
+    func testAGroupStaysAndAShapeWithinTwoPointsMergesIntoIt() throws {
+        let n = capsuleRow()
+        let snapshot = ElementSnapshot(element: n.buttons[1], ancestors: [n.screen], siblings: n.buttons + [n.meta])
+        let point = center(n.buttons[1])
+        for capsule in [CGRect(x: 558.1, y: 396.7, width: 121.1, height: 42.3),   // 1.5 pt past the buttons
+                        CGRect(x: 559.6, y: 398.2, width: 118.1, height: 39.3),   // exactly the buttons
+                        CGRect(x: 560.6, y: 399.2, width: 116.1, height: 37.3)] { // 1 pt inside them
+            var shapes = FixedShapes(rects: [capsule])
+            let levels = HitRefiner.selectionLevels(for: snapshot, at: point, shapes: &shapes, holding: nil)
+            XCTAssertEqual(levels.map { $0?.rawRole }, ["AXButton", "LocantGroup", "AXGroup"], "\(capsule)")
+            XCTAssertEqual(levels[1]?.members?.count, 3, "the group is kept, not the shape")
+        }
+        var larger = FixedShapes(rects: [CGRect(x: 551.6, y: 390.2, width: 134.1, height: 55.3)]) // 8 pt past them
+        let around = HitRefiner.selectionLevels(for: snapshot, at: point, shapes: &larger, holding: nil)
+        XCTAssertEqual(around.map { $0?.rawRole }, ["AXButton", "LocantGroup", "LocantShape", "AXGroup"], "a bigger shape is its own rung")
+        var none = FixedShapes(rects: [])
+        let bare = HitRefiner.selectionLevels(for: snapshot, at: point, shapes: &none, holding: nil)
+        XCTAssertEqual(bare, HitRefiner.selectionLevels(for: snapshot, at: point), "no shape found: today's ladder, group included")
+        XCTAssertEqual(groups(in: bare).count, 1)
+    }
+
     /// SwiftUI nests several containers in one frame (three 456×900 groups in the Simulator, five
     /// 470×1000 ones in Device Hub), and so does the web. They outline the same rectangle, so they
     /// are one rung, and Option always moves the outline. Of a run the window stays, else the one

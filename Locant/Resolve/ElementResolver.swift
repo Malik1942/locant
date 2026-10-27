@@ -135,6 +135,8 @@ enum ElementResolver {
     static let clusterRawRole = "LocantCluster"
     /// specs/capture-shapes.md R116: a shape found on screen; a cluster too, but its frame is the edges seen.
     static let shapeRawRole = "LocantShape"
+    /// specs/capture-shapes.md R124: controls in one row or column whose frames touch.
+    static let groupRawRole = "LocantGroup"
 
     /// A visual grouping computed from neighbouring elements. SwiftUI exposes leaves but not the
     /// cards that hold them; this stands in for the missing container and says so in its role.
@@ -147,7 +149,13 @@ enum ElementResolver {
         if let container = container?.cgRect, !union.intersection(container).isEmpty {
             union = union.intersection(container)
         }
-        let ordered = framed.sorted { a, b in
+        return computedElement(rawRole: clusterRawRole, frame: union, members: framed, ancestors: ancestors)
+    }
+
+    /// What a cluster or a group stands as: role `cluster`, the members (framed nodes) in reading order,
+    /// and the ancestors' path then `cluster`.
+    static func computedElement(rawRole: String, frame: CGRect, members: [AttributeSet], ancestors: [AttributeSet]) -> ResolvedElement {
+        let ordered = members.sorted { a, b in
             let fa = a.frame!, fb = b.frame!
             return abs(fa.y - fb.y) > 4 ? fa.y < fb.y : fa.x < fb.x
         }
@@ -157,12 +165,12 @@ enum ElementResolver {
         path.append(PathEntry(role: clusterRole, identifier: nil))
         return ResolvedElement(
             role: clusterRole,
-            rawRole: clusterRawRole,
+            rawRole: rawRole,
             label: nil,
             identifier: nil,
             identifierSource: .unknown,
             value: nil,
-            frame: Frame(union),
+            frame: Frame(frame),
             path: path,
             members: ordered.map { node in
                 ElementMember(
@@ -419,6 +427,59 @@ enum HitRefiner {
         return groups.first { union(of: $0).contains(CGPoint(x: f.midX, y: f.midY)) }
     }
 
+    /// R124: the next control in a row or column starts within this of where the last one ends.
+    static let groupTouch: Double = 2
+    /// R124: the controls of a row share their top and height (a column, their left and width) within this.
+    static let groupAlign: Double = 1
+
+    /// specs/capture-shapes.md R124: the controls among `siblings` that, with `element`, form a chain along
+    /// one axis, each touching the next. A row if it has two or more, else a column; its frame is the
+    /// exact union. Nil when `element` is alone. Where controls tile a glass capsule there is no rim to
+    /// point into and no pixel ring (R117 step 3), and the cluster's 16 pt padding spills past it.
+    static func groupElement(around element: AttributeSet, among siblings: [AttributeSet], ancestors: [AttributeSet]) -> ResolvedElement? {
+        guard let anchor = element.frame, anchor.w > 0, anchor.h > 0 else { return nil }
+        for horizontal in [true, false] {
+            let chain = touchingChain(from: element, among: siblings, horizontal: horizontal)
+            if chain.count >= 2 {
+                return ElementResolver.computedElement(rawRole: ElementResolver.groupRawRole, frame: union(of: chain), members: chain, ancestors: ancestors)
+            }
+        }
+        return nil
+    }
+
+    /// `element` and the controls reached outward from it in both directions along one axis (x when
+    /// `horizontal`), each starting within `groupTouch` of where the last ended and lined up with
+    /// `element` across the axis within `groupAlign`.
+    private static func touchingChain(from element: AttributeSet, among siblings: [AttributeSet], horizontal: Bool) -> [AttributeSet] {
+        let anchor = element.frame!
+        func along(_ f: Frame) -> (start: Double, end: Double) { horizontal ? (f.x, f.x + f.w) : (f.y, f.y + f.h) }
+        func lined(_ f: Frame) -> Bool {
+            horizontal ? abs(f.y - anchor.y) <= groupAlign && abs(f.h - anchor.h) <= groupAlign
+                       : abs(f.x - anchor.x) <= groupAlign && abs(f.w - anchor.w) <= groupAlign
+        }
+        var pool = siblings.filter { node in
+            guard let f = node.frame, f.w > 0, f.h > 0, !ElementResolver.isContainer(node), lined(f) else { return false }
+            return !matches(f, anchor)   // the element's own entry, and a twin of its rectangle
+        }
+        var chain = [element]
+        var (start, end) = along(anchor)
+        var grew = true
+        while grew {
+            grew = false
+            if let i = pool.firstIndex(where: { abs(along($0.frame!).start - end) <= groupTouch }) {
+                end = along(pool[i].frame!).end
+                chain.append(pool.remove(at: i))
+                grew = true
+            }
+            if let i = pool.firstIndex(where: { abs(along($0.frame!).end - start) <= groupTouch }) {
+                start = along(pool[i].frame!).start
+                chain.append(pool.remove(at: i))
+                grew = true
+            }
+        }
+        return chain
+    }
+
     /// Framed nodes that are content rather than backgrounds of their container.
     static func content(of nodes: [AttributeSet], within container: Frame?) -> [AttributeSet] {
         let containerArea = container.map { $0.w * $0.h } ?? .infinity
@@ -494,6 +555,11 @@ enum HitRefiner {
             levels.append(base)
         } else if let base {
             levels.append(base)
+            // R124: the row or column of touching controls it belongs to, before the looser cluster.
+            if let siblings = snapshot.siblings,
+               let group = groupElement(around: snapshot.element, among: siblings, ancestors: snapshot.ancestors) {
+                levels.append(group)
+            }
             // R120: the cluster around the element under any parent.
             if let siblings = snapshot.siblings, let parent = snapshot.ancestors.first {
                 let nodes = content(of: siblings, within: parent.frame)
