@@ -415,11 +415,15 @@ actor AccessibilityReader {
     // MARK: Neighborhood cache
 
     /// Hover moves inside one container far more often than that container's children change, so a
-    /// container's children are re-read at most every `neighborTTL`. Keyed by app, role, and frame.
+    /// container's children are re-read at most every `neighborTTL`. Keyed by app, role, subrole, frame,
+    /// and the container itself: Device Hub nests a group of the screen's frame in the screen's own group
+    /// (R125), and the two must not share an entry.
     private struct NeighborKey: Hashable {
         let pid: pid_t
         let role: String?
+        let subrole: String?
         let frame: Frame?
+        let hash: CFHashCode
     }
 
     private var neighborCache: [NeighborKey: (stamp: ContinuousClock.Instant, nodes: [AttributeSet])] = [:]
@@ -429,7 +433,7 @@ actor AccessibilityReader {
     private func neighbors(of container: AXUIElement, attributes: AttributeSet) -> [AttributeSet] {
         var pid: pid_t = 0
         AXUIElementGetPid(container, &pid)
-        let key = NeighborKey(pid: pid, role: attributes.role, frame: attributes.frame)
+        let key = NeighborKey(pid: pid, role: attributes.role, subrole: attributes.subrole, frame: attributes.frame, hash: CFHash(container))
         let now = ContinuousClock.now
         if let cached = neighborCache[key], now - cached.stamp < Self.neighborTTL {
             return cached.nodes
