@@ -113,25 +113,33 @@ final class ScreenSamplerTests: XCTestCase {
         let calls = Calls()
         let gate = Gate()
         let held = first
+        let reached = expectation(description: "the held capture reached the gate")
         let sampler = makeSampler(permitted: true, calls: calls, before: { area in
-            if area == held { await gate.wait() }
+            guard area == held else { return }
+            reached.fulfill()
+            await gate.wait()
         })
         sampler.start()
         var updates = 0
-        sampler.onUpdate = { updates += 1 }
+        let landed = expectation(description: "the new session's image")
+        landed.assertForOverFulfill = false // `updates` counts a stray landing
+        sampler.onUpdate = {
+            updates += 1
+            landed.fulfill()
+        }
         sampler.want(first) // held at the gate
-        try await Task.sleep(for: .milliseconds(100))
+        await fulfillment(of: [reached], timeout: 2)
         sampler.stop()
         sampler.start()
         sampler.want(second) // the held capture does not block the new session
-        try await Task.sleep(for: .milliseconds(200))
+        await fulfillment(of: [landed], timeout: 2)
         var count = await calls.count
         XCTAssertEqual(count, 2)
         XCTAssertEqual(sampler.image(for: second)?.generation, 2)
         XCTAssertEqual(updates, 1)
 
         await gate.release() // the old capture finishes now, into a session that is over
-        try await Task.sleep(for: .milliseconds(200))
+        try await Task.sleep(for: .milliseconds(200)) // settle: nothing lands
         XCTAssertNil(sampler.image(for: first)?.generation)
         XCTAssertEqual(sampler.image(for: second)?.generation, 2)
         XCTAssertEqual(updates, 1)
@@ -143,8 +151,11 @@ final class ScreenSamplerTests: XCTestCase {
     func testAFailedCaptureLeavesThePreviousImageAndSaysNothing() async throws {
         let calls = Calls()
         let refused = second
+        let failed = expectation(description: "the refused area was asked for")
         let sampler = makeSampler(permitted: true, calls: calls, before: { area in
-            if area == refused { throw Refused() }
+            guard area == refused else { return }
+            failed.fulfill()
+            throw Refused()
         })
         sampler.start()
         let landed = expectation(description: "first image")
@@ -154,7 +165,8 @@ final class ScreenSamplerTests: XCTestCase {
 
         sampler.onUpdate = { XCTFail("a failed capture is not an update") }
         sampler.want(second)
-        try await Task.sleep(for: .milliseconds(200))
+        await fulfillment(of: [failed], timeout: 2)
+        try await Task.sleep(for: .milliseconds(100)) // settle: no update follows
         let count = await calls.count
         XCTAssertEqual(count, 2)
         XCTAssertEqual(sampler.image(for: first)?.generation, 1)
