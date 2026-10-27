@@ -165,6 +165,30 @@ final class ModeInferenceTests: XCTestCase {
         XCTAssertEqual(blind.mode, .reference, "DerivedData without WorkspacePath and no ancestor marker: nothing proves it was built here")
     }
 
+    /// specs/mac-app-project-root.md R116: an app launched through LaunchServices (`open`, Finder, Xcode Run
+    /// without the debugger) reports the path DerivedData's symlink resolves to.
+    func testResolvedDerivedDataSymlinkGivesProjectRoot() {
+        let path = "/Users/me/Library/Developer/Xcode/DerivedData.noindex/Locant-abc123/Build/Products/Debug/Locant.app"
+        let env = environment(workspaces: ["/Users/me/Library/Developer/Xcode/DerivedData.noindex/Locant-abc123": "/Users/me/Code/Locant/Locant.xcodeproj"])
+        let d = ModeInference.infer(ModeSignals(bundleId: "com.malikzhang.deixis", bundlePath: path), environment: env)
+        XCTAssertEqual(d, ModeDecision(mode: .fix, projectRoot: "/Users/me/Code/Locant", rule: .builtHere))
+    }
+
+    /// R116: a `-derivedDataPath` build anywhere has the same layout and info.plist.
+    func testCustomDerivedDataPathGivesProjectRoot() {
+        let path = "/private/tmp/scratch/dd/Build/Products/Debug/Locant.app"
+        let env = environment(workspaces: ["/private/tmp/scratch/dd": "/Users/me/Code/Locant/Locant.xcodeproj"])
+        let d = ModeInference.infer(ModeSignals(bundleId: "com.malikzhang.deixis", bundlePath: path), environment: env)
+        XCTAssertEqual(d, ModeDecision(mode: .fix, projectRoot: "/Users/me/Code/Locant", rule: .builtHere))
+    }
+
+    /// R117: a build folder without a WorkspacePath still lets the ancestor walk find the project.
+    func testBuildFolderWithoutWorkspacePathFallsBackToAncestors() {
+        let path = "/Users/me/Code/Tool/build/dd/Build/Products/Debug/Tool.app"
+        let env = environment(entries: ["/Users/me/Code/Tool": ["Tool.xcodeproj", "Sources"]])
+        XCTAssertEqual(ModeInference.projectRoot(forBundleAt: path, environment: env), "/Users/me/Code/Tool")
+    }
+
     // 5
     func testAncestorWithProjectMarkerGivesFixAndRoot() {
         let path = "/Users/me/Code/Oryne/build/Debug-iphonesimulator/Oryne.app"
