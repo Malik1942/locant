@@ -5,6 +5,7 @@ Every release is a signed, notarized `Locant.dmg` on [GitHub Releases](https://g
 ## Unreleased
 
 - **Point lands on the shape you see.** A capsule, card, or panel whose edges are drawn on screen is now found there, even when the app does not expose it to accessibility, as SwiftUI often does not. Point into its padding and the outline takes the whole shape; ⌥ from a button inside steps to it; the payload lists what it holds. Where a shape shows no clear edge, nearby elements still group as before, now inside small containers too.
+- **The iPhone screen in Device Hub, as you see it.** Pointing at the floating tab bar takes the tab bar, not the card behind it, and ⌥ from a toolbar button steps to the buttons beside it instead of the whole screen. A card or header padded out to its tap target is outlined and captured as drawn. Where an app merges a card's texts into one element, or a tab bar names none of its tabs, Point reads the lines of text on the screen and lands on the one under the pointer, labeled with its text; ⌥ then takes the card. English and Chinese text is read; Japanese and Korean not yet.
 
 ## 1.0.1 (2026-10-21)
 
