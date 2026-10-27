@@ -562,6 +562,14 @@ final class ElementResolverTests: XCTestCase {
             XCTAssertNil(HitRefiner.overlayIndex(at: CGPoint(x: 347.9, y: 137.5), screen: hubScreen, children: children, holding: holding),
                          "the generic element of no size, at its own origin")
         }
+        // A rectangle of no width or height never contains a point; one reported with a negative width does,
+        // once standardized, so only the size check keeps it from answering.
+        let negative = AttributeSet(role: "AXGenericElement", frame: Frame(x: 600, y: 400, w: -200, h: 200))
+        XCTAssertTrue(negative.frame!.cgRect.contains(CGPoint(x: 527, y: 500)))
+        for holding in [0, nil] {
+            XCTAssertNil(HitRefiner.overlayIndex(at: CGPoint(x: 527, y: 500), screen: hubScreen, children: children + [negative], holding: holding),
+                         "a child of negative width")
+        }
         let twin = AttributeSet(role: "AXGroup", frame: Frame(x: 348.4, y: 137.5, w: 359.2, h: 780.4)) // the screen within 1 pt
         let doubled = [children[0], twin] + children[1...]
         XCTAssertNil(HitRefiner.overlayIndex(at: CGPoint(x: 527, y: 500), screen: hubScreen, children: doubled, holding: 0))
