@@ -18,6 +18,7 @@ Amended Oct 26, after the R130 check and the final review:
 - **R135:** added Oct 26 after Malik's in-app check (list cards and the tab bar had nothing smaller to land on). Revised the same day after review: the reading is decided from the label (Han read the accurate way, Chinese first; kana and Hangul not at all until calibrated), only Point and only answers from 44 pt both ways to half the screen are read, an element's last lines stand while its changed pixels are read again, a line neither sticks nor loses the ⌥ level when read again, and a committed line is not refound for iterations. Re-reviewed: the last lines and the ⌥ level hold while the label shares a part with the one they were read for (a merged element's label ticks with its texts); two Han characters meet the label rule's length; U+30FB and U+30FC are not kana.
 - **R132:** capped at 10 pt Oct 27, Malik: the reach is a quarter of the smaller side up to 10 pt, so ordinary card spacing does not join.
 - **R133–R135:** amended Oct 27 after the final review. R133: the listing search runs only on the simulated screen, and the floating-bar check reads nothing past the neighbor cache. R134: iterations of a tightened capture tighten the element found again; the ⌥ level kept for an outline tightened, only on the simulated screen. R135: a label that names no line read is no evidence for the reading, and the lines are read again with Vision detecting the language; a leaf's lines only when its label joins two texts or more; a line cut to the answer's tightened outline; the ⌥ level kept when lines land or go, and when a line's text ticks; labels share only parts long enough to mean something; a set with a line is not refound.
+- **R126:** amended Oct 27 when main's freeze was merged: while the screen is frozen (`specs/frozen-screen.md` R119), the sample is cut from the frozen image, not captured.
 
 **Scope of this spec:** finding shapes, hover and the ⌥ ladder with shapes in them, the cluster under any parent, a row of controls as a rung, Device Hub's parent links and floating bars, padded frames tightened in the phone, lines of text inside a merged element in the phone, the readout and payload of a shape, and the drawn frame that found nothing in Device Hub.
 **Out of scope:** drawn frames snapping to shapes; a gesture that steps inside a shape (⌥ goes up, pointing goes in); the 40 pt crop padding; a setting to turn shapes off; new schema fields; shapes in apps with no accessibility tree at all (iPhone Mirroring, canvases), which keep the fallback square because a shape there has no members to grep.
@@ -64,7 +65,7 @@ The image is a `PixelGrid`: RGBA, 8 bits per channel, top row first, at the disp
 
 **Why the display's scale.** Measured on Oct 23 on Malik's Recent/Currents capsule, a glass edge is a one-pixel step of 8 to 10 levels at the display's scale. At one sample per point it splits into two steps of about 5, which an edge limit of 4 (R127) would barely catch. An area that would hold more than 4,000,000 samples is taken at a lower scale (`Geometry.sampleScale`), so a large browser window stays affordable.
 
-- **Source:** `ScreenCapture.regionImage`, through the same filter as every capture, so Locant's own windows are never in it.
+- **Source:** `ScreenCapture.regionImage`, through the same filter as every capture, so Locant's own windows are never in it. While the screen is frozen (`specs/frozen-screen.md` R119), the sample is cut from the frozen image of the area, not captured: hover reads the pixels the user sees, the same ones the click crops (R120 there).
 - **When:**
   - At once when hover wants an area other than the one the newest image shows, then every 1 s while the overlay stays up.
   - At most one capture is in flight.
@@ -226,14 +227,14 @@ The existing region tests keep passing either way. R129's members depend on the 
 - Changed:
   - `ElementResolver.swift`: `HitRefiner`, R125, R128, R132 (`groupRawRole`, `HitRefiner.groupElement`, `groupGapShare`, `groupGapCap`; `clusterElement` and the group share `computedElement`), R133 (`HitRefiner.overlayIndex`, `HitRefiner.detachedScreenFrame`, `HitRefiner.smallerSibling`, `isOnSimulatedScreen`), R134 (`HitRefiner.tightFrame`, `tightFrame(_:on:ink:)`, `tightenMinSide`, `keepsLevel`, `nextLevel`, the shape-aware ladder), and R135 (`textRawRole`, `TextLine`, `HitRefiner.textArea`, `textRung`, `addingLine`, `textLabel`, `textMatches`, `textMatchMinLength`, `textMatchMinHan`, `labelsSharePart`, `textReach`, `isRereadLine`, and a line never held nor kept by `sticks`).
   - `AccessibilityReader.swift`: R128, and R133 (the container that lists the element, the neighbor-cache key, the detached screen group's frame, floating bars, frames that hang over smaller siblings). R130 changes nothing here.
-  - `ScreenCapture.swift` (`regionImage`) and `Geometry.swift` (`sampleScale`), R126.
+  - `ScreenCapture.swift` (`regionImage`, and `FrozenScreen.sample` for a frozen screen) and `Geometry.swift` (`sampleScale`), R126.
   - `ShapeFinder.swift`: R134 (`PixelGrid.edgeBounds(inside:)`, `ShapeSource.ink(inside:)`, `ShapeLookup`'s memo), and R135 (`PixelGrid.image(of:)`, `forEachRow(of:_:)`).
   - `AppState.swift`: hover, commit, and members, R125 and R129; R134, a click inside the hovered element's frame; R135, the line ahead of the ladder in Point, the ⌥ level kept when a line is read again, and `TextLineReader` started, stopped, and read again with the sample.
   - `SelectionOverlay.swift`: `Readout`, R129.
   - `MarkdownBuilder.swift` (R129, R132, R135), `schema/capture.schema.json` (description only, R129, R132, R135), `CHANGELOG.md` (R131, R135).
   - `AutoVerify.swift` (R135): a line is not refound, nor a set that shares its image with one; (R134) `AutoVerify.afterFrame`, the frame an iteration of a tightened capture is cut around.
   - `ScreenCapture.swift` (R134): `CroppedImage.grid()` and `cut(to:)`, what is drawn in a crop and the after-image cut from it.
-- Tests changed: `ElementResolverTests.swift`, `MarkdownBuilderTests.swift` (R135 too), `GeometryTests.swift`, (R134) `ShapeFinderTests.swift`, and (R134, R135) `AutoVerifyTests.swift`.
+- Tests changed: `ElementResolverTests.swift`, `MarkdownBuilderTests.swift` (R135 too), `GeometryTests.swift`, (R134) `ShapeFinderTests.swift`, (R134, R135) `AutoVerifyTests.swift`, and (R126) `FrozenScreenTests.swift`.
 
 ## 3. Tests
 
@@ -258,7 +259,8 @@ The existing region tests keep passing either way. R129's members depend on the 
   - `shape-web-list` (20261003-182251-7706): a row of a bordered GitHub file list in Dia, in light mode.
 
   Each fixture also has a point on its background that must give no shape. Fixtures load at the capture's 2x scale through `PixelGrid(image:frame:scale:generation:)`, the conversion `ScreenSampler` uses.
-- `ScreenSamplerTests`: without permission nothing is captured; an area is captured once, and again only when hover wants another area; an area whose capture failed is taken again at the next refresh, not when hover wants it again; stopping drops the image.
+- `ScreenSamplerTests`: without permission nothing is captured; an area is captured once, and again only when hover wants another area; an area whose capture failed is taken again at the next refresh, not when hover wants it again; stopping drops the image. While the screen is frozen, the sample is cut from the frozen image, a freeze still being taken is waited for, and nothing is captured; without a freeze, or with no frozen display holding the area's center, the area is captured.
+- `FrozenScreenTests` (R126): a sample from a 2x image of a display with a negative origin is the part of the area on that display, at the shot's scale, with its pixels; a large area is cut at `Geometry.sampleScale`'s lower scale; an area off every shot gives none.
 - `GeometryTests`: `sampleScale` keeps the display's scale up to 4,000,000 samples and lowers it above.
 - **Speed:** with the probe built at `-O`, 100 shape lookups on the iPhone screen of capture 20261023-023021-yu3f, unblurred and kept out of the repo (668×1453 samples, edge map precomputed) have a median under 5 ms and a 95th percentile under 15 ms. On Oct 23 they measured 4.6 ms and 13.4 ms; the edge map took 27 ms once. On the blurred `shape-sheet` fixture the text smudges add fill work: p50 5.6 ms. The unit tests run unoptimized, so they check results, not speed. Debug builds log each lookup's time, for information only.
 - `ElementResolverTests`:
