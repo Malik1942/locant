@@ -33,6 +33,13 @@ final class AutoVerifyTests: XCTestCase {
         XCTAssertFalse(AutoVerify.wants(capture(element: nil), activated: "com.inspireocean.app", now: now))
         let cluster = ResolvedElement(role: ElementResolver.clusterRole, rawRole: "", label: nil, identifier: nil, identifierSource: .unknown, value: nil, frame: Frame(x: 0, y: 0, w: 9, h: 9), path: [])
         XCTAssertFalse(AutoVerify.wants(capture(element: cluster), activated: "com.inspireocean.app", now: now))
+        // specs/capture-shapes.md R127: a line of text read from the screen has no accessibility element to find again.
+        let line = ResolvedElement(role: "staticText", rawRole: ElementResolver.textRawRole, label: "Weeknight noodles", identifier: nil,
+                                   identifierSource: .unknown, value: nil, frame: Frame(x: 375, y: 558, w: 124, h: 16), path: [])
+        XCTAssertFalse(AutoVerify.wants(capture(element: line), activated: "com.inspireocean.app", now: now))
+        var text = line
+        text.rawRole = "AXStaticText"
+        XCTAssertTrue(AutoVerify.wants(capture(element: text), activated: "com.inspireocean.app", now: now))
     }
 
     // 4

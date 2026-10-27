@@ -11,10 +11,12 @@ enum AutoVerify {
 
     /// Whether `capture` is worth refinding when the app with `bundleId` came forward at `now`:
     /// it is the user's own app (mode fix), the same app, it has one element (not a drawn frame),
-    /// and the capture is under a day old.
+    /// that element is one accessibility can find again (not computed: a cluster, or a line of text read
+    /// from the screen, specs/capture-shapes.md R127), and the capture is under a day old.
     static func wants(_ capture: Capture, activated bundleId: String, now: Date = .now) -> Bool {
         guard capture.mode == .fix, capture.source.app.bundleId == bundleId else { return false }
-        guard let element = capture.element, element.role != ElementResolver.clusterRole else { return false }
+        guard let element = capture.element, element.role != ElementResolver.clusterRole,
+              element.rawRole != ElementResolver.textRawRole else { return false }
         guard let created = ISO8601DateFormatter().date(from: capture.createdAt) else { return false }
         let age = now.timeIntervalSince(created)
         return age >= -60 && age <= window
