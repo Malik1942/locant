@@ -1168,6 +1168,51 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertFalse(HitRefiner.isRetightened(header, nil))
     }
 
+    /// R125–R127: one predicate says an answer is on Device Hub's simulated screen: the element or an ancestor has
+    /// subrole `iOSContentGroup`, whatever its frame (a detached copy reports none).
+    func testAnAnswerIsOnTheSimulatedScreenByItsChainsSubrole() {
+        let l = library()
+        XCTAssertTrue(HitRefiner.isOnSimulatedScreen(ElementSnapshot(element: cardButton, ancestors: [l.inner, l.screen])))
+        XCTAssertTrue(HitRefiner.isOnSimulatedScreen(ElementSnapshot(element: l.screen, ancestors: [])), "the screen itself")
+        let detached = AttributeSet(role: "AXGroup", subrole: HitRefiner.simulatedScreenSubrole, frame: Frame(x: 0, y: 0, w: 0, h: 0))
+        XCTAssertTrue(HitRefiner.isOnSimulatedScreen(ElementSnapshot(element: cardButton, ancestors: [detached])), "a detached copy, no frame")
+        XCTAssertFalse(HitRefiner.isOnSimulatedScreen(ElementSnapshot(element: cardButton, ancestors: [l.inner, AttributeSet(role: "AXGroup", frame: hubScreen)])))
+        XCTAssertFalse(HitRefiner.isOnSimulatedScreen(nil))
+    }
+
+    /// R126, R127: the ⌥ level chosen before stays when hover's rung 0 is the same frame, and, on the simulated screen
+    /// only, the same element outlined tighter or the same line read again. Elsewhere an element whose frame changes
+    /// inside its old one (a field that grows) is a move, as before R126.
+    func testTheOptionLevelStaysForTheSameRungAndOnlyOnTheScreenForAnOutlineTightened() throws {
+        let l = library()
+        let onPhone = ElementSnapshot(element: l.children[6], ancestors: [l.inner, l.screen], siblings: l.children)
+        let header = try XCTUnwrap(ElementResolver.resolve(onPhone))
+        var tight = header
+        tight.frame = Frame(x: 378, y: 338, w: 300, h: 21)
+        let above: [ResolvedElement?] = [header, ElementResolver.resolve(ElementSnapshot(element: l.inner, ancestors: [l.screen]))]
+        let tightened: [ResolvedElement?] = [tight] + above.dropFirst()
+        XCTAssertTrue(HitRefiner.keepsLevel(above, in: onPhone, above, in: onPhone), "the same frame")
+        XCTAssertTrue(HitRefiner.keepsLevel(above, in: onPhone, tightened, in: onPhone), "outlined tighter")
+        XCTAssertTrue(HitRefiner.keepsLevel(tightened, in: onPhone, above, in: onPhone), "and back")
+
+        let offPhone = ElementSnapshot(element: l.children[6], ancestors: [l.inner, AttributeSet(role: "AXGroup", frame: hubScreen)], siblings: l.children)
+        XCTAssertTrue(HitRefiner.keepsLevel(above, in: offPhone, above, in: offPhone), "the same frame, anywhere")
+        XCTAssertFalse(HitRefiner.keepsLevel(above, in: offPhone, tightened, in: offPhone), "off the screen a frame inside the old one is a move")
+
+        var other = tight
+        other.label = "Cooking"
+        XCTAssertFalse(HitRefiner.keepsLevel(above, in: onPhone, [other], in: onPhone), "another element")
+        XCTAssertTrue(HitRefiner.keepsLevel([], in: nil, [], in: nil), "nothing, then nothing")
+        XCTAssertFalse(HitRefiner.keepsLevel([], in: nil, above, in: onPhone))
+
+        let card = ElementSnapshot(element: cardButton, ancestors: [l.inner, l.screen])
+        let first = try XCTUnwrap(try textRung(cardLines, at: CGPoint(x: 400, y: 566), in: card))
+        var moved = cardLines
+        moved[0].frame = Frame(x: 377.5, y: 559.5, w: 121.0, h: 12.5)
+        let again = try XCTUnwrap(try textRung(moved, at: CGPoint(x: 400, y: 566), in: card))
+        XCTAssertTrue(HitRefiner.keepsLevel([first], in: card, [again], in: card), "the same line read again")
+    }
+
     /// R126: a frame cut to another and stored as x, y, w, h can end an ulp past it (x + w), so "inside"
     /// allows a hundredth of a point. Built the way `tightFrame` builds it.
     func testATightenedFrameAnUlpPastItsElementsStillLiesInside() throws {

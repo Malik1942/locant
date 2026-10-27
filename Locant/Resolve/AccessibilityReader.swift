@@ -383,8 +383,11 @@ actor AccessibilityReader {
             // R125: Device Hub names the screen's content group as the parent of what the group inside it
             // holds. The siblings come from the container that lists the element, which joins the path. One
             // read of the parent's children, through the neighbor cache, serves the check and the siblings.
+            // Only on the simulated screen, which the parents just read say; elsewhere the parent's children
+            // are the siblings, as before.
             let listed = neighborhood(of: parent, attributes: parentAttributes)
-            if let holder = listingParent(of: element, frame: elementAttributes.frame, below: parent, listing: listed.elements) {
+            if HitRefiner.isOnSimulatedScreen(snapshot),
+               let holder = listingParent(of: element, frame: elementAttributes.frame, below: parent, listing: listed.elements) {
                 let holderAttributes = cachedAttributes(of: holder, web: web)
                 snapshot.ancestors = Array(([holderAttributes] + ancestors).prefix(ElementResolver.maxAncestors))
                 parents = Array(([holder] + parents).prefix(ElementResolver.maxAncestors))

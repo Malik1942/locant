@@ -337,6 +337,15 @@ enum HitRefiner {
         return frame.cgRect
     }
 
+    /// specs/capture-shapes.md R125–R127: the element or one of its ancestors is Device Hub's simulated screen
+    /// (subrole `iOSContentGroup`), whatever its frame, which a detached copy reports empty. The one test for what
+    /// changes only there (the container that lists an element, the ⌥ level kept for an outline tightened or a
+    /// line read again), so elsewhere it changes no answer.
+    static func isOnSimulatedScreen(_ snapshot: ElementSnapshot?) -> Bool {
+        guard let snapshot else { return false }
+        return ([snapshot.element] + snapshot.ancestors).contains { $0.subrole == simulatedScreenSubrole }
+    }
+
     /// specs/capture-shapes.md R125: Device Hub sometimes names a detached copy of the screen's group as an
     /// element's parent: subrole `iOSContentGroup`, an empty frame, no parent or window of its own. Its frame
     /// is then the union of its children's non-empty frames; nil when none has one.
@@ -825,6 +834,18 @@ extension HitRefiner {
         guard lies(fb, inside: fa) || lies(fa, inside: fb) else { return false }
         b.frame = a.frame
         return a == b
+    }
+
+    /// R126, R127: whether hover's new ladder, `new`, read from `fresh`, starts on the same rung as the last step's,
+    /// `old`, read from `last`, so the ⌥ level chosen before stays, mapped to that rung by frame: rung 0 of the same
+    /// frame; and on Device Hub's simulated screen only (`isOnSimulatedScreen`), so that elsewhere nothing changes,
+    /// the same element outlined tighter or no longer (`isRetightened`), or the same line read again
+    /// (`isRereadLine`).
+    static func keepsLevel(_ old: [ResolvedElement?], in last: ElementSnapshot?, _ new: [ResolvedElement?], in fresh: ElementSnapshot?) -> Bool {
+        let (a, b) = (old.first ?? nil, new.first ?? nil)
+        if a?.frame == b?.frame { return true }
+        guard isOnSimulatedScreen(fresh) else { return false }
+        return isRetightened(a, b) || isRereadLine(a, in: last, b, in: fresh)
     }
 
     /// R126: whether a click at `point` is on the rung hover drew, `shown`, read from `snapshot`, so that rung is
