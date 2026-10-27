@@ -478,8 +478,11 @@ enum HitRefiner {
     static let groupTouch: Double = 2
     /// R124, amended Oct 26: the next control may start up to this share of the element's smaller side past
     /// where the chain ends (9.8 pt for the Library capsule's 39.3 pt buttons; Filter sits 8 pt on, behind a
-    /// drawn divider).
+    /// drawn divider), up to `groupGapCap`.
     static let groupGapShare: Double = 0.25
+    /// R124, capped Oct 27: never more than this past where the chain ends, so ordinary card spacing (12 pt
+    /// between 75.9 pt cards, a quarter of which is 19 pt) does not join.
+    static let groupGapCap: Double = 10
     /// R124: the controls of a row share their top and height (a column, their left and width) within this.
     static let groupAlign: Double = 1
 
@@ -500,12 +503,12 @@ enum HitRefiner {
 
     /// `element` and the controls reached outward from it in both directions along one axis (x when
     /// `horizontal`), each starting between an overlap of `groupTouch` and a gap of
-    /// `max(groupTouch, groupGapShare × min(w, h))` (the element's sides) from where the chain ends, and
-    /// lined up with `element` across the axis within `groupAlign`. Of several, the nearest joins, then
-    /// the first in sibling order.
+    /// `min(groupGapCap, max(groupTouch, groupGapShare × min(w, h)))` (the element's sides) from where the
+    /// chain ends, and lined up with `element` across the axis within `groupAlign`. Of several, the nearest
+    /// joins, then the first in sibling order.
     private static func chain(from element: AttributeSet, among siblings: [AttributeSet], horizontal: Bool) -> [AttributeSet] {
         let anchor = element.frame!
-        let reach = max(groupTouch, groupGapShare * min(anchor.w, anchor.h))
+        let reach = min(groupGapCap, max(groupTouch, groupGapShare * min(anchor.w, anchor.h)))
         func along(_ f: Frame) -> (start: Double, end: Double) { horizontal ? (f.x, f.x + f.w) : (f.y, f.y + f.h) }
         func lined(_ f: Frame) -> Bool {
             horizontal ? abs(f.y - anchor.y) <= groupAlign && abs(f.h - anchor.h) <= groupAlign

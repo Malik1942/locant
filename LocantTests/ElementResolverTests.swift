@@ -452,6 +452,23 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertEqual(rungs(node("AXButton", id: "b", x: 140, y: 50, w: 0, h: 40)).count, 0, "a member needs a frame")
     }
 
+    /// R124, capped Oct 27 (Malik): the reach is a quarter of the smaller side up to 10 pt, so the Library capsule's
+    /// 8 pt still joins and ordinary card spacing does not.
+    func testTheReachIsCappedAtTenPoints() {
+        let screen = node("AXGroup", x: 0, y: 0, w: 800, h: 900)
+        func grouped(_ first: AttributeSet, _ second: AttributeSet) -> Bool {
+            let snapshot = ElementSnapshot(element: first, ancestors: [screen], siblings: [first, second])
+            return !groups(in: HitRefiner.selectionLevels(for: snapshot, at: center(first))).isEmpty
+        }
+        let button = node("AXButton", id: "a", x: 100, y: 50, w: 39.4, h: 39.3)
+        XCTAssertTrue(grouped(button, node("AXButton", id: "b", x: 149.2, y: 50, w: 39.4, h: 39.3)), "9.8 pt between 39.3 pt controls")
+        // Cards 75.9 pt tall, in a column: a quarter of their side would be 19 pt.
+        let card = node("AXButton", id: "card", x: 362.2, y: 380.0, w: 331.1, h: 75.9)
+        XCTAssertFalse(grouped(card, node("AXButton", id: "next", x: 362.2, y: 467.9, w: 331.1, h: 75.9)), "12 pt between cards")
+        XCTAssertTrue(grouped(card, node("AXButton", id: "next", x: 362.2, y: 465.9, w: 331.1, h: 75.9)), "10 pt between cards")
+        XCTAssertEqual(HitRefiner.groupGapCap, 10)
+    }
+
     func testTheChainStopsAtTheFirstGapPastTheLimit() throws {
         var n = capsuleRow()
         n.buttons.append(node("AXButton", id: "far", x: 687.7, y: 398.2, w: 39.4, h: 39.3)) // 10 pt past trash; the limit is 9.8
