@@ -15,8 +15,9 @@ Amended Oct 26, after the R122 check and the final review:
 - **R125:** added Oct 26 after the in-app check: Device Hub's parent links skip the screen's content group, and its tab bar hides nothing behind it from hit tests.
 - **R124:** amended Oct 26: a gap up to a quarter of the control's smaller side joins (Filter, 8 pt behind the Library capsule's divider), after Malik's in-app check.
 - **R126:** added Oct 26 after Malik's in-app check (the Product Ideas header's frame looked weird). Revised the same day: the frame is what is drawn, without a 1 pt margin, and only rungs at least 44 pt both ways tighten.
+- **R127:** added Oct 26 after Malik's in-app check (list cards and the tab bar had nothing smaller to land on).
 
-**Scope of this spec:** finding shapes, hover and the ⌥ ladder with shapes in them, the cluster under any parent, a row of controls as a rung, Device Hub's parent links and floating bars, padded frames tightened in the phone, the readout and payload of a shape, and the drawn frame that found nothing in Device Hub.
+**Scope of this spec:** finding shapes, hover and the ⌥ ladder with shapes in them, the cluster under any parent, a row of controls as a rung, Device Hub's parent links and floating bars, padded frames tightened in the phone, lines of text inside a merged element in the phone, the readout and payload of a shape, and the drawn frame that found nothing in Device Hub.
 **Out of scope:** drawn frames snapping to shapes; a gesture that steps inside a shape (⌥ goes up, pointing goes in); the 40 pt crop padding; a setting to turn shapes off; new schema fields; shapes in apps with no accessibility tree at all (iPhone Mirroring, canvases), which keep the fallback square because a shape there has no members to grep.
 
 Read `CLAUDE.md`; `specs/v0.1.md` R2, R2a, and R4; `specs/v0.2.md` R11–R16; `specs/v0.8.1.md` R59; `specs/v0.9-snap.md` R77; `Locant/Resolve/ElementResolver.swift` (`HitRefiner`); `Locant/Resolve/AccessibilityReader.swift` (`refine`, `snapshot(of:)`, `elements(in:pid:)`); `Locant/Capture/ScreenCapture.swift`; `Locant/Capture/SelectionOverlay.swift` (`Readout`); `Locant/Payload/MarkdownBuilder.swift`; and in `Locant/App/AppState.swift`, `drainHover`, `renderHover`, `resolveClicked`, `click`, `pin`, and `region`.
@@ -178,6 +179,26 @@ The existing region tests keep passing either way. R121's members depend on the 
 - **On commit.** The capture takes the selected rung's frame: the payload's frame, the crop (the element plus 40 pt), and the outline all use the tightened one. A click inside the frame of the element hover read (not a container) commits what hover outlined, even where that is more than the 12 pt stickiness away from the tighter outline, so what was drawn is what is captured. Snap and Cut's click follows the same rule: a click in the padding of the element at ⌥ level 0 takes its tightened outline, not the window.
 - **Outside the phone nothing changes.** Markdown and schema are unchanged: the frame is still `Frame:`.
 
+**R127. Text lines inside a merged element are rungs, in the phone.** On Oct 26 Malik's in-app check on Oryne in Device Hub found elements with nothing smaller to land on. SwiftUI merges a card's texts into one button: "Weeknight noodles, yesterday" (362.2,543.2 331.1×75.9) has no accessibility children, so a note about its title could only take the whole card ("I can't capture the details inside this list card"). The floating tab bar is `AXGroup "Tab Bar"` (347.9,844.3 359.7×74.2) with no children, so since R125 the pointer on it answers with the group, and Tide, Ask, and Library are not in the tree at all. Decided the same day: Locant reads the lines of text inside such an element from the screen sample with Vision, as Text in image does (`specs/v0.2.md` R14), and the line under the pointer is a rung. Hovering "Weeknight noodles" lands on that line, labeled with its text, and ⌥ then goes to the card.
+- **Where.** Only on Device Hub's simulated screen (`HitRefiner.simulatedScreen` finds one), only once a screen sample has landed (R118), and only for the hover answer, the snapshot's own element, when it has no accessibility children (a leaf, or a container whose children read empty, like the Tab Bar) and its accessibility frame holds the pointer (`HitRefiner.textArea`).
+- **Reading.** The answer's accessibility frame, not R126's tightened one, cut to the sample, is taken from the `PixelGrid` as an image (`PixelGrid.image(of:)`, the same sRGB RGBA bytes) and read with `VNRecognizeTextRequest` at the `.fast` level, language `en-US`, no language correction. When that finds nothing and the answer's label holds CJK characters (Han, kana, or Hangul), it is read again at `.accurate` with Text in image's languages (`TextRecognizer.languages`), still without language correction: `.fast` reads none of them. Each observation is a line: its text, and its box in global points (Vision's box is normalized, its origin at the bottom left).
+- **The rung.** When the answer holds two or more lines and the pointer lies inside one line's box grown by 2 pt (`HitRefiner.textReach`; of two, the nearer), that line is rung 0, ahead of the ladder R117 builds, which keeps the answer and what follows unchanged. One line alone (a heading) adds nothing. The pointer between two lines, more than 2 pt from both, lands on the answer as before.
+  - `role` `staticText`, `rawRole` `LocantText` (`ElementResolver.textRawRole`), `identifier` and `value` null, `identifierSource` `unknown`, no `members`.
+  - `label`: the part of the answer's label, split on ", ", that matches the line, compared case-insensitively on letters and digits only: an equal part, else one that contains the line or that the line contains. Else the text as read. So the card's second line, which Vision reads as "= yesterday" (the list icon as "="), is labeled "yesterday"; the tab bar's lines, which "Tab Bar" does not name, keep their text.
+  - `frame`: the line's box grown by 2 pt, cut to the answer's accessibility frame.
+  - `path`: the answer's path, then `staticText`.
+  - A line is never held (R117 step 2): it is read again at each step.
+- **In the background.** `TextLineReader` (new, `Locant/Capture/TextLineReader.swift`, a class: it owns the reading task) starts and stops with the screen sample (R118).
+  - **Hover never waits for it.** It answers with the lines read for the rectangle's pixels, or with none and asks for them. When lines land, hover reads the spot again.
+  - **One read at a time,** off the main actor. Of the requests that come meanwhile only the newest waits; an older one is dropped.
+  - **Kept per rectangle and pixels:** the frame and a hash of the sample's bytes inside it, at most 32 entries, so the sample's 1 s refresh reads unchanged pixels once. A read that fails gives no lines for those pixels and is not an update.
+  - **Dropped when hover ends,** with the sample (R118's privacy): a read still running then lands nowhere.
+  - Vision is injected, so the tests run without it. Debug builds log each read's time (`Locant text lines:`), for information only.
+- **What was measured, Oct 26** (iPhone 17, the Tide screen, boxes in global points): on a card, `.fast` read "Random" and "4 seconds ago" in 120 ms cold and `.accurate` in 227 ms, reading the list icon as "="; on the tab bar, `.fast` read "Tide", "Ask", and "Library" as three lines in 70 ms and `.accurate` in 129 ms. So a read never blocks hover.
+- **On commit.** A line commits like any rung: the payload's frame, the crop (the line plus 40 pt), and the outline are the line's. Snap and Cut end their ladders as today, after it.
+- **What it says.** The readout is unchanged code: `staticText · Weeknight noodles`. The Markdown prints the line like any element, its label grep-able, and adds one line under the head line: `Text read from the screen by Locant; not an accessibility element. The element it sits in is the next ⌥ level.` The `role` description in `schema/capture.schema.json` gains: "rawRole LocantText: a line of text Locant read from the screen inside an element that merges it (Device Hub)." No field is added.
+- **Outside the phone nothing changes,** and nothing is read.
+
 ## 2. Files
 
 - New:
@@ -186,15 +207,16 @@ The existing region tests keep passing either way. R121's members depend on the 
   - `LocantTests/ShapeFinderTests.swift` and `LocantTests/ScreenSamplerTests.swift`.
   - `LocantTests/Fixtures/shape-*.png` and `LocantTests/Fixtures/shapes.json`: the real-screen fixtures and their expected rectangles, beside the existing fixtures.
   - `scripts/blur-fixture-text.swift`: finds text with Vision and blurs it with Core Image, so fixtures from Malik's own screens can be public.
+  - `Locant/Capture/TextLineReader.swift` (R127), and `LocantTests/TextLineReaderTests.swift`.
 - Changed:
-  - `ElementResolver.swift`: `HitRefiner`, R117, R120, R124 (`groupRawRole`, `HitRefiner.groupElement`, `groupGapShare`; `clusterElement` and the group share `computedElement`), R125 (`HitRefiner.overlayIndex`, `HitRefiner.detachedScreenFrame`), and R126 (`HitRefiner.tightFrame`, `tightenMinSide`, the shape-aware ladder).
+  - `ElementResolver.swift`: `HitRefiner`, R117, R120, R124 (`groupRawRole`, `HitRefiner.groupElement`, `groupGapShare`; `clusterElement` and the group share `computedElement`), R125 (`HitRefiner.overlayIndex`, `HitRefiner.detachedScreenFrame`), R126 (`HitRefiner.tightFrame`, `tightenMinSide`, the shape-aware ladder), and R127 (`textRawRole`, `TextLine`, `HitRefiner.textArea`, `textRung`, `textLabel`, `textReach`, and a line never held).
   - `AccessibilityReader.swift`: R120, and R125 (the container that lists the element, the neighbor-cache key, the detached screen group's frame, floating bars). R122 changes nothing here.
   - `ScreenCapture.swift` (`regionImage`) and `Geometry.swift` (`sampleScale`), R118.
-  - `ShapeFinder.swift`: R126 (`PixelGrid.edgeBounds(inside:)`, `ShapeSource.ink(inside:)`, `ShapeLookup`'s memo).
-  - `AppState.swift`: hover, commit, and members, R117 and R121; R126, a click inside the hovered element's frame.
+  - `ShapeFinder.swift`: R126 (`PixelGrid.edgeBounds(inside:)`, `ShapeSource.ink(inside:)`, `ShapeLookup`'s memo), and R127 (`PixelGrid.image(of:)`).
+  - `AppState.swift`: hover, commit, and members, R117 and R121; R126, a click inside the hovered element's frame; R127, the line ahead of the ladder, and `TextLineReader` started, stopped, and read again with the sample.
   - `SelectionOverlay.swift`: `Readout`, R121.
-  - `MarkdownBuilder.swift` (R121, R124), `schema/capture.schema.json` (description only, R121, R124), `CHANGELOG.md` (R123).
-- Tests changed: `ElementResolverTests.swift`, `MarkdownBuilderTests.swift`, `GeometryTests.swift`, and (R126) `ShapeFinderTests.swift`.
+  - `MarkdownBuilder.swift` (R121, R124, R127), `schema/capture.schema.json` (description only, R121, R124, R127), `CHANGELOG.md` (R123).
+- Tests changed: `ElementResolverTests.swift`, `MarkdownBuilderTests.swift` (R127 too), `GeometryTests.swift`, and (R126) `ShapeFinderTests.swift`.
 
 ## 3. Tests
 
@@ -247,7 +269,14 @@ The existing region tests keep passing either way. R121's members depend on the 
     - From the "Product Ideas" header, with its title and "1 >" drawn: rung 0 is what is drawn; the column of headers and cards (R124), the cluster, and the screen's group keep their frames. With no shape at the point and the pointer off the header, today's ladder, tightened. Off the simulated screen, today's ladder unchanged.
     - From Currents (39.4×39.3), with its icon drawn: today's ladder, unchanged.
     - `HitRefiner.tightFrame`: nothing drawn, the frame; what is drawn, cut to the frame; 2 pt in on every side, the frame; 2.5 pt in on one side, tightened; 44 pt tall or wide, tightened; 43.9 pt either way, 39.4×39.3, or 74×39.3, the frame.
-- `MarkdownBuilderTests`: the `LocantShape` head line, the `LocantCluster` line unchanged, and the `LocantGroup` head line.
+  - **Text lines (R127):**
+    - The card (answer "Weeknight noodles, yesterday" 362.2,543.2 331.1×75.9; lines "Weeknight noodles" 377.0,560.0 120.0×12.0 and "= yesterday" 377.0,582.0 70.0×11.0): the pointer on line 1 gives `staticText` `LocantText` "Weeknight noodles", its box grown 2 pt, the card's path then `staticText`; 1 pt above line 2, "yesterday" (the label's part wins over "= yesterday"); between the lines, 5 pt from each, or 2.5 pt below line 1, nothing; one line alone, nothing; a label with no matching part, the text as read.
+    - The tab bar (`group` "Tab Bar" 347.9,844.3 359.7×74.2, no children; lines "Tide", "Ask", and "Library"): the pointer on "Ask" gives `staticText` "Ask", its box grown 2 pt and cut to the tab bar; below the labels, nothing.
+    - `HitRefiner.textLabel`: case, spaces, and punctuation do not matter; a part that holds the line, or a line that holds a part, matches; a line with no letters or digits is kept as read.
+    - `HitRefiner.textArea`: a leaf on the simulated screen whose frame holds the point gives its frame; the point outside it, an element with children, a container with children, or the same leaf off the simulated screen give none; the Tab Bar with its children read empty gives its frame.
+    - Inside a shape, a line is not held where an accessibility element would be (R117 step 2).
+- `TextLineReaderTests`, with a stand-in for Vision: before `start()` nothing is read; a rectangle's lines are read once and kept for a new sample with the same pixels inside it (a change outside it included), and read again when the pixels inside change; `onUpdate` fires once per landing; of the requests that come during a read only the newest is read after it; `stop()` drops a read still running, which lands nowhere; a failed read is no update and is not tried again on the same pixels; a label with CJK characters asks for their read. `PixelGrid.image(of:)` gives the samples a rectangle covers with their own bytes, out to whole samples and cut to the sample, and nothing off the sample or for a rectangle that is not finite. Vision's normalized box is placed in global points. **The one test that runs Vision:** two lines drawn with AppKit at 2x, cut from the sample as hover cuts an element and read by the default recognizer, come back as two lines with their text, each box within 3 pt of the drawn ink (measured Oct 26 on a 300×90 pt cut: within 0.5 pt; 222 ms for the first read in a process, 5 to 7 ms after, in a Debug test run).
+- `MarkdownBuilderTests`: the `LocantShape` head line, the `LocantCluster` line unchanged, the `LocantGroup` head line, and (R127) a `LocantText` element's lines, which an accessibility `staticText` does not have.
 - R122 has no unit test: the walk reads live accessibility. The probe in R122 is its check.
 - R125's parent repair has no unit test either, since unit tests have no accessibility tree. The live probe is its check: on the Library screen, the snapshots of Currents, the "Product Ideas" header, and a card have the inner group as their nearest ancestor and its children as their siblings, and at 527,880 the reader answers the `Tab Bar` group.
 - The existing tests pass.
@@ -258,6 +287,7 @@ The existing region tests keep passing either way. R121's members depend on the 
   - **Recent/Currents.** ⌥ from Recent outlines the capsule in one press.
   - **Device Hub's tree (R125).** On the Library screen, ⌥ from Currents outlines Recent, Currents, and Filter together (R124 amended), not the screen. The pointer on the tab bar outlines the `Tab Bar` group, not the card behind it.
   - **Padded frames (R126).** On the Library screen, the pointer on the "Product Ideas" header outlines its text and "1 >", not the 61.7 pt row; on a card, the drawn card. A click in the header's padding captures that outline, and the crop is around it. Outside Device Hub's screen, outlines are as before.
+  - **Text lines (R127).** On the Library screen, the pointer on a card's title outlines that line, `staticText · Weeknight noodles`, and ⌥ goes to the card; between the card's lines, the card. On the tab bar, the pointer on Ask outlines `staticText · Ask`, and ⌥ goes up from it to the tab bar. A click on a line captures it, and its Markdown says Locant read it from the screen. The lines appear shortly after the pointer arrives (a read takes about 70 to 230 ms) and hover never stalls for them.
   - **The sheet** (no edge at its bottom, so the fallback, and not solved by this spec).
     - Between the sheet's heading, button, and card, the outline is their cluster (R120).
     - In its empty margin, it is the 334×726 screen group, as today. That group is a container that does not span Device Hub's window, so R120 keeps it.
