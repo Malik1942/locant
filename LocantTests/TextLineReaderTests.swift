@@ -8,10 +8,10 @@ import XCTest
 final class TextLineReaderTests: XCTestCase {
     private actor Calls {
         var frames: [CGRect] = []
-        var cjk: [Bool] = []
-        func add(_ frame: CGRect, cjk flag: Bool) {
+        var readings: [TextLineReader.Reading] = []
+        func add(_ frame: CGRect, reading: TextLineReader.Reading) {
             frames.append(frame)
-            cjk.append(flag)
+            readings.append(reading)
         }
         var count: Int { frames.count }
     }
@@ -36,8 +36,8 @@ final class TextLineReaderTests: XCTestCase {
     /// A reader whose recognizer records the rectangle it was shown, runs `before` (which can hold it or
     /// throw), and reads one line filling that rectangle.
     private func makeReader(calls: Calls, before: @escaping @Sendable (CGRect) async throws -> Void = { _ in }) -> TextLineReader {
-        TextLineReader(recognize: { _, frame, cjk in
-            await calls.add(frame, cjk: cjk)
+        TextLineReader(recognize: { _, frame, reading in
+            await calls.add(frame, reading: reading)
             try await before(frame)
             return [TextLine(text: "line", frame: Frame(frame))]
         })
@@ -195,11 +195,19 @@ final class TextLineReaderTests: XCTestCase {
         reader.stop()
     }
 
-    func testALabelWithCJKCharactersAsksForTheirRead() async {
-        XCTAssertTrue(TextLineReader.holdsCJK("周末面条, 昨天"))
-        XCTAssertTrue(TextLineReader.holdsCJK("カード"))
-        XCTAssertFalse(TextLineReader.holdsCJK("Weeknight noodles, yesterday"))
-        XCTAssertFalse(TextLineReader.holdsCJK(nil))
+    func testTheReadingIsDecidedFromTheLabel() {
+        XCTAssertEqual(TextLineReader.reading(for: "Weeknight noodles, yesterday"), .latin)
+        XCTAssertEqual(TextLineReader.reading(for: "Café, 4 seconds ago"), .latin)
+        XCTAssertEqual(TextLineReader.reading(for: nil), .latin)
+        XCTAssertEqual(TextLineReader.reading(for: "周末面条, 昨天"), .han)
+        XCTAssertEqual(TextLineReader.reading(for: "Product 想法, 4 秒前"), .han, "Han with Latin")
+        XCTAssertNil(TextLineReader.reading(for: "カード"), "katakana")
+        XCTAssertNil(TextLineReader.reading(for: "週末のうどん"), "kana with Han")
+        XCTAssertNil(TextLineReader.reading(for: "Noodles ｶｰﾄﾞ"), "halfwidth katakana")
+        XCTAssertNil(TextLineReader.reading(for: "주말 국수, 어제"), "Hangul")
+    }
+
+    func testTheReadingReachesTheRecognizerAndAnUncalibratedOneReadsNothing() async throws {
         let calls = Calls()
         let reader = makeReader(calls: calls)
         reader.start()
@@ -212,8 +220,13 @@ final class TextLineReaderTests: XCTestCase {
         reader.onUpdate = { english.fulfill() }
         XCTAssertNil(reader.lines(in: b, of: grid, label: "Weeknight noodles, yesterday"))
         await fulfillment(of: [english], timeout: 2)
-        let flags = await calls.cjk
-        XCTAssertEqual(flags, [true, false])
+
+        reader.onUpdate = { XCTFail("nothing is read for a label in Korean") }
+        XCTAssertNil(reader.lines(in: c, of: grid, label: "주말 국수, 어제"))
+        XCTAssertNil(reader.lines(in: a, of: grid, label: "주말 국수, 어제"), "not even where lines were read for another label")
+        try await Task.sleep(for: .milliseconds(100))
+        let readings = await calls.readings
+        XCTAssertEqual(readings, [.han, .latin])
         reader.stop()
     }
 
@@ -247,29 +260,26 @@ final class TextLineReaderTests: XCTestCase {
         XCTAssertNil(grid.image(of: CGRect(x: CGFloat.nan, y: 110, width: 40, height: 20)))
     }
 
-    /// The one test that runs Vision: two lines drawn with AppKit at 2x, cut from the sample as hover cuts
-    /// an element, come back as two lines where they were drawn, within 3 pt.
-    func testVisionReadsTwoDrawnLinesWhereTheyAre() throws {
-        let area = CGRect(x: 1000, y: 500, width: 320, height: 100) // the sample, in global points
-        let rep = try XCTUnwrap(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 640, pixelsHigh: 200, bitsPerSample: 8,
-                                                 samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+    /// A sample of `area` at 2x, white, with `lines` drawn in black at AppKit's bottom-left origins (the first
+    /// line higher), and where each was drawn: the bounds, in global points, of the dark samples in its band of
+    /// rows (the top half, then the bottom half).
+    private func drawnSample(_ area: CGRect, lines: [(text: String, size: CGFloat, weight: NSFont.Weight, at: NSPoint)]) throws
+        -> (grid: PixelGrid, drawn: [CGRect]) {
+        let rep = try XCTUnwrap(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(area.width) * 2, pixelsHigh: Int(area.height) * 2,
+                                                 bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
                                                  colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
-        rep.size = NSSize(width: 320, height: 100)
+        rep.size = area.size
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
         NSColor.white.setFill()
-        NSRect(x: 0, y: 0, width: 320, height: 100).fill()
-        // AppKit's origin is at the bottom left, so the first line is drawn higher.
-        NSAttributedString(string: "Weeknight noodles", attributes: [
-            .font: NSFont.systemFont(ofSize: 17, weight: .semibold), .foregroundColor: NSColor.black,
-        ]).draw(at: NSPoint(x: 30, y: 58))
-        NSAttributedString(string: "Seven minutes ahead", attributes: [
-            .font: NSFont.systemFont(ofSize: 15), .foregroundColor: NSColor.darkGray,
-        ]).draw(at: NSPoint(x: 30, y: 24))
+        NSRect(origin: .zero, size: area.size).fill()
+        for line in lines {
+            NSAttributedString(string: line.text, attributes: [
+                .font: NSFont.systemFont(ofSize: line.size, weight: line.weight), .foregroundColor: NSColor.black,
+            ]).draw(at: line.at)
+        }
         NSGraphicsContext.restoreGraphicsState()
         let grid = try XCTUnwrap(PixelGrid(image: try XCTUnwrap(rep.cgImage), frame: area, scale: 2, generation: 1))
-
-        /// Where a line was drawn: the bounds, in global points, of the dark samples in rows `band`.
         func drawn(_ band: ClosedRange<Int>) -> CGRect {
             var box = SampleBox(minX: .max, minY: .max, maxX: .min, maxY: .min)
             for y in band {
@@ -279,24 +289,50 @@ final class TextLineReaderTests: XCTestCase {
             }
             return grid.rect(of: box)
         }
-        let expected = [drawn(0...95), drawn(96...199)]
+        let half = grid.height / 2
+        return (grid, [drawn(0...(half - 1)), drawn(half...(grid.height - 1))])
+    }
 
-        let element = CGRect(x: 1010, y: 505, width: 300, height: 90) // the answer, inside the sample
+    /// Reads the element `element` cut from `grid` as hover cuts it, twice, logging the time of each.
+    private func read(_ element: CGRect, of grid: PixelGrid, reading: TextLineReader.Reading) throws -> [TextLine] {
         let cut = try XCTUnwrap(grid.image(of: element))
         let clock = ContinuousClock()
         var lines: [TextLine] = []
-        let cold = try clock.measure { lines = try TextLineReader.read(cut.image, showing: cut.frame, cjk: false) }
-        let warm = try clock.measure { _ = try TextLineReader.read(cut.image, showing: cut.frame, cjk: false) }
-        NSLog("Locant text lines (test, .fast): cold %.1f ms, warm %.1f ms; read %@; drawn %@",
-              cold / .milliseconds(1), warm / .milliseconds(1), "\(lines)", "\(expected)")
+        let first = try clock.measure { lines = try TextLineReader.read(cut.image, showing: cut.frame, reading: reading) }
+        let again = try clock.measure { _ = try TextLineReader.read(cut.image, showing: cut.frame, reading: reading) }
+        NSLog("Locant text lines (test, %@): first %.1f ms, again %.1f ms; read %@",
+              "\(reading)", first / .milliseconds(1), again / .milliseconds(1), "\(lines)")
+        return lines
+    }
 
-        XCTAssertEqual(lines.count, 2, "\(lines)")
-        XCTAssertEqual(lines.map { $0.text.lowercased() }, ["weeknight noodles", "seven minutes ahead"])
-        for (line, box) in zip(lines, expected) {
-            let found = line.frame.cgRect
+    private func assertWhereDrawn(_ lines: [TextLine], _ drawn: [CGRect], file: StaticString = #filePath, line: UInt = #line) {
+        for (read, box) in zip(lines, drawn) {
+            let found = read.frame.cgRect
             for (a, b) in [(found.minX, box.minX), (found.minY, box.minY), (found.maxX, box.maxX), (found.maxY, box.maxY)] {
-                XCTAssertEqual(a, b, accuracy: 3, "\(line.text): \(found) vs drawn \(box)")
+                XCTAssertEqual(a, b, accuracy: 3, "\(read.text): \(found) vs drawn \(box)", file: file, line: line)
             }
         }
+    }
+
+    /// Runs Vision: two lines drawn with AppKit at 2x, cut from the sample as hover cuts an element and read the
+    /// Latin way, come back as two lines with their text, where they were drawn, within 3 pt.
+    func testVisionReadsTwoDrawnLinesWhereTheyAre() throws {
+        let (grid, drawn) = try drawnSample(CGRect(x: 1000, y: 500, width: 320, height: 100), lines: [
+            ("Weeknight noodles", 17, .semibold, NSPoint(x: 30, y: 58)), ("Seven minutes ahead", 15, .regular, NSPoint(x: 30, y: 24)),
+        ])
+        let lines = try read(CGRect(x: 1010, y: 505, width: 300, height: 90), of: grid, reading: .latin)
+        XCTAssertEqual(lines.map { $0.text.lowercased() }, ["weeknight noodles", "seven minutes ahead"])
+        assertWhereDrawn(lines, drawn)
+    }
+
+    /// Runs Vision: a card in Chinese, read the Han way, gives both its lines, where they were drawn, within 3 pt.
+    /// Calibrated on this synthetic render only, not yet on a real sample.
+    func testVisionReadsTwoDrawnLinesInChineseTheHanWay() throws {
+        let (grid, drawn) = try drawnSample(CGRect(x: 1000, y: 500, width: 320, height: 100), lines: [
+            ("周末面条", 17, .semibold, NSPoint(x: 30, y: 58)), ("昨天", 15, .regular, NSPoint(x: 30, y: 24)),
+        ])
+        let lines = try read(CGRect(x: 1010, y: 505, width: 300, height: 90), of: grid, reading: .han)
+        XCTAssertEqual(lines.map(\.text), ["周末面条", "昨天"])
+        assertWhereDrawn(lines, drawn)
     }
 }

@@ -8,9 +8,16 @@ import Vision
 /// the spot read again. Memory only, dropped on `stop()`.
 @MainActor
 final class TextLineReader {
-    /// The lines in `image`, which shows `frame` in global points. `cjk`: the element's label holds CJK
-    /// characters, so a read that finds nothing is tried again for them.
-    typealias Recognize = @Sendable (_ image: CGImage, _ frame: CGRect, _ cjk: Bool) async throws -> [TextLine]
+    /// How an answer's lines are read, decided from its label before anything is read (`reading(for:)`).
+    enum Reading: Hashable, Sendable {
+        /// `.fast`, en-US.
+        case latin
+        /// One `.accurate` read in `hanLanguages`, Simplified Chinese first.
+        case han
+    }
+
+    /// The lines in `image`, which shows `frame` in global points, read as `reading` says.
+    typealias Recognize = @Sendable (_ image: CGImage, _ frame: CGRect, _ reading: Reading) async throws -> [TextLine]
 
     /// Rectangles whose lines are kept; past this the cache starts over.
     static let cacheLimit = 32
@@ -24,7 +31,7 @@ final class TextLineReader {
         var frame: Frame
         var scale: CGFloat
         var pixels: Int
-        var cjk: Bool
+        var reading: Reading
     }
 
     private struct Request: Sendable {
@@ -45,7 +52,7 @@ final class TextLineReader {
     /// Each `stop()` opens a new one; lines only land in the session that asked for them.
     private var session = 0
 
-    init(recognize: @escaping Recognize = { image, frame, cjk in try TextLineReader.read(image, showing: frame, cjk: cjk) }) {
+    init(recognize: @escaping Recognize = { image, frame, reading in try TextLineReader.read(image, showing: frame, reading: reading) }) {
         self.recognize = recognize
     }
 
@@ -65,19 +72,20 @@ final class TextLineReader {
     }
 
     /// The lines read in `frame` (global points) of `grid`, when its pixels there have been read; else nil,
-    /// and they are asked for. `label` is the element's, which says whether to try CJK.
+    /// and they are asked for. `label` is the element's, which says how to read them (`reading(for:)`); a label
+    /// that gives no reading gives no lines, and nothing is read.
     func lines(in frame: CGRect, of grid: PixelGrid, label: String? = nil) -> [TextLine]? {
-        guard running, let key = key(for: frame, in: grid, cjk: Self.holdsCJK(label)) else { return nil }
+        guard running, let reading = Self.reading(for: label), let key = key(for: frame, in: grid, reading: reading) else { return nil }
         if let known = cache[key] { return known }
         ask(Request(key: key, frame: frame, grid: grid))
         return nil
     }
 
-    private func key(for frame: CGRect, in grid: PixelGrid, cjk: Bool) -> Key? {
+    private func key(for frame: CGRect, in grid: PixelGrid, reading: Reading) -> Key? {
         let area = Frame(frame)
-        if let last = lastKey, last.generation == grid.generation, last.key.frame == area, last.key.cjk == cjk { return last.key }
+        if let last = lastKey, last.generation == grid.generation, last.key.frame == area, last.key.reading == reading { return last.key }
         guard let box = grid.box(of: frame) else { return nil }
-        let key = Key(frame: area, scale: grid.scale, pixels: Self.hash(of: grid, in: box), cjk: cjk)
+        let key = Key(frame: area, scale: grid.scale, pixels: Self.hash(of: grid, in: box), reading: reading)
         lastKey = (grid.generation, key)
         return key
     }
@@ -110,7 +118,7 @@ final class TextLineReader {
                 defer { NSLog("Locant text lines: %.1f ms", (ContinuousClock.now - started) / .milliseconds(1)) }
                 #endif
                 guard let cut = request.grid.image(of: request.frame) else { return nil }
-                return try? await recognize(cut.image, cut.frame, request.key.cjk)
+                return try? await recognize(cut.image, cut.frame, request.key.reading)
             }.value
             guard let self, self.session == session else { return }
             self.inFlight = nil
@@ -126,13 +134,32 @@ final class TextLineReader {
 
     // MARK: Vision
 
-    /// Vision's lines in `image`, which shows `frame` in global points, top to bottom then left to right:
-    /// `.fast`, en-US, no language correction. When that finds nothing and `cjk`, `.accurate` with the
-    /// languages of Text in image (`TextRecognizer.languages`), since `.fast` reads none of them.
-    nonisolated static func read(_ image: CGImage, showing frame: CGRect, cjk: Bool) throws -> [TextLine] {
-        var found = try observations(in: image, level: .fast, languages: ["en-US"])
-        if found.isEmpty, cjk {
-            found = try observations(in: image, level: .accurate, languages: TextRecognizer.languages)
+    /// How to read the lines of an answer with `label`. Kana or Hangul anywhere: none, so no line rungs, until a
+    /// real sample calibrates a reading for them (on Oct 26's synthetic renders `.fast` read 주말 국수 / 어제 as
+    /// "xu" and "X41"). Else, with Han: `.han`, since `.fast` reads no Han and returns junk for it rather than
+    /// nothing ("4 秒前" as "4 1JBIJ"). Else `.latin`.
+    nonisolated static func reading(for label: String?) -> Reading? {
+        var han = false
+        for scalar in (label ?? "").unicodeScalars {
+            switch scalar.value {
+            case 0x3040...0x30FF, 0x31F0...0x31FF, 0xFF65...0xFF9F: return nil // kana
+            case 0x1100...0x11FF, 0x3130...0x318F, 0xA960...0xA97F, 0xAC00...0xD7FF: return nil // Hangul
+            default: if scalar.properties.isIdeographic { han = true }
+            }
+        }
+        return han ? .han : .latin
+    }
+
+    /// Simplified Chinese first: `.accurate` with en-US first read 周末面条 / 昨天 as "BFE", and 周末面条 / 4 秒前 as
+    /// nothing (Oct 26, synthetic renders); language correction made no difference.
+    nonisolated static let hanLanguages = ["zh-Hans", "en-US"]
+
+    /// Vision's lines in `image`, which shows `frame` in global points, top to bottom then left to right, with
+    /// no language correction: `.latin` at `.fast` in en-US, `.han` at `.accurate` in `hanLanguages`.
+    nonisolated static func read(_ image: CGImage, showing frame: CGRect, reading: Reading) throws -> [TextLine] {
+        let found = switch reading {
+        case .latin: try observations(in: image, level: .fast, languages: ["en-US"])
+        case .han: try observations(in: image, level: .accurate, languages: hanLanguages)
         }
         let lines = found.compactMap { observation -> TextLine? in
             guard let text = observation.topCandidates(1).first?.string.trimmingCharacters(in: .whitespaces),
@@ -156,13 +183,5 @@ final class TextLineReader {
     nonisolated static func globalFrame(of box: CGRect, in frame: CGRect) -> Frame {
         Frame(x: frame.minX + box.minX * frame.width, y: frame.minY + (1 - box.maxY) * frame.height,
               w: box.width * frame.width, h: box.height * frame.height)
-    }
-
-    /// Han, kana, or Hangul, which `.fast` does not read.
-    nonisolated static func holdsCJK(_ text: String?) -> Bool {
-        guard let text else { return false }
-        return text.unicodeScalars.contains { scalar in
-            scalar.properties.isIdeographic || (0x3040...0x30FF).contains(scalar.value) || (0xAC00...0xD7AF).contains(scalar.value)
-        }
     }
 }
