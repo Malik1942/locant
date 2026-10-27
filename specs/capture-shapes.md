@@ -158,6 +158,7 @@ The existing region tests keep passing either way. R121's members depend on the 
   - **Not found:** the siblings come from the reported parent, as before.
   - A container under the pointer reads its own children, which need no repair.
 - **The neighbor cache** is keyed by the container itself as well as its app, role, subrole, and frame, so the screen's group and the inner group, of one role and frame, never share an entry.
+- **A detached screen group.** Device Hub sometimes hands back a detached copy of the screen group as the parent (an empty frame, no parent or window; seen Oct 26 after switching devices), whose frame is then the union of its children's non-empty frames. The ancestors above it stay absent.
 - **Floating bars.** When the answer lies on the simulated screen (it or an ancestor has subrole `iOSContentGroup`), the screen's direct children are read. If the answer sits in (or is) a child that spans the screen, and the point lies in another direct child with a non-empty frame that does not span it, that child answers instead, refined as a hit is (R2). Of several, the smallest answers. Where the child that holds the answer cannot be told (a parent link that skips one), the point alone decides.
   - **Spans the screen:** its frame matches the screen's within 1 pt.
   - **Why:** a screen-sized content group lies under the chrome the simulator draws over it (the tab bar, toolbars, a sheet's grabber), whatever the reading order.
@@ -174,8 +175,8 @@ The existing region tests keep passing either way. R121's members depend on the 
   - `LocantTests/Fixtures/shape-*.png` and `LocantTests/Fixtures/shapes.json`: the real-screen fixtures and their expected rectangles, beside the existing fixtures.
   - `scripts/blur-fixture-text.swift`: finds text with Vision and blurs it with Core Image, so fixtures from Malik's own screens can be public.
 - Changed:
-  - `ElementResolver.swift`: `HitRefiner`, R117, R120, R124 (`groupRawRole`, `HitRefiner.groupElement`; `clusterElement` and the group share `computedElement`), and R125 (`HitRefiner.overlayIndex`).
-  - `AccessibilityReader.swift`: R120, and R125 (the container that lists the element, the neighbor-cache key, floating bars). R122 changes nothing here.
+  - `ElementResolver.swift`: `HitRefiner`, R117, R120, R124 (`groupRawRole`, `HitRefiner.groupElement`; `clusterElement` and the group share `computedElement`), and R125 (`HitRefiner.overlayIndex`, `HitRefiner.detachedScreenFrame`).
+  - `AccessibilityReader.swift`: R120, and R125 (the container that lists the element, the neighbor-cache key, the detached screen group's frame, floating bars). R122 changes nothing here.
   - `ScreenCapture.swift` (`regionImage`) and `Geometry.swift` (`sampleScale`), R118.
   - `AppState.swift`: hover, commit, and members, R117 and R121.
   - `SelectionOverlay.swift`: `Readout`, R121.
@@ -222,6 +223,7 @@ The existing region tests keep passing either way. R121's members depend on the 
     - Shape-aware: a `FixedShapes` capsule within 2 pt of the union (past it, exact, or inside it) leaves the group and no separate shape rung; one 8 pt past it is its own rung after the group. With no shape found the ladder is today's, group included.
   - **Device Hub's tree (R125):**
     - `HitRefiner.overlayIndex` on the Library screen's direct children (the content group with the screen's frame, a generic element of no size at its origin, the Tab Bar). At 527,880, with the hit under the content group or not known: the Tab Bar. At 527,500: none. The element of no size and a second screen-sized child: never. With the hit already under the Tab Bar: none.
+    - `HitRefiner.detachedScreenFrame`: those three children give the screen's frame; children with no non-empty frame give none.
     - Currents as the repaired reader reads it (ancestors the inner group, then the screen; siblings the Library elements): ⌥ goes to the group of Recent and Currents (Filter, 8 pt on, is not in it), then the cluster, then the screen, and `simulatedScreen` still finds the screen. Read as before the repair, ⌥ goes from the button straight to the screen.
 - `MarkdownBuilderTests`: the `LocantShape` head line, the `LocantCluster` line unchanged, and the `LocantGroup` head line.
 - R122 has no unit test: the walk reads live accessibility. The probe in R122 is its check.
