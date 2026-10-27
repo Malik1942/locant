@@ -3,6 +3,8 @@
 // lists any text still legible (specs/capture-shapes.md, section 3). Two Vision requests find the text,
 // the rectangle detector and the recognizer (which also finds Chinese and whole lines); the pass repeats
 // until a read finds none. Neither sees text cut off by the capture's edge, so keep-top-px crops it away.
+// It is the privacy gate for every new fixture: it exits 3 when the read-back still finds legible text.
+// Passing it is not enough: look at each PNG before it is committed, since Vision can miss text.
 // Usage: swift scripts/blur-fixture-text.swift <in.png> <out.png> [keep-top-px]
 import AppKit
 import CoreImage
@@ -60,3 +62,4 @@ read.recognitionLanguages = languages
 try VNImageRequestHandler(cgImage: kept).perform([read])
 let legible = (read.results ?? []).compactMap { $0.topCandidates(1).first?.string }
 print("\(output.lastPathComponent): blurred \(blurred) text boxes; still legible: \(legible.isEmpty ? "none" : legible.joined(separator: " | "))")
+if !legible.isEmpty { exit(3) }
