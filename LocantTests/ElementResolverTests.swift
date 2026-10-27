@@ -850,6 +850,9 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertEqual(HitRefiner.textLabel("noo", within: "Weeknight noodles, yesterday"), "Weeknight noodles")
         XCTAssertEqual(HitRefiner.textLabel("1", within: "Product Ideas, 1"), "1", "equal")
         XCTAssertEqual(HitRefiner.textLabel("= 昨天", within: "周末面条, 昨天"), "昨天", "equal, two characters")
+        // Two Han characters are long enough to be contained; one is not.
+        XCTAssertEqual(HitRefiner.textLabel("Q昨天", within: "周末面条, 昨天"), "昨天")
+        XCTAssertEqual(HitRefiner.textLabel("Q天", within: "周末面条, 昨天"), "Q天")
     }
 
     func testOfTwoLinesInReachTheNearerIsTheRung() throws {
@@ -898,9 +901,9 @@ final class ElementResolverTests: XCTestCase {
         let second = try XCTUnwrap(try textRung(cardLines, at: CGPoint(x: 400, y: 588), in: card))
         XCTAssertFalse(HitRefiner.isRereadLine(first, in: card, second, in: card), "another line")
         var other = cardButton
-        other.description = "Weeknight noodles, last week"
+        other.description = "Cooking, 2 days ago"
         XCTAssertFalse(HitRefiner.isRereadLine(first, in: card, again, in: ElementSnapshot(element: other, ancestors: [l.inner, l.screen])),
-                       "another answer's label")
+                       "an answer whose label shares no part")
         var shifted = cardButton
         shifted.frame = Frame(x: 362.2, y: 623.2, w: 331.1, h: 75.9)
         XCTAssertFalse(HitRefiner.isRereadLine(first, in: card, again, in: ElementSnapshot(element: shifted, ancestors: [l.inner, l.screen])),

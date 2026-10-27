@@ -903,28 +903,41 @@ extension HitRefiner {
         )
     }
 
-    /// R127: the part of `label`, split on ", ", that the line `text` reads, compared case-insensitively on
-    /// letters and digits only: an equal part, else one that contains the line or that the line contains, the
-    /// shorter of the two at least `textMatchMinLength` long. Else the text as read. So a card's "= yesterday"
-    /// (Vision reads its list icon as "=") is "yesterday", and a stray "1" takes no part.
+    /// R127: the part of `label`, split on ", ", that the line `text` reads (`textMatches`): an equal part first,
+    /// else one that contains the line or that the line contains. Else the text as read. So a card's
+    /// "= yesterday" (Vision reads its list icon as "=") is "yesterday", and a stray "1" takes no part.
     static func textLabel(_ text: String, within label: String?) -> String {
-        func letters(_ s: String) -> String { String(s.lowercased().filter { $0.isLetter || $0.isNumber }) }
         let read = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let key = letters(read)
+        let key = textKey(read)
         guard !key.isEmpty, let label else { return read }
-        let parts = label.components(separatedBy: ", ")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !letters($0).isEmpty }
-        if let equal = parts.first(where: { letters($0) == key }) { return equal }
-        if let near = parts.first(where: { part in
-            let other = letters(part)
-            return min(other.count, key.count) >= textMatchMinLength && (other.contains(key) || key.contains(other))
-        }) { return near }
-        return read
+        let parts = labelParts(label)
+        if let equal = parts.first(where: { textKey($0) == key }) { return equal }
+        return parts.first { textMatches($0, read) } ?? read
     }
 
-    /// R127: letters and digits the shorter side needs before one contains the other.
+    /// R127: two texts read alike, compared case-insensitively on letters and digits only: equal, or one
+    /// contains the other where the shorter is long enough to mean something, 3 letters or digits or 2 Han
+    /// characters (`textMatchMinLength`, `textMatchMinHan`). Texts with no letters or digits match nothing.
+    static func textMatches(_ a: String, _ b: String) -> Bool {
+        let (x, y) = (textKey(a), textKey(b))
+        guard !x.isEmpty, !y.isEmpty else { return false }
+        if x == y { return true }
+        let shorter = x.count <= y.count ? x : y
+        let longEnough = shorter.count >= textMatchMinLength
+            || shorter.filter { $0.unicodeScalars.contains { $0.properties.isIdeographic } }.count >= textMatchMinHan
+        return longEnough && (x.contains(y) || y.contains(x))
+    }
+
+    /// R127: letters and digits the shorter text needs before one contains the other; or Han characters, which
+    /// say as much in fewer (昨天, "yesterday").
     static let textMatchMinLength = 3
+    static let textMatchMinHan = 2
+
+    private static func textKey(_ s: String) -> String { String(s.lowercased().filter { $0.isLetter || $0.isNumber }) }
+
+    private static func labelParts(_ label: String) -> [String] {
+        label.components(separatedBy: ", ").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !textKey($0).isEmpty }
+    }
 
     /// R127: `a` and `b`, the rung 0 of two hover steps, are one line read again: both read from the screen, of
     /// the same label and path and with overlapping boxes, in answers (`answerA`, `answerB`) of the same frame
