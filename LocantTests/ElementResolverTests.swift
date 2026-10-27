@@ -906,6 +906,25 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertFalse(HitRefiner.clickIsOnHover(ring, shown: nil, snapshot: snapshot))
     }
 
+    /// R126: rung 0 tightened when the first sample lands is the same element, so ⌥'s level stays.
+    func testTheSameElementOutlinedTighterIsNoMove() throws {
+        let l = library()
+        let header = try XCTUnwrap(ElementResolver.resolve(ElementSnapshot(element: l.children[6], ancestors: [l.inner, l.screen])))
+        var tight = header
+        tight.frame = Frame(x: 378, y: 338, w: 300, h: 21)
+        XCTAssertTrue(HitRefiner.isRetightened(header, tight))
+        XCTAssertTrue(HitRefiner.isRetightened(tight, header), "and back, when the sample is gone")
+        XCTAssertTrue(HitRefiner.isRetightened(header, header))
+        var moved = tight
+        moved.frame = Frame(x: 378, y: 390, w: 300, h: 21)
+        XCTAssertFalse(HitRefiner.isRetightened(header, moved), "a frame outside the other")
+        var other = tight
+        other.label = "Cooking"
+        XCTAssertFalse(HitRefiner.isRetightened(header, other), "another element")
+        XCTAssertFalse(HitRefiner.isRetightened(nil, tight))
+        XCTAssertFalse(HitRefiner.isRetightened(header, nil))
+    }
+
     /// R126: when the rung drawn is not the snapshot's element (R117 step 3, a shape over an element reached
     /// through the tolerance; step 2, an element held inside a shape), a click in that element's frame far
     /// from the rung is a click elsewhere.

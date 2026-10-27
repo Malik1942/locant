@@ -697,8 +697,9 @@ final class AppState {
                     // the ladder grows or shrinks under it (specs/capture-shapes.md R118: a landing screen
                     // sample adds shapes between the first rung and the window).
                     levelIndex = max(0, freshLevels.count - 1)
-                } else if freshElement?.frame != lastHoverElement?.frame {
-                    // Once Option has left the window, the element level persists as in Point.
+                } else if freshElement?.frame != lastHoverElement?.frame, !HitRefiner.isRetightened(lastHoverElement, freshElement) {
+                    // Once Option has left the window, the element level persists as in Point. The same element
+                    // outlined tighter once the sample lands (R126) keeps the level chosen before.
                     levelIndex = 0
                 } else if let selected, let index = freshLevels.firstIndex(where: { $0?.frame == selected.frame }) {
                     levelIndex = index // the same rung, wherever the new ladder puts it

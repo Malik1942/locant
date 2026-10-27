@@ -795,6 +795,16 @@ extension HitRefiner {
         frame.width >= tightenMinSide && frame.height >= tightenMinSide
     }
 
+    /// R126: `a` and `b` are one element, one of them outlined tighter: equal but for the frame, one frame
+    /// inside the other. So the first screen sample tightening rung 0 is no move to another element.
+    static func isRetightened(_ a: ResolvedElement?, _ b: ResolvedElement?) -> Bool {
+        guard let a, var b else { return false }
+        let (fa, fb) = (a.frame.cgRect, b.frame.cgRect)
+        guard fa.contains(fb) || fb.contains(fa) else { return false }
+        b.frame = a.frame
+        return a == b
+    }
+
     /// R126: whether a click at `point` is on the rung hover drew, `shown`, read from `snapshot`, so that rung is
     /// what is committed. Within `stickiness` of `shown`'s frame, as everywhere. On Device Hub's simulated
     /// screen also within `stickiness` of the snapshot element's own frame, when `shown` is that element outlined
