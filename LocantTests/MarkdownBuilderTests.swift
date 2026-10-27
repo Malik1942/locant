@@ -160,11 +160,14 @@ final class MarkdownBuilderTests: XCTestCase {
             path: [PathEntry(role: "group", identifier: nil), PathEntry(role: "button", identifier: nil), PathEntry(role: "staticText", identifier: nil)]
         )
         let md = MarkdownBuilder.build(capture(element: line))
-        XCTAssertTrue(md.contains("### Target element\nstaticText \"Weeknight noodles\" · no identifier\nText read from the screen by Locant; not an accessibility element. The element it sits in is the next ⌥ level.\nNo identifier. Grep the label text; add .accessibilityIdentifier(\"…\") to this view so the next capture is exact.\nFrame: x=375 y=558 w=124 h=16\nPath: group > button > staticText\n"), md)
+        XCTAssertTrue(md.contains("### Target element\nstaticText \"Weeknight noodles\" · no identifier\nText read from the screen by Locant; not an accessibility element. The element it sits in is the next ⌥ level.\nNo identifier. Grep the label text; it is drawn by that element's view, the last step of Path before staticText.\nFrame: x=375 y=558 w=124 h=16\nPath: group > button > staticText\n"), md)
+        XCTAssertFalse(md.contains("accessibilityIdentifier"), "a line is no view of its own: nothing to add an identifier to")
 
         var element = line
         element.rawRole = "AXStaticText"
-        XCTAssertFalse(MarkdownBuilder.build(capture(element: element)).contains("Text read from the screen"), "an accessibility element says nothing of the kind")
+        let plain = MarkdownBuilder.build(capture(element: element))
+        XCTAssertFalse(plain.contains("Text read from the screen"), "an accessibility element says nothing of the kind")
+        XCTAssertTrue(plain.contains("add .accessibilityIdentifier(\"…\") to this view"))
     }
 
     func testNullElementHintsAtIdentifier() {
