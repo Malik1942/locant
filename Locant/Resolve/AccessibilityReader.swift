@@ -170,14 +170,24 @@ actor AccessibilityReader {
         enableAccessibilityIfNeeded(app: app, pid: pid)
         AXUIElementSetMessagingTimeout(app, 0.25)
         let step = max(8, ((region.width * region.height) / 400).squareRoot())
-        let deadline = ContinuousClock.now + Self.hitGridBudget
+        let points = Self.gridPoints(in: region, step: step)
+        let started = ContinuousClock.now
+        let deadline = started + Self.hitGridBudget
         var found: [ElementSnapshot] = []
         var seenElements = Set<ElementKey>()
         var seenRoleFrames = Set<RoleFrame>()
-        for point in Self.gridPoints(in: region, step: step) {
-            guard ContinuousClock.now < deadline else { break }
+        var run = GridRun(planned: points.count)
+        for point in points {
+            guard ContinuousClock.now < deadline else {
+                run.end = "stopped at the time limit"
+                break
+            }
             let answer = hitAnswer(app, at: point)
-            if answer.error == .cannotComplete { break } // the app is not answering
+            run.tested += 1
+            if answer.error == .cannotComplete { // the app is not answering
+                run.end = "stopped: the app did not answer"
+                break
+            }
             // A point mostly lands on its neighbour's element, often a container: identity first,
             // then the role alone (no subrole maps to a container), and only then the rest.
             if let element = answer.element, seenElements.insert(ElementKey(pid: pid, hash: CFHash(element))).inserted {
@@ -192,11 +202,23 @@ actor AccessibilityReader {
                 }
             }
         }
+        #if DEBUG
+        // For setting the budget from the in-app check: how much of the grid ran, and why it stopped.
+        NSLog("Locant hit grid: %ld of %ld tests in %.1f ms, %@", run.tested, run.planned,
+              (ContinuousClock.now - started) / .milliseconds(1), run.end)
+        #endif
         return found
     }
 
     /// R122: how long the hit-test grid may sample.
     private static let hitGridBudget: Duration = .milliseconds(200)
+
+    /// R122: how much of one grid ran and why it stopped, for the Debug log.
+    private struct GridRun {
+        let planned: Int
+        var tested = 0
+        var end = "ran in full"
+    }
 
     /// R122: the grid's points, `step` apart from half a step inside `region`'s top left corner; a frame
     /// thinner than the step gets one row or column through its middle. Coarse to fine, so a grid stopped
