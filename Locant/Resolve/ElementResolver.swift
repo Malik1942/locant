@@ -848,6 +848,27 @@ extension HitRefiner {
         return isRetightened(a, b) || isRereadLine(a, in: last, b, in: fresh)
     }
 
+    /// R126, R127: Point's ⌥ level after a hover step from `old`, read from `last`, at `level`, to `new`, read from
+    /// `fresh`: the same rung, found by its frame, when the new ladder starts on the same rung (`keepsLevel`), or,
+    /// above rung 0 on the simulated screen, differs from the old only by a line added or removed ahead of the same
+    /// rung 0 (lines landed, or went, while ⌥ was up a level); else 0.
+    static func nextLevel(_ level: Int, from old: [ResolvedElement?], in last: ElementSnapshot?, to new: [ResolvedElement?], in fresh: ElementSnapshot?) -> Int {
+        let lineOnly = level > 0 && isOnSimulatedScreen(fresh) && differsByALine(old, new)
+        guard lineOnly || keepsLevel(old, in: last, new, in: fresh) else { return 0 }
+        let selected = old.indices.contains(level) ? old[level] : old.first ?? nil
+        if let selected, let index = new.firstIndex(where: { $0?.frame == selected.frame }) { return index } // wherever the new ladder puts it
+        return min(level, max(0, new.count - 1))
+    }
+
+    /// R127: one ladder starts with a line read from the screen and the other does not, and behind it they start on
+    /// the same rung, outlined tighter or not (`isRetightened`).
+    private static func differsByALine(_ old: [ResolvedElement?], _ new: [ResolvedElement?]) -> Bool {
+        func isLine(_ ladder: [ResolvedElement?]) -> Bool { (ladder.first ?? nil)?.rawRole == ElementResolver.textRawRole }
+        guard isLine(old) != isLine(new) else { return false }
+        let (a, b) = ((isLine(old) ? old.dropFirst() : old[...]).first ?? nil, (isLine(new) ? new.dropFirst() : new[...]).first ?? nil)
+        return isRetightened(a, b)
+    }
+
     /// R126: whether a click at `point` is on the rung hover drew, `shown`, read from `snapshot`, so that rung is
     /// what is committed. Within `stickiness` of `shown`'s frame, as everywhere. On Device Hub's simulated
     /// screen also within `stickiness` of the snapshot element's own frame, when `shown` is that element outlined

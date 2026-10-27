@@ -1213,6 +1213,50 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertTrue(HitRefiner.keepsLevel([first], in: card, [again], in: card), "the same line read again")
     }
 
+    /// R127: a ⌥ pressed before the lines are read keeps its rung when they land and the line goes ahead of the
+    /// ladder, and when they go again; at rung 0 the outline moves to the line as the pointer is on it.
+    func testTheOptionLevelFollowsItsRungWhenALineLandsOrGoes() throws {
+        let l = library()
+        let below = AttributeSet(role: "AXButton", description: "Cooking, 2 days ago", frame: Frame(x: 362.2, y: 619.1, w: 331.1, h: 75.9))
+        let card = ElementSnapshot(element: cardButton, ancestors: [l.inner, l.screen], siblings: [cardButton, below])
+        let answer = try XCTUnwrap(ElementResolver.resolve(card))
+        let point = CGPoint(x: 400, y: 566)
+        var shapes = FixedShapes(rects: [], inks: [drawnCard])
+        let levels = HitRefiner.selectionLevels(for: card, at: point, shapes: &shapes, holding: nil)
+        XCTAssertEqual(levels.map { $0?.rawRole }, ["AXButton", "LocantGroup", "LocantCluster", "AXGroup"])
+        let line = try XCTUnwrap(HitRefiner.textRung(lines: cardLines, at: point, answer: answer, answerFrame: try XCTUnwrap(cardButton.frame)))
+        let lined = HitRefiner.addingLine(line, to: levels, answer: answer)
+
+        // The lines land: the card's rungs move one up, and each ⌥ level with them.
+        for level in 1..<levels.count {
+            XCTAssertEqual(HitRefiner.nextLevel(level, from: levels, in: card, to: lined, in: card), level + 1, "level \(level)")
+        }
+        XCTAssertEqual(HitRefiner.nextLevel(0, from: levels, in: card, to: lined, in: card), 0, "at rung 0: the line, under the pointer")
+        // They go (one line read where two stood): each level back down, the line's own to the card.
+        for level in 0..<lined.count {
+            XCTAssertEqual(HitRefiner.nextLevel(level, from: lined, in: card, to: levels, in: card), max(0, level - 1), "level \(level)")
+        }
+        // The padded card before the sample, then the line ahead of it tightened: still the same rung behind it.
+        let padded = HitRefiner.selectionLevels(for: card, at: point)
+        XCTAssertEqual(HitRefiner.nextLevel(1, from: padded, in: card, to: lined, in: card), 2)
+
+        // A line ahead of another element, or another line, is a move.
+        let other = ElementSnapshot(element: below, ancestors: [l.inner, l.screen], siblings: [cardButton, below])
+        let otherAnswer = try XCTUnwrap(ElementResolver.resolve(other))
+        let otherLine = try XCTUnwrap(HitRefiner.textRung(lines: [TextLine(text: "Cooking", frame: Frame(x: 377, y: 636, w: 60, h: 12)),
+                                                                  TextLine(text: "2 days ago", frame: Frame(x: 377, y: 658, w: 70, h: 11))],
+                                                          at: CGPoint(x: 400, y: 642), answer: otherAnswer, answerFrame: try XCTUnwrap(below.frame)))
+        let otherLevels = HitRefiner.addingLine(otherLine, to: HitRefiner.selectionLevels(for: other, at: CGPoint(x: 400, y: 642)), answer: otherAnswer)
+        XCTAssertEqual(HitRefiner.nextLevel(1, from: levels, in: card, to: otherLevels, in: other), 0)
+        let date = try XCTUnwrap(HitRefiner.textRung(lines: cardLines, at: CGPoint(x: 400, y: 588), answer: answer, answerFrame: try XCTUnwrap(cardButton.frame)))
+        XCTAssertEqual(HitRefiner.nextLevel(1, from: lined, in: card, to: HitRefiner.addingLine(date, to: levels, answer: answer), in: card), 0,
+                       "the pointer moved to the other line")
+        // Off the simulated screen, nothing is kept but the same frame.
+        let plain = ElementSnapshot(element: cardButton, ancestors: [l.inner, AttributeSet(role: "AXGroup", frame: hubScreen)], siblings: [cardButton, below])
+        XCTAssertEqual(HitRefiner.nextLevel(1, from: levels, in: plain, to: lined, in: plain), 0)
+        XCTAssertEqual(HitRefiner.nextLevel(2, from: levels, in: plain, to: levels, in: plain), 2)
+    }
+
     /// R126: a frame cut to another and stored as x, y, w, h can end an ulp past it (x + w), so "inside"
     /// allows a hundredth of a point. Built the way `tightFrame` builds it.
     func testATightenedFrameAnUlpPastItsElementsStillLiesInside() throws {

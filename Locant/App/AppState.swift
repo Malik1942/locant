@@ -691,21 +691,17 @@ final class AppState {
             if freshIsVague, HitRefiner.sticks(lastHoverElement, to: point) {
                 // Crossing padding: keep the small element and its Option level.
             } else {
-                let selected = selectedElement()
                 if startsAtWindow && snapAtWindow {
                     // v0.9 R77: Snap and Cut open on the window and stay there as the cursor moves, and as
                     // the ladder grows or shrinks under it (specs/capture-shapes.md R118: a landing screen
                     // sample adds shapes between the first rung and the window).
                     levelIndex = max(0, freshLevels.count - 1)
-                } else if !HitRefiner.keepsLevel(levels, in: lastHoverSnapshot, freshLevels, in: fresh) {
-                    // Once Option has left the window, the element level persists as in Point. On Device Hub's
-                    // screen, the same element outlined tighter (R126), or the same line read again (R127), keeps
-                    // the level chosen before.
-                    levelIndex = 0
-                } else if let selected, let index = freshLevels.firstIndex(where: { $0?.frame == selected.frame }) {
-                    levelIndex = index // the same rung, wherever the new ladder puts it
                 } else {
-                    levelIndex = min(levelIndex, max(0, freshLevels.count - 1))
+                    // Once Option has left the window, the element level persists as in Point, on the same rung
+                    // wherever the new ladder puts it. On Device Hub's screen, the same element outlined tighter
+                    // (R126), the same line read again, or lines landing or going while ⌥ is up a level (R127),
+                    // keep the level chosen before.
+                    levelIndex = HitRefiner.nextLevel(levelIndex, from: levels, in: lastHoverSnapshot, to: freshLevels, in: fresh)
                 }
                 lastHoverSnapshot = fresh
                 levels = freshLevels
