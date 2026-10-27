@@ -231,6 +231,30 @@ struct FrozenScreen: Sendable {
         guard let shot = shot(containing: CGPoint(x: rect.midX, y: rect.midY)) else { return nil }
         return try ScreenCapture.crop(rect, from: shot.image, display: shot.display, scale: shot.scale)
     }
+
+    /// specs/capture-shapes.md R126: hover's screen sample of `rect` while the screen is frozen, the pixels the
+    /// user sees. The part of `rect` on the display whose shot holds its center, cut from that shot at its
+    /// scale, lowered with `Geometry.sampleScale` past `maxSamples` as a live sample is
+    /// (`ScreenCapture.regionImage`). Nil when no shot holds the center, and the sample is then taken live. Pure.
+    func sample(_ rect: CGRect, maxSamples: Int) -> (image: CGImage, frame: CGRect, scale: CGFloat)? {
+        guard let shot = shot(containing: CGPoint(x: rect.midX, y: rect.midY)) else { return nil }
+        let visible = rect.intersection(shot.display).integral
+        guard !visible.isEmpty else { return nil }
+        let pixels = Geometry.pixelRect(visible, inDisplay: shot.display, scale: shot.scale)
+            .intersection(CGRect(x: 0, y: 0, width: shot.image.width, height: shot.image.height))
+        guard !pixels.isEmpty, let cut = shot.image.cropping(to: pixels) else { return nil }
+        let scale = Geometry.sampleScale(native: shot.scale, size: visible.size, maxSamples: maxSamples)
+        guard scale < shot.scale else { return (cut, visible, shot.scale) }
+        let width = Int((visible.width * scale).rounded()), height = Int((visible.height * scale).rounded())
+        guard width > 0, height > 0, let space = CGColorSpace(name: CGColorSpace.sRGB),
+              let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                                      space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        else { return nil }
+        context.interpolationQuality = .high
+        context.draw(cut, in: CGRect(x: 0, y: 0, width: width, height: height))
+        guard let lowered = context.makeImage() else { return nil }
+        return (lowered, visible, scale)
+    }
 }
 
 #if DEBUG
