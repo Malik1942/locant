@@ -79,9 +79,9 @@ actor AccessibilityReader {
         guard Geometry.answerIsVisible(frame: frame(copy(element, Self.frameAttribute))?.cgRect, window: window?.cgRect,
                                        owner: pid, at: point, candidates: candidates) else { return nil }
         let refined = refine(element, at: point)
-        let reading = read(refined)
-        if let over = overlay(at: point, hit: refined, read: reading) { return snapshot(of: over) }
-        if let smaller = smallerSibling(at: point, read: reading) { return snapshot(of: smaller) }
+        let reading = read(refined, at: point)
+        if let over = overlay(at: point, hit: refined, read: reading) { return snapshot(of: over, at: point) }
+        if let smaller = smallerSibling(at: point, read: reading) { return snapshot(of: smaller, at: point) }
         return reading.snapshot
     }
 
@@ -127,7 +127,7 @@ actor AccessibilityReader {
         var pid: pid_t = 0
         AXUIElementGetPid(element, &pid)
         guard pid != ProcessInfo.processInfo.processIdentifier else { return nil }
-        return snapshot(of: refine(element, at: point))
+        return snapshot(of: refine(element, at: point), at: point)
     }
 
     /// R2 hover precision: a container hit is replaced by the best control among its descendants
@@ -169,7 +169,11 @@ actor AccessibilityReader {
     }
 
     private func children(of element: AXUIElement) -> [AXUIElement] {
-        guard let value = copy(element, kAXChildrenAttribute), let array = value as? [AnyObject] else { return [] }
+        elements(of: element, kAXChildrenAttribute)
+    }
+
+    private func elements(of element: AXUIElement, _ attribute: String) -> [AXUIElement] {
+        guard let value = copy(element, attribute), let array = value as? [AnyObject] else { return [] }
         return array.compactMap { CFGetTypeID($0) == AXUIElementGetTypeID() ? ($0 as! AXUIElement) : nil }
     }
 
@@ -354,13 +358,13 @@ actor AccessibilityReader {
         return error == .success ? out : nil
     }
 
-    private func snapshot(of element: AXUIElement) -> ElementSnapshot {
-        read(element).snapshot
+    private func snapshot(of element: AXUIElement, at point: CGPoint) -> ElementSnapshot {
+        read(element, at: point).snapshot
     }
 
-    /// The snapshot of `element`, and the elements of its ancestors, nearest first, one for each of
-    /// `snapshot.ancestors`.
-    private func read(_ element: AXUIElement) -> (snapshot: ElementSnapshot, ancestors: [AXUIElement]) {
+    /// The snapshot of `element`, hit at `point`, and the elements of its ancestors, nearest first, one for
+    /// each of `snapshot.ancestors`.
+    private func read(_ element: AXUIElement, at point: CGPoint) -> (snapshot: ElementSnapshot, ancestors: [AXUIElement]) {
         let elementAttributes = attributes(of: element)
         // v0.8: a web node's ancestors are web nodes too; their DOM handles make the path grep-able.
         let web = elementAttributes.isWebNode
@@ -396,20 +400,87 @@ actor AccessibilityReader {
                 snapshot.siblings = listed.nodes
             }
         }
-        snapshot.ancestors = zip(snapshot.ancestors, parents).map { framingDetachedScreen($0, of: $1) }
+        // R133: a detached copy of the screen's group, the end of the chain, takes the frame of the real group
+        // found from the window and that group's ancestors after it; else its children's union, read under the
+        // copy as read, so the neighbor cache entry is the one the siblings and the overlay check use.
+        if let index = snapshot.ancestors.firstIndex(where: HitRefiner.isDetachedScreen) {
+            let copy = parents[index]
+            let real = realScreen(pid: pidOf(element), at: point)
+            if let frame = HitRefiner.detachedScreenFrame(found: real?.attributes.frame,
+                                                          children: neighbors(of: copy, attributes: snapshot.ancestors[index])) {
+                snapshot.ancestors[index].frame = frame
+            }
+            if let real {
+                snapshot.ancestors = Array((snapshot.ancestors[...index] + real.ancestorAttributes).prefix(ElementResolver.maxAncestors))
+                parents = Array((parents[...index] + real.ancestors).prefix(ElementResolver.maxAncestors))
+            }
+        }
         return (snapshot, parents)
     }
 
-    /// R133: an ancestor that is a detached copy of Device Hub's screen group (subrole `iOSContentGroup`, an
-    /// empty frame) takes the union of its children's frames (`HitRefiner.detachedScreenFrame`), or stays as
-    /// read when none has one. Its children are read under the attributes as read, so the neighbor cache
-    /// entry is the one the siblings and the overlay check use.
-    private func framingDetachedScreen(_ attributes: AttributeSet, of element: AXUIElement) -> AttributeSet {
-        guard attributes.subrole == HitRefiner.simulatedScreenSubrole, (attributes.frame.map { $0.w <= 0 || $0.h <= 0 } ?? true),
-              let union = HitRefiner.detachedScreenFrame(children: neighbors(of: element, attributes: attributes)) else { return attributes }
-        var framed = attributes
-        framed.frame = union
-        return framed
+    /// R133: the real screen group a detached copy stands for, with its own ancestors, nearest first.
+    private struct RealScreen {
+        let attributes: AttributeSet
+        let ancestors: [AXUIElement]
+        let ancestorAttributes: [AttributeSet]
+    }
+
+    private struct ScreenKey: Hashable {
+        let pid: pid_t
+        let window: Frame
+    }
+
+    /// The screen moves only with its window, so the search's answer, found or not, is kept per app and window
+    /// frame for `realScreenTTL`: hover pays for it about once a session.
+    private var realScreenCache: [ScreenKey: (stamp: ContinuousClock.Instant, screen: RealScreen?)] = [:]
+    private static let realScreenTTL: Duration = .seconds(5)
+
+    /// R133: the real screen group, from the app's window that holds `point`: depth first through containers
+    /// whose frame holds the point, at most 10 levels and 150 nodes, to the first node with subrole
+    /// `iOSContentGroup` and a non-empty frame. Nil when there is none.
+    private func realScreen(pid: pid_t, at point: CGPoint) -> RealScreen? {
+        let app = AXUIElementCreateApplication(pid)
+        var window: (element: AXUIElement, frame: Frame)?
+        for candidate in elements(of: app, kAXWindowsAttribute) {
+            if let bounds = frame(copy(candidate, Self.frameAttribute)), bounds.cgRect.contains(point) {
+                window = (candidate, bounds)
+                break
+            }
+        }
+        guard let window else { return nil }
+        let key = ScreenKey(pid: pid, window: window.frame)
+        let now = ContinuousClock.now
+        if let cached = realScreenCache[key], now - cached.stamp < Self.realScreenTTL,
+           cached.screen.map({ $0.attributes.frame?.cgRect.contains(point) ?? false }) ?? true {
+            return cached.screen
+        }
+        var found: RealScreen?
+        var stack: [(node: AXUIElement, depth: Int)] = [(window.element, 0)]
+        var visited = 0
+        while let (node, depth) = stack.popLast(), visited < 150 {
+            visited += 1
+            guard let nodeFrame = frame(copy(node, Self.frameAttribute)), nodeFrame.cgRect.contains(point) else { continue }
+            let attributes = cachedAttributes(of: node)
+            if attributes.subrole == HitRefiner.simulatedScreenSubrole, nodeFrame.w > 0, nodeFrame.h > 0 {
+                var ancestors: [AXUIElement] = []
+                var current = node
+                for _ in 0..<ElementResolver.maxAncestors {
+                    guard let parent = self.element(copy(current, kAXParentAttribute)) else { break }
+                    ancestors.append(parent)
+                    current = parent
+                }
+                var framed = attributes
+                framed.frame = nodeFrame
+                found = RealScreen(attributes: framed, ancestors: ancestors, ancestorAttributes: ancestors.map { cachedAttributes(of: $0) })
+                break
+            }
+            if depth < 10, ElementResolver.isContainer(attributes) {
+                stack.append(contentsOf: children(of: node).reversed().map { ($0, depth + 1) })
+            }
+        }
+        if realScreenCache.count > 8 { realScreenCache.removeAll() }
+        realScreenCache[key] = (now, found)
+        return found
     }
 
     /// R133: the answer of `listingParent`, found or not, per element and reported parent for `neighborTTL`.

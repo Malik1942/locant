@@ -347,10 +347,18 @@ enum HitRefiner {
     }
 
     /// specs/capture-shapes.md R133: Device Hub sometimes names a detached copy of the screen's group as an
-    /// element's parent: subrole `iOSContentGroup`, an empty frame, no parent or window of its own. Its frame
-    /// is then the union of its children's non-empty frames; nil when none has one.
-    static func detachedScreenFrame(children: [AttributeSet]) -> Frame? {
-        let bounds = union(of: children.filter { ($0.frame?.w ?? 0) > 0 && ($0.frame?.h ?? 0) > 0 })
+    /// element's parent: subrole `iOSContentGroup`, an empty frame (or none), no parent or window of its own.
+    static func isDetachedScreen(_ node: AttributeSet) -> Bool {
+        node.subrole == simulatedScreenSubrole && !(node.frame.map { $0.w > 0 && $0.h > 0 } ?? false)
+    }
+
+    /// R133: a detached copy's frame. The real screen group's, `found` from the window under the pointer, when it
+    /// has one; else the union of the copy's children's non-empty frames, read only then. The union is the screen
+    /// where the copy lists a screen-sized content group (Library), but the content's bounds, scrolled content
+    /// included, where it lists the elements directly (Tide). Nil when neither has a frame.
+    static func detachedScreenFrame(found: Frame?, children: @autoclosure () -> [AttributeSet]) -> Frame? {
+        if let found, found.w > 0, found.h > 0 { return found }
+        let bounds = union(of: children().filter { ($0.frame?.w ?? 0) > 0 && ($0.frame?.h ?? 0) > 0 })
         return bounds.isNull ? nil : Frame(bounds)
     }
 

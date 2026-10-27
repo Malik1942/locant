@@ -595,18 +595,54 @@ final class ElementResolverTests: XCTestCase {
     }
 
     /// A detached copy of the screen's group (empty frame, no parent; seen Oct 26 after switching devices)
-    /// takes the union of its children's frames. The probe rounds to 0.1 pt, so the tab bar ends 0.1 pt
-    /// below the content group.
+    /// whose real group is not found from the window takes the union of its children's frames. On Library the
+    /// copy lists a screen-sized content group, so the union is the screen; the probe rounds to 0.1 pt, so the
+    /// tab bar ends 0.1 pt below the content group.
     func testADetachedScreenGroupTakesTheUnionOfItsChildren() throws {
-        let union = try XCTUnwrap(HitRefiner.detachedScreenFrame(children: hubChildren()))
+        let union = try XCTUnwrap(HitRefiner.detachedScreenFrame(found: nil, children: hubChildren()))
         XCTAssertEqual(union.x, 347.9, accuracy: 0.15, "the generic element of no size at the origin adds nothing")
         XCTAssertEqual(union.y, 137.5, accuracy: 0.15)
         XCTAssertEqual(union.w, 359.7, accuracy: 0.15)
         XCTAssertEqual(union.h, 780.9, accuracy: 0.15)
         XCTAssertTrue(HitRefiner.matches(hubChildren()[0].frame!, union), "the content group still spans the screen")
         let empty = [AttributeSet(role: "AXGenericElement", frame: Frame(x: 0, y: 1329, w: 0, h: 0)), AttributeSet(role: "AXGroup")]
-        XCTAssertNil(HitRefiner.detachedScreenFrame(children: empty), "no child with a non-empty frame")
-        XCTAssertNil(HitRefiner.detachedScreenFrame(children: []))
+        XCTAssertNil(HitRefiner.detachedScreenFrame(found: nil, children: empty), "no child with a non-empty frame")
+        XCTAssertNil(HitRefiner.detachedScreenFrame(found: nil, children: []))
+    }
+
+    /// Oryne's Tide screen under a detached copy (probe of Oct 27): the copy lists the screen's elements
+    /// directly, content scrolled below the fold included, so their union is the content's bounds,
+    /// 347.9,196.5 359.7×950.4, taller than the screen.
+    private func tideUnderACopy() -> [AttributeSet] {
+        [AttributeSet(role: "AXButton", description: "Ocean settings", identifier: "gearshape", frame: Frame(x: 659.6, y: 196.5, w: 28.0, h: 32.2)),
+         AttributeSet(role: "AXHeading", description: "Tide", frame: Frame(x: 362.2, y: 241.2, w: 70.7, h: 42.9)),
+         AttributeSet(role: "AXButton", frame: Frame(x: 362.2, y: 346.0, w: 331.1, h: 99.2)),
+         AttributeSet(role: "AXButton", description: "All currents", frame: Frame(x: 610.1, y: 1107.6, w: 83.2, h: 39.3)),
+         AttributeSet(role: "AXGenericElement", frame: Frame(x: 347.9, y: 137.5, w: 0, h: 0)),
+         AttributeSet(role: "AXGroup", description: "Tab Bar", frame: Frame(x: 347.9, y: 844.3, w: 359.7, h: 74.2))]
+    }
+
+    func testADetachedScreenGroupTakesTheFrameOfTheRealGroupFoundFromTheWindow() throws {
+        XCTAssertEqual(HitRefiner.detachedScreenFrame(found: hubScreen, children: tideUnderACopy()), hubScreen)
+        var read = false
+        _ = HitRefiner.detachedScreenFrame(found: hubScreen, children: { read = true; return tideUnderACopy() }())
+        XCTAssertFalse(read, "the children are not read when the real group is found")
+
+        let content = try XCTUnwrap(HitRefiner.detachedScreenFrame(found: nil, children: tideUnderACopy()))
+        XCTAssertEqual(content.x, 347.9, accuracy: 0.05)
+        XCTAssertEqual(content.y, 196.5, accuracy: 0.05)
+        XCTAssertEqual(content.w, 359.7, accuracy: 0.05)
+        XCTAssertEqual(content.h, 950.4, accuracy: 0.05, "the fallback on Tide: the content's bounds, past the screen")
+        XCTAssertEqual(HitRefiner.detachedScreenFrame(found: Frame(x: 0, y: 1329, w: 0, h: 0), children: tideUnderACopy()), content,
+                       "a found frame of no size is no frame")
+    }
+
+    func testOnlyAScreenGroupWithNoFrameIsADetachedCopy() {
+        let screen = HitRefiner.simulatedScreenSubrole
+        XCTAssertTrue(HitRefiner.isDetachedScreen(AttributeSet(role: "AXGroup", subrole: screen, frame: Frame(x: 0, y: 1329, w: 0, h: 0))))
+        XCTAssertTrue(HitRefiner.isDetachedScreen(AttributeSet(role: "AXGroup", subrole: screen)), "no frame read")
+        XCTAssertFalse(HitRefiner.isDetachedScreen(AttributeSet(role: "AXGroup", subrole: screen, frame: hubScreen)), "the real group")
+        XCTAssertFalse(HitRefiner.isDetachedScreen(AttributeSet(role: "AXGroup", frame: Frame(x: 0, y: 1329, w: 0, h: 0))), "another group of no size")
     }
 
     /// Oryne's Library screen as the repaired reader reads it (probe of Oct 26): the inner group, which lists
