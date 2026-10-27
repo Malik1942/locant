@@ -939,10 +939,13 @@ extension HitRefiner {
         let (x, y) = (textKey(a), textKey(b))
         guard !x.isEmpty, !y.isEmpty else { return false }
         if x == y { return true }
-        let shorter = x.count <= y.count ? x : y
-        let longEnough = shorter.count >= textMatchMinLength
-            || shorter.filter { $0.unicodeScalars.contains { $0.properties.isIdeographic } }.count >= textMatchMinHan
-        return longEnough && (x.contains(y) || y.contains(x))
+        return longEnough(x.count <= y.count ? x : y) && (x.contains(y) || y.contains(x))
+    }
+
+    /// R127: a text key (`textKey`) long enough to mean something: `textMatchMinLength` letters or digits, or
+    /// `textMatchMinHan` Han characters.
+    private static func longEnough(_ key: String) -> Bool {
+        key.count >= textMatchMinLength || key.filter { $0.unicodeScalars.contains { $0.properties.isIdeographic } }.count >= textMatchMinHan
     }
 
     /// R127: letters and digits the shorter text needs before one contains the other; or Han characters, which
@@ -951,13 +954,14 @@ extension HitRefiner {
     static let textMatchMinHan = 2
 
     /// R127: two labels of one element, though the text it merges has changed: equal (both nil included), or
-    /// some ", "-part of one reads like a part of the other (`textMatches`). "Random, 4 seconds ago" and
-    /// "Random, 5 seconds ago" share "Random"; a pushed screen's or a reused cell's card shares no part.
+    /// some ", "-part of one reads like a part of the other (`textMatches`), both long enough to mean something,
+    /// equal parts too. "Random, 4 seconds ago" and "Random, 5 seconds ago" share "Random"; a pushed screen's
+    /// or a reused cell's card shares no part, and "Cooking, 1" and "Travel, 1" share no "1".
     static func labelsSharePart(_ a: String?, _ b: String?) -> Bool {
         if a == b { return true }
         guard let a, let b else { return false }
-        let others = labelParts(b)
-        return labelParts(a).contains { part in others.contains { textMatches(part, $0) } }
+        let others = labelParts(b).filter { longEnough(textKey($0)) }
+        return labelParts(a).contains { part in longEnough(textKey(part)) && others.contains { textMatches(part, $0) } }
     }
 
     private static func textKey(_ s: String) -> String { String(s.lowercased().filter { $0.isLetter || $0.isNumber }) }

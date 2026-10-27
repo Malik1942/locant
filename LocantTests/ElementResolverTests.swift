@@ -903,6 +903,11 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertFalse(HitRefiner.labelsSharePart("Random, 4 seconds ago", "Weeknight noodles, yesterday"))
         XCTAssertFalse(HitRefiner.labelsSharePart("Random, 4 seconds ago", nil))
         XCTAssertFalse(HitRefiner.labelsSharePart("Product Ideas, 12 thoughts", "Cooking, 1"), "\"1\" is too short to be contained")
+        // Equal parts need the same length as contained ones: two folders of one thought each are two cards.
+        XCTAssertFalse(HitRefiner.labelsSharePart("Cooking, 1", "Travel, 1"), "\"1\" is too short to be shared, even equal")
+        XCTAssertTrue(HitRefiner.labelsSharePart("Cooking, 1", "Cooking, 2"))
+        XCTAssertTrue(HitRefiner.labelsSharePart("昨天, 1", "昨天, 2"), "two Han characters")
+        XCTAssertTrue(HitRefiner.labelsSharePart("Cooking, 1", "Cooking, 1"), "equal labels")
     }
 
     func testOfTwoLinesInReachTheNearerIsTheRung() throws {
