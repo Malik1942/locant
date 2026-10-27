@@ -879,9 +879,16 @@ final class AppState {
                     let pid = window?.ownerPID ?? context.frontPID
                     var first = await ContextCollector.collect(reader: reader, pid: pid, windowTitle: .focused) ?? context
                     first.source.url = snapshot?.url
-                    pinnedContext = first
+                    guard phase == .hovering else { return }
+                    if pinned.isEmpty { pinnedContext = first } // another Shift-click may have landed first
                 }
-                pinned.append(target)
+                // A second Shift-click on the same element while the reads above ran toggles it, as one
+                // after them would, instead of adding it twice.
+                if let index = pinned.firstIndex(where: { $0.element.frame == element.frame }) {
+                    pinned.remove(at: index)
+                } else {
+                    pinned.append(target)
+                }
             }
             guard phase == .hovering else { return }
             overlay.setPinned(pinned.map { $0.element.frame.cgRect })
