@@ -855,9 +855,12 @@ extension HitRefiner {
 
     /// R127: the accessibility frame to read lines of text in, for the hover answer on Device Hub's simulated
     /// screen when it has no accessibility children (a leaf, or a container whose children read empty, like
-    /// the tab bar) and its frame holds `point`. Nil elsewhere.
+    /// the tab bar), its frame holds `point`, and it is at least `tightenMinSide` both ways (smaller, it holds
+    /// one line at most) and at most half the screen's area (which bounds the pixels hashed per sample). Nil
+    /// elsewhere.
     static func textArea(of snapshot: ElementSnapshot, at point: CGPoint) -> CGRect? {
-        guard simulatedScreen(in: snapshot) != nil, let frame = snapshot.element.frame, frame.w > 0, frame.h > 0,
+        guard let screen = simulatedScreen(in: snapshot), let frame = snapshot.element.frame,
+              frame.w >= tightenMinSide, frame.h >= tightenMinSide, frame.w * frame.h <= 0.5 * screen.width * screen.height,
               frame.cgRect.contains(point) else { return nil }
         let childless = ElementResolver.isContainer(snapshot.element)
             ? (snapshot.children ?? []).isEmpty
@@ -893,8 +896,9 @@ extension HitRefiner {
     }
 
     /// R127: the part of `label`, split on ", ", that the line `text` reads, compared case-insensitively on
-    /// letters and digits only: an equal part, else one that contains the line or that the line contains.
-    /// Else the text as read. So a card's "= yesterday" (Vision reads its list icon as "=") is "yesterday".
+    /// letters and digits only: an equal part, else one that contains the line or that the line contains, the
+    /// shorter of the two at least `textMatchMinLength` long. Else the text as read. So a card's "= yesterday"
+    /// (Vision reads its list icon as "=") is "yesterday", and a stray "1" takes no part.
     static func textLabel(_ text: String, within label: String?) -> String {
         func letters(_ s: String) -> String { String(s.lowercased().filter { $0.isLetter || $0.isNumber }) }
         let read = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -904,7 +908,14 @@ extension HitRefiner {
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !letters($0).isEmpty }
         if let equal = parts.first(where: { letters($0) == key }) { return equal }
-        if let near = parts.first(where: { part in letters(part).contains(key) || key.contains(letters(part)) }) { return near }
+        if let near = parts.first(where: { part in
+            let other = letters(part)
+            return min(other.count, key.count) >= textMatchMinLength && (other.contains(key) || key.contains(other))
+        }) { return near }
         return read
     }
+
+    /// R127: letters and digits the shorter side needs before one contains the other.
+    static let textMatchMinLength = 3
+
 }

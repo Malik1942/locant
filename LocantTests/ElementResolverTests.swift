@@ -844,7 +844,34 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertEqual(HitRefiner.textLabel("Random 4 seconds ago", within: "Random, 4 seconds ago"), "Random", "the line holds a part")
         XCTAssertEqual(HitRefiner.textLabel("=", within: "Random, 4 seconds ago"), "=", "no letters or digits: as read")
         XCTAssertEqual(HitRefiner.textLabel(" Ask ", within: nil), "Ask")
+        // Containment takes three letters or digits on the shorter side; equality takes any.
+        XCTAssertEqual(HitRefiner.textLabel("1", within: "Product Ideas, 1 thought"), "1", "a stray digit takes no part")
+        XCTAssertEqual(HitRefiner.textLabel("no", within: "Weeknight noodles, yesterday"), "no")
+        XCTAssertEqual(HitRefiner.textLabel("noo", within: "Weeknight noodles, yesterday"), "Weeknight noodles")
+        XCTAssertEqual(HitRefiner.textLabel("1", within: "Product Ideas, 1"), "1", "equal")
+        XCTAssertEqual(HitRefiner.textLabel("= 昨天", within: "周末面条, 昨天"), "昨天", "equal, two characters")
     }
+
+    func testOfTwoLinesInReachTheNearerIsTheRung() throws {
+        let l = library()
+        let card = ElementSnapshot(element: cardButton, ancestors: [l.inner, l.screen])
+        // 3 pt apart, so their grown boxes overlap between 573 and 574.
+        let close = [TextLine(text: "Weeknight noodles", frame: Frame(x: 377.0, y: 560.0, w: 120.0, h: 12.0)),
+                     TextLine(text: "yesterday", frame: Frame(x: 377.0, y: 575.0, w: 70.0, h: 11.0))]
+        XCTAssertEqual(try textRung(close, at: CGPoint(x: 400, y: 573.2), in: card)?.label, "Weeknight noodles", "1.2 pt from the first, 1.8 from the second")
+        XCTAssertEqual(try textRung(close, at: CGPoint(x: 400, y: 573.8), in: card)?.label, "yesterday", "1.8 pt from the first, 1.2 from the second")
+    }
+
+    func testLinesOutsideTheAnswersFrameDoNotCount() throws {
+        let l = library()
+        let card = ElementSnapshot(element: cardButton, ancestors: [l.inner, l.screen])
+        let below = TextLine(text: "Cooking", frame: Frame(x: 377.0, y: 630.0, w: 60.0, h: 12.0)) // under the card's 619.1
+        let lines = [cardLines[0], below]
+        XCTAssertNil(try textRung(lines, at: CGPoint(x: 400, y: 566), in: card), "one line inside: nothing")
+        XCTAssertNil(try textRung(cardLines + [below], at: CGPoint(x: 400, y: 636), in: card), "the pointer on the line outside")
+        XCTAssertEqual(try textRung(cardLines + [below], at: CGPoint(x: 400, y: 566), in: card)?.label, "Weeknight noodles")
+    }
+
 
     func testLinesAreReadOnlyInAnAnswerOnTheSimulatedScreenThatHasNoChildren() {
         let l = library()
@@ -862,8 +889,19 @@ final class ElementResolverTests: XCTestCase {
         let onBar = CGPoint(x: 527, y: 880)
         XCTAssertEqual(HitRefiner.textArea(of: ElementSnapshot(element: tabBar, ancestors: [l.screen], children: []), at: onBar), tabBar.frame?.cgRect,
                        "a container whose children read empty")
-        XCTAssertNil(HitRefiner.textArea(of: ElementSnapshot(element: l.inner, ancestors: [l.screen], children: l.children), at: onBar),
+        var group = tabBar
+        group.description = nil
+        XCTAssertNil(HitRefiner.textArea(of: ElementSnapshot(element: group, ancestors: [l.screen], children: [cardButton]), at: onBar),
                      "a container with children")
+
+        // At least 44 pt both ways, at most half the screen's area (359.7×780.9).
+        let currents = l.capsule[1] // 39.4×39.3
+        XCTAssertNil(HitRefiner.textArea(of: ElementSnapshot(element: currents, ancestors: [l.inner, l.screen]), at: center(currents)))
+        for (w, h, reads) in [(331.1, 43.9, false), (43.9, 100.0, false), (44.0, 44.0, true), (359.7, 390.4, true), (359.7, 390.6, false)] {
+            let leaf = AttributeSet(role: "AXButton", frame: Frame(x: 347.9, y: 137.5, w: w, h: h), childCount: 0)
+            let found = HitRefiner.textArea(of: ElementSnapshot(element: leaf, ancestors: [l.inner, l.screen]), at: CGPoint(x: 350, y: 140))
+            XCTAssertEqual(found != nil, reads, "\(w)×\(h)")
+        }
     }
 
     /// R117 step 2 holds an element inside a shape; a line is read again at each step instead.
