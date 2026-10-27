@@ -362,6 +362,23 @@ enum HitRefiner {
             .min { area(children[$0].frame!.cgRect) < area(children[$1].frame!.cgRect) }
     }
 
+    /// R125: on Device Hub's screen an element's frame can hang past what it draws, over smaller siblings, and
+    /// the hit test answers with it (an image whose frame covers the chips below the picture). Of the snapshot's
+    /// `siblings`, the index of the one that answers at `point` instead: the smallest non-container with a
+    /// non-empty frame that holds the point and is smaller in area than the element. Nil off the simulated
+    /// screen, for a container (refined instead, R2), or when there is none.
+    static func smallerSibling(at point: CGPoint, in snapshot: ElementSnapshot) -> Int? {
+        guard simulatedScreen(in: snapshot) != nil, !ElementResolver.isContainer(snapshot.element),
+              let own = snapshot.element.frame, let siblings = snapshot.siblings else { return nil }
+        return siblings.indices
+            .filter { index in
+                let node = siblings[index]
+                guard !ElementResolver.isContainer(node), let frame = node.frame, frame.w > 0, frame.h > 0 else { return false }
+                return frame.w * frame.h < own.w * own.h && frame.cgRect.contains(point)
+            }
+            .min { area(siblings[$0].frame!.cgRect) < area(siblings[$1].frame!.cgRect) }
+    }
+
     /// Xcode 27: Device Hub draws the simulated device beside a sidebar and under a toolbar, where
     /// Simulator.app's window was the device. On the device, Snap and Cut end in its screen instead:
     /// the rungs inside it, then the screen as the window rung.

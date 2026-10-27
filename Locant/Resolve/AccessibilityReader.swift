@@ -81,7 +81,20 @@ actor AccessibilityReader {
         let refined = refine(element, at: point)
         let reading = read(refined)
         if let over = overlay(at: point, hit: refined, read: reading) { return snapshot(of: over) }
+        if let smaller = smallerSibling(at: point, read: reading) { return snapshot(of: smaller) }
         return reading.snapshot
+    }
+
+    /// R125: on Device Hub's simulated screen, the smallest sibling under the point answers for a hit whose
+    /// frame hangs over it (`HitRefiner.smallerSibling`). Its element comes from the listing container's
+    /// cached neighborhood, whose elements are in step with its first 60 nodes, the siblings as read. Nil
+    /// off the screen, where nothing is read, or where no sibling answers.
+    private func smallerSibling(at point: CGPoint, read: (snapshot: ElementSnapshot, ancestors: [AXUIElement])) -> AXUIElement? {
+        guard let index = HitRefiner.smallerSibling(at: point, in: read.snapshot), let siblings = read.snapshot.siblings,
+              let container = read.ancestors.first else { return nil }
+        let hood = neighborhood(of: container, attributes: cachedAttributes(of: container))
+        guard index < hood.nodes.count, index < hood.elements.count, hood.nodes[index] == siblings[index] else { return nil }
+        return hood.elements[index]
     }
 
     /// specs/capture-shapes.md R125: on Device Hub's simulated screen the hit test answers from the

@@ -660,6 +660,45 @@ final class ElementResolverTests: XCTestCase {
                        "from the button straight to the screen")
     }
 
+    /// Oryne's Tide screen in Device Hub (probe of Oct 26): the image's frame hangs about 22 pt past the
+    /// drawn picture, over the chips "Nearby" and "Let it rest", its siblings under the listing container.
+    private func tide() -> (image: AttributeSet, nearby: AttributeSet, rest: AttributeSet, snapshot: ElementSnapshot) {
+        let image = AttributeSet(role: "AXImage", frame: Frame(x: 362.2, y: 423.5, w: 331.1, h: 215.0))
+        let nearby = AttributeSet(role: "AXButton", description: "Nearby", frame: Frame(x: 362.2, y: 616.8, w: 74.0, h: 39.3))
+        let rest = AttributeSet(role: "AXButton", description: "Let it rest", frame: Frame(x: 443.3, y: 616.8, w: 88.0, h: 39.3))
+        let listing = AttributeSet(role: "AXGroup", frame: hubScreen)
+        let screen = AttributeSet(role: "AXGroup", subrole: HitRefiner.simulatedScreenSubrole, frame: hubScreen)
+        return (image, nearby, rest, ElementSnapshot(element: image, ancestors: [listing, screen], siblings: [image, nearby, rest]))
+    }
+
+    func testOnTheSimulatedScreenASmallerSiblingUnderThePointAnswersForAnElementThatOverhangsIt() {
+        let t = tide()
+        XCTAssertEqual(HitRefiner.smallerSibling(at: CGPoint(x: 399, y: 636), in: t.snapshot), 1, "Nearby, under the image's overhang")
+        XCTAssertEqual(HitRefiner.smallerSibling(at: CGPoint(x: 480, y: 636), in: t.snapshot), 2, "Let it rest")
+        XCTAssertNil(HitRefiner.smallerSibling(at: CGPoint(x: 500, y: 520), in: t.snapshot), "on the picture, above the chips")
+
+        var offScreen = t.snapshot
+        offScreen.ancestors = [offScreen.ancestors[0]]
+        XCTAssertNil(HitRefiner.smallerSibling(at: CGPoint(x: 399, y: 636), in: offScreen), "off the simulated screen it is not asked")
+    }
+
+    func testNeitherAContainerNorAZeroSizeNorAnEquallyLargeSiblingAnswers() {
+        let t = tide()
+        let point = CGPoint(x: 399, y: 636)
+        var snapshot = t.snapshot
+        snapshot.siblings = [AttributeSet(role: "AXGroup", frame: Frame(x: 380, y: 620, w: 30, h: 30)),   // a container
+                             AttributeSet(role: "AXButton", frame: Frame(x: 399, y: 636, w: 0, h: 0)),   // no size
+                             t.image, t.nearby]
+        XCTAssertEqual(HitRefiner.smallerSibling(at: point, in: snapshot), 3, "the smaller container and the empty frame are passed over")
+        snapshot.siblings = [t.image, AttributeSet(role: "AXButton", frame: t.image.frame)]
+        XCTAssertNil(HitRefiner.smallerSibling(at: point, in: snapshot), "a sibling as large as the hit is not smaller")
+        snapshot.siblings = nil
+        XCTAssertNil(HitRefiner.smallerSibling(at: point, in: snapshot), "no siblings read")
+        let group = ElementSnapshot(element: AttributeSet(role: "AXGroup", frame: t.image.frame), ancestors: t.snapshot.ancestors,
+                                    siblings: [t.nearby])
+        XCTAssertNil(HitRefiner.smallerSibling(at: point, in: group), "a container hit is refined, not replaced by a sibling")
+    }
+
     // MARK: Padded frames tighten, in the phone (specs/capture-shapes.md R126)
 
     /// The Library screen's card "Weeknight noodles, yesterday" (Oct 26): its button's frame is 6 pt taller
