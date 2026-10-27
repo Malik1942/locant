@@ -824,12 +824,21 @@ final class AppState {
             .flatMap { ElementResolver.nonEmpty($0.title) }
     }
 
+    /// specs/capture-shapes.md R126: on Device Hub's simulated screen an element's outline can be tighter than
+    /// its own frame, so a click in its padding, inside the frame of the element hover read, is on the outline.
+    private func inHoveredElement(_ point: CGPoint) -> Bool {
+        guard let element = lastHoverSnapshot?.element, !ElementResolver.isContainer(element),
+              let frame = element.frame else { return false }
+        return frame.cgRect.contains(point)
+    }
+
     /// What a click at `point` means: the hovered selection at its Option level when the click is on or
     /// near it, else a fresh read with the lazy-tree retry.
     private func resolveClicked(at point: CGPoint) async -> (element: ResolvedElement?, snapshot: ElementSnapshot?) {
         let slack = HitRefiner.stickiness
         let hoverIsCurrent = !levels.isEmpty
-            && (lastHoverElement.map { $0.frame.cgRect.insetBy(dx: -slack, dy: -slack).contains(point) } ?? false)
+            && ((lastHoverElement.map { $0.frame.cgRect.insetBy(dx: -slack, dy: -slack).contains(point) } ?? false)
+                || inHoveredElement(point))
         if hoverIsCurrent, let shown = selectedElement() {
             return (shown, lastHoverSnapshot)
         } else if levelIndex > 0, let shown = selectedElement() {
@@ -930,7 +939,8 @@ final class AppState {
             // was chosen on purpose; else the window under the point, else the display.
             let slack = HitRefiner.stickiness
             let hovered = selectedElement()
-            let hoverIsCurrent = hovered.map { $0.frame.cgRect.insetBy(dx: -slack, dy: -slack).contains(point) } ?? false
+            let hoverIsCurrent = (hovered.map { $0.frame.cgRect.insetBy(dx: -slack, dy: -slack).contains(point) } ?? false)
+                || inHoveredElement(point) // R126
             let chosenOnPurpose = levelIndex > 0 && !snapAtWindow
             let rect = (hoverIsCurrent || chosenOnPurpose ? hovered?.frame.cgRect : nil)
                 ?? Geometry.windowOwner(at: point, windows: windows, excludingPID: ownPID)?.bounds
