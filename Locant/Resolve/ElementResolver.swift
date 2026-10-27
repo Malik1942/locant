@@ -971,13 +971,14 @@ extension HitRefiner {
     }
 
     /// R127: `a` and `b`, the rung 0 of two hover steps, are one line read again: both read from the screen, of
-    /// the same label and path and with overlapping boxes, in answers (`answerA`, `answerB`) of the same frame
-    /// whose labels share a part (`labelsSharePart`; the label of a merged element ticks with the text it
-    /// merges). A re-read can move a line's box a little; it is no move to another rung.
+    /// the same path and with overlapping boxes, in answers (`answerA`, `answerB`) of the same frame whose labels
+    /// share a part (`labelsSharePart`; the label of a merged element ticks with the text it merges). A re-read
+    /// can move a line's box a little, and change its text with the label ("9 seconds ago", then "10 seconds
+    /// ago"); it is no move to another rung.
     static func isRereadLine(_ a: ResolvedElement?, in answerA: ElementSnapshot?, _ b: ResolvedElement?, in answerB: ElementSnapshot?) -> Bool {
         guard let a, let b, let answerA, let answerB,
               a.rawRole == ElementResolver.textRawRole, b.rawRole == ElementResolver.textRawRole,
-              a.label == b.label, a.path == b.path, a.frame.cgRect.intersects(b.frame.cgRect),
+              a.path == b.path, a.frame.cgRect.intersects(b.frame.cgRect),
               let frame = answerA.element.frame, frame == answerB.element.frame else { return false }
         func label(_ node: AttributeSet) -> String? { ElementResolver.nonEmpty(node.title) ?? ElementResolver.nonEmpty(node.description) }
         return labelsSharePart(label(answerA.element), label(answerB.element))

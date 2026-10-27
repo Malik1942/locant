@@ -973,6 +973,27 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertFalse(HitRefiner.isRereadLine(nil, in: card, again, in: card))
     }
 
+    /// R127: the line under the pointer ticks with the card's label, "9 seconds ago" then "10 seconds ago": its own
+    /// label changes, so only the path, the answer, and the boxes say it is the same line.
+    func testALineWhoseTextTicksIsTheSameRung() throws {
+        let l = library()
+        var nine = cardButton
+        nine.description = "Random, 9 seconds ago"
+        var ten = cardButton
+        ten.description = "Random, 10 seconds ago"
+        let (before, after) = (ElementSnapshot(element: nine, ancestors: [l.inner, l.screen]), ElementSnapshot(element: ten, ancestors: [l.inner, l.screen]))
+        let date = CGPoint(x: 400, y: 588)
+        let read = try XCTUnwrap(try textRung([cardLines[0], TextLine(text: "= 9 seconds ago", frame: Frame(x: 377.0, y: 582.0, w: 80.0, h: 11.0))],
+                                              at: date, in: before))
+        let reread = try XCTUnwrap(try textRung([cardLines[0], TextLine(text: "= 10 seconds ago", frame: Frame(x: 377.0, y: 582.0, w: 86.0, h: 11.0))],
+                                                at: date, in: after))
+        XCTAssertEqual(read.label, "9 seconds ago")
+        XCTAssertEqual(reread.label, "10 seconds ago")
+        XCTAssertTrue(HitRefiner.isRereadLine(read, in: before, reread, in: after), "the same line, its text ticked")
+        let title = try XCTUnwrap(try textRung(cardLines, at: CGPoint(x: 400, y: 566), in: after))
+        XCTAssertFalse(HitRefiner.isRereadLine(read, in: before, title, in: after), "the other line: the boxes do not overlap")
+    }
+
     func testLinesAreReadOnlyInAnAnswerOnTheSimulatedScreenThatHasNoChildren() {
         let l = library()
         let onCard = CGPoint(x: 400, y: 566)
