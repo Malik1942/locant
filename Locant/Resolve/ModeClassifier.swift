@@ -12,6 +12,7 @@ enum ModeClassifier {
             // shows physical devices).
             isSimulator: context.source.simulator != nil,
             simulatedBundleId: context.source.simulator?.appBundleId,
+            simulatedBundlePath: context.simulatedBundlePath,
             bundlePath: context.bundlePath,
             urlHost: context.source.url.flatMap { URL(string: $0)?.host },
             teamID: context.teamID,

@@ -32,35 +32,40 @@ enum ContextCollector {
         case .known(let known): title = known
         }
 
+        let simulator = simulatorInfo(bundleId: bundleId, windowTitle: title, booted: { SimulatorApps.booted() },
+                                      simulatedApp: SimulatorApps.mostRecentlyLaunchedApp(onDevice:))
         let source = SourceInfo(
             app: AppInfo(bundleId: bundleId, name: name),
             window: WindowInfo(title: title),
             url: nil, // Safari/Chrome read still deferred
-            simulator: simulatorInfo(bundleId: bundleId, windowTitle: title, booted: { SimulatorApps.booted() },
-                                     simulatedApp: SimulatorApps.mostRecentlyLaunchedAppBundleId(onDevice:))
+            simulator: simulator?.info
         )
         let bundleURL = app.bundleURL
         return CaptureContext(
             source: source,
             frontPID: pid,
             bundlePath: bundleURL?.path(percentEncoded: false),
-            teamID: bundleURL.flatMap(CodeSigning.teamID(ofBundleAt:))
+            teamID: bundleURL.flatMap(CodeSigning.teamID(ofBundleAt:)),
+            simulatedBundlePath: simulator?.bundlePath
         )
     }
 
-    /// The device and the app it runs, when `bundleId` shows a simulator; nil for any other app.
+    /// The device and the app it runs, when `bundleId` shows a simulator; nil for any other app. With them,
+    /// the app's running copy, the build on screen (specs/simulator-project-root.md R105).
     /// `booted` reads the device set and `simulatedApp` walks every process, so they run only then.
     static func simulatorInfo(bundleId: String, windowTitle: String?, booted: () -> [SimulatorApps.Device],
-                              simulatedApp: (_ onDevice: String?) -> String?) -> SimulatorInfo? {
+                              simulatedApp: (_ onDevice: String?) -> SimulatorApps.RunningApp?) -> (info: SimulatorInfo, bundlePath: String?)? {
         switch bundleId {
         case ModeInference.simulatorBundleId:
             // Simulator.app shows nothing but simulators.
-            return SimulatorInfo(device: deviceName(fromWindowTitle: windowTitle) ?? "Simulator", appBundleId: simulatedApp(nil))
+            let app = simulatedApp(nil)
+            return (SimulatorInfo(device: deviceName(fromWindowTitle: windowTitle) ?? "Simulator", appBundleId: app?.bundleId), app?.bundlePath)
         case ModeInference.deviceHubBundleId:
             // Xcode 27: Device Hub also shows physical devices and simulators that are shut down. Only a
             // booted simulator named by the window counts, and the app is the one on that device.
             guard let windowTitle, let device = SimulatorApps.device(titled: windowTitle, among: booted()) else { return nil }
-            return SimulatorInfo(device: device.name, appBundleId: simulatedApp(device.udid))
+            let app = simulatedApp(device.udid)
+            return (SimulatorInfo(device: device.name, appBundleId: app?.bundleId), app?.bundlePath)
         default:
             return nil
         }
@@ -146,6 +151,12 @@ enum SimulatorApps {
         var name: String
     }
 
+    /// A simulated app's process: its bundle id, and the bundle it runs from in the device's container.
+    struct RunningApp: Equatable, Sendable {
+        var bundleId: String
+        var bundlePath: String
+    }
+
     static let deviceSet = FileManager.default.homeDirectoryForCurrentUser
         .appending(path: "Library/Developer/CoreSimulator/Devices", directoryHint: .isDirectory)
 
@@ -170,7 +181,7 @@ enum SimulatorApps {
             .max { $0.name.count < $1.name.count }
     }
 
-    static func mostRecentlyLaunchedAppBundleId(onDevice udid: String? = nil) -> String? {
+    static func mostRecentlyLaunchedApp(onDevice udid: String? = nil) -> RunningApp? {
         let count = proc_listallpids(nil, 0)
         guard count > 0 else { return nil }
         var pids = [pid_t](repeating: 0, count: Int(count) * 2)
@@ -178,7 +189,7 @@ enum SimulatorApps {
         guard filled > 0 else { return nil }
 
         var buffer = [CChar](repeating: 0, count: 4096)
-        var best: (pid: pid_t, bundleId: String)?
+        var best: (pid: pid_t, app: RunningApp)?
         for pid in pids.prefix(Int(filled)) where pid > 0 {
             let length = proc_pidpath(pid, &buffer, UInt32(buffer.count))
             guard length > 0 else { continue }
@@ -186,10 +197,10 @@ enum SimulatorApps {
             guard let bundlePath = simulatedAppBundle(executable: path, onDevice: udid) else { continue }
             if let best, pid <= best.pid { continue }
             if let bundleId = Bundle(url: URL(filePath: bundlePath))?.bundleIdentifier {
-                best = (pid, bundleId)
+                best = (pid, RunningApp(bundleId: bundleId, bundlePath: bundlePath))
             }
         }
-        return best?.bundleId
+        return best?.app
     }
 
     /// The app bundle whose main executable `path` is, when it is a simulated app (on the device
