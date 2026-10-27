@@ -335,6 +335,23 @@ enum HitRefiner {
         return frame.cgRect
     }
 
+    /// specs/capture-shapes.md R125: Device Hub draws a screen-sized content group under smaller chrome (the
+    /// tab bar, toolbars, a sheet's grabber), whatever the reading order, and its hit test answers from the
+    /// group. Of the screen's direct `children`, the one that should answer at `point` instead: one with a
+    /// non-empty frame that holds the point and does not span the screen (the smallest, if several), when
+    /// the child holding the hit (`holding`, nil when not known) spans it. Nil when there is none, or when
+    /// the hit already sits in a child that does not span the screen. Spanning: the screen's frame within 1 pt.
+    static func overlayIndex(at point: CGPoint, screen: Frame, children: [AttributeSet], holding: Int?) -> Int? {
+        func spansScreen(_ node: AttributeSet) -> Bool { node.frame.map { matches($0, screen) } ?? false }
+        if let holding, children.indices.contains(holding), !spansScreen(children[holding]) { return nil }
+        return children.indices
+            .filter { index in
+                guard index != holding, let frame = children[index].frame, frame.w > 0, frame.h > 0 else { return false }
+                return !spansScreen(children[index]) && frame.cgRect.contains(point)
+            }
+            .min { area(children[$0].frame!.cgRect) < area(children[$1].frame!.cgRect) }
+    }
+
     /// Xcode 27: Device Hub draws the simulated device beside a sidebar and under a toolbar, where
     /// Simulator.app's window was the device. On the device, Snap and Cut end in its screen instead:
     /// the rungs inside it, then the screen as the window rung.

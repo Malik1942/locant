@@ -509,6 +509,29 @@ final class ElementResolverTests: XCTestCase {
          AttributeSet(role: "AXGroup", description: "Tab Bar", frame: Frame(x: 347.9, y: 844.3, w: 359.7, h: 74.2))]
     }
 
+    func testOnTheSimulatedScreenTheTabBarAnswersOverTheContentGroup() {
+        let children = hubChildren()
+        let onBar = CGPoint(x: 527, y: 880)
+        XCTAssertEqual(HitRefiner.overlayIndex(at: onBar, screen: hubScreen, children: children, holding: 0), 2)
+        XCTAssertEqual(HitRefiner.overlayIndex(at: onBar, screen: hubScreen, children: children, holding: nil), 2, "the hit's child not known")
+        XCTAssertNil(HitRefiner.overlayIndex(at: CGPoint(x: 527, y: 500), screen: hubScreen, children: children, holding: 0),
+                     "only the content group holds it")
+        XCTAssertNil(HitRefiner.overlayIndex(at: onBar, screen: hubScreen, children: children, holding: 2), "the hit is on the tab bar already")
+    }
+
+    func testNeitherAChildOfNoSizeNorASecondScreenSizedOneAnswers() {
+        let children = hubChildren()
+        for holding in [0, nil] {
+            XCTAssertNil(HitRefiner.overlayIndex(at: CGPoint(x: 347.9, y: 137.5), screen: hubScreen, children: children, holding: holding),
+                         "the generic element of no size, at its own origin")
+        }
+        let twin = AttributeSet(role: "AXGroup", frame: Frame(x: 348.4, y: 137.5, w: 359.2, h: 780.4)) // the screen within 1 pt
+        let doubled = [children[0], twin] + children[1...]
+        XCTAssertNil(HitRefiner.overlayIndex(at: CGPoint(x: 527, y: 500), screen: hubScreen, children: doubled, holding: 0))
+        XCTAssertNil(HitRefiner.overlayIndex(at: CGPoint(x: 527, y: 500), screen: hubScreen, children: doubled, holding: nil))
+        XCTAssertEqual(HitRefiner.overlayIndex(at: CGPoint(x: 527, y: 880), screen: hubScreen, children: doubled, holding: 0), 3)
+    }
+
     /// Currents as the repaired reader reads it: the inner group, which lists it, heads its ancestors ahead
     /// of the screen that Device Hub reports as its parent, and its siblings are the inner group's children.
     func testTheRepairedSnapshotOfCurrentsFeedsTheRowOfButtons() throws {

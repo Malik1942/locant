@@ -78,7 +78,29 @@ actor AccessibilityReader {
         let window = self.element(copy(element, kAXWindowAttribute)).flatMap { frame(copy($0, Self.frameAttribute)) }
         guard Geometry.answerIsVisible(frame: frame(copy(element, Self.frameAttribute))?.cgRect, window: window?.cgRect,
                                        owner: pid, at: point, candidates: candidates) else { return nil }
-        return snapshot(of: refine(element, at: point))
+        let refined = refine(element, at: point)
+        let reading = read(refined)
+        if let over = overlay(at: point, hit: refined, read: reading) { return snapshot(of: over) }
+        return reading.snapshot
+    }
+
+    /// specs/capture-shapes.md R125: on Device Hub's simulated screen the hit test answers from the
+    /// screen-sized content group under the chrome drawn over it (the tab bar). The screen's direct child
+    /// that answers instead (`HitRefiner.overlayIndex`), refined as a hit is. Nil off the screen, where
+    /// nothing more is read, or where the hit stands.
+    private func overlay(at point: CGPoint, hit: AXUIElement, read: (snapshot: ElementSnapshot, ancestors: [AXUIElement])) -> AXUIElement? {
+        let chain = [read.snapshot.element] + read.snapshot.ancestors
+        guard let index = chain.firstIndex(where: { $0.subrole == HitRefiner.simulatedScreenSubrole }),
+              let screenFrame = chain[index].frame, screenFrame.w > 0, screenFrame.h > 0 else { return nil }
+        let elements = [hit] + read.ancestors
+        let screen = elements[index]
+        let kids = Array(children(of: screen).prefix(Self.neighborLimit))
+        let known = neighbors(of: screen, attributes: chain[index])
+        let attributes = known.count == kids.count ? known : kids.map { lightAttributes(of: $0) }
+        let below = elements[..<index]
+        let holding = kids.firstIndex { kid in below.contains { CFEqual($0, kid) } }
+        guard let chosen = HitRefiner.overlayIndex(at: point, screen: screenFrame, children: attributes, holding: holding) else { return nil }
+        return refine(kids[chosen], at: point)
     }
 
     /// The system-wide hit test sees whatever is topmost, which under the overlay may be Locant
@@ -316,6 +338,12 @@ actor AccessibilityReader {
     }
 
     private func snapshot(of element: AXUIElement) -> ElementSnapshot {
+        read(element).snapshot
+    }
+
+    /// The snapshot of `element`, and the elements of its ancestors, nearest first, one for each of
+    /// `snapshot.ancestors`.
+    private func read(_ element: AXUIElement) -> (snapshot: ElementSnapshot, ancestors: [AXUIElement]) {
         let elementAttributes = attributes(of: element)
         // v0.8: a web node's ancestors are web nodes too; their DOM handles make the path grep-able.
         let web = elementAttributes.isWebNode
@@ -335,18 +363,18 @@ actor AccessibilityReader {
         if ElementResolver.isContainer(elementAttributes) {
             snapshot.children = neighbors(of: element, attributes: elementAttributes)
         } else if let parent = parents.first, let parentAttributes = ancestors.first, ElementResolver.isContainer(parentAttributes) {
-            // specs/capture-shapes.md R125: Device Hub names the screen's content group as the parent of what
-            // the group inside it holds. The siblings come from the container that lists the element, which
-            // joins the path.
+            // R125: Device Hub names the screen's content group as the parent of what the group inside it
+            // holds. The siblings come from the container that lists the element, which joins the path.
             if let holder = listingParent(of: element, frame: elementAttributes.frame, below: parent) {
                 let holderAttributes = cachedAttributes(of: holder, web: web)
                 snapshot.ancestors = Array(([holderAttributes] + ancestors).prefix(ElementResolver.maxAncestors))
+                parents = Array(([holder] + parents).prefix(ElementResolver.maxAncestors))
                 snapshot.siblings = neighbors(of: holder, attributes: holderAttributes)
             } else {
                 snapshot.siblings = neighbors(of: parent, attributes: parentAttributes)
             }
         }
-        return snapshot
+        return (snapshot, parents)
     }
 
     /// R125: the answer of `listingParent`, found or not, per element for `neighborTTL`.
