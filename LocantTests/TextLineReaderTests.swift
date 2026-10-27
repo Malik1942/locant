@@ -9,9 +9,11 @@ final class TextLineReaderTests: XCTestCase {
     private actor Calls {
         var frames: [CGRect] = []
         var readings: [TextLineReader.Reading] = []
-        func add(_ frame: CGRect, reading: TextLineReader.Reading) {
+        /// Records a read; its number, from 1.
+        func add(_ frame: CGRect, reading: TextLineReader.Reading) -> Int {
             frames.append(frame)
             readings.append(reading)
+            return frames.count
         }
         var count: Int { frames.count }
     }
@@ -33,13 +35,20 @@ final class TextLineReaderTests: XCTestCase {
 
     private struct Refused: Error {}
 
+    /// Two lines in the top and bottom halves of `frame`, as a card's title and date.
+    private nonisolated static func two(in frame: CGRect) -> [TextLine] {
+        let (top, bottom) = frame.divided(atDistance: frame.height / 2, from: .minYEdge)
+        return [TextLine(text: "title", frame: Frame(top)), TextLine(text: "date", frame: Frame(bottom))]
+    }
+
     /// A reader whose recognizer records the rectangle it was shown, runs `before` (which can hold it or
-    /// throw), and reads one line filling that rectangle.
-    private func makeReader(calls: Calls, before: @escaping @Sendable (CGRect) async throws -> Void = { _ in }) -> TextLineReader {
+    /// throw), and reads what `lines` gives for the read's number (from 1): by default two lines in it.
+    private func makeReader(calls: Calls, before: @escaping @Sendable (CGRect) async throws -> Void = { _ in },
+                            lines: @escaping @Sendable (Int, CGRect) -> [TextLine] = { _, frame in two(in: frame) }) -> TextLineReader {
         TextLineReader(recognize: { _, frame, reading in
-            await calls.add(frame, reading: reading)
+            let number = await calls.add(frame, reading: reading)
             try await before(frame)
-            return [TextLine(text: "line", frame: Frame(frame))]
+            return lines(number, frame)
         })
     }
 
@@ -89,7 +98,7 @@ final class TextLineReaderTests: XCTestCase {
         XCTAssertNil(reader.lines(in: a, of: first))
         XCTAssertNil(reader.lines(in: a, of: first), "asked once")
         await fulfillment(of: [landed], timeout: 2)
-        let read = [TextLine(text: "line", frame: Frame(a))]
+        let read = Self.two(in: a)
         XCTAssertEqual(reader.lines(in: a, of: first), read)
 
         // The sample's refresh: a new sample, with the same pixels inside the rectangle (a change outside it).
@@ -106,7 +115,7 @@ final class TextLineReaderTests: XCTestCase {
             again.fulfill()
         }
         let changed = sample(generation: 3, marks: [CGRect(x: 320, y: 115, width: 10, height: 5)])
-        XCTAssertNil(reader.lines(in: a, of: changed))
+        XCTAssertEqual(reader.lines(in: a, of: changed), read, "asked again; the lines last read stand meanwhile")
         await fulfillment(of: [again], timeout: 2)
         XCTAssertEqual(reader.lines(in: a, of: changed), read)
         count = await calls.count
@@ -192,6 +201,91 @@ final class TextLineReaderTests: XCTestCase {
         XCTAssertEqual(reader.lines(in: a, of: grid), [], "no lines there")
         let count = await calls.count
         XCTAssertEqual(count, 1)
+        reader.stop()
+    }
+
+    func testARequestForTheRectangleInFlightOrWaitingIsNotAskedTwice() async throws {
+        let calls = Calls()
+        let gate = Gate()
+        let held = a
+        let reader = makeReader(calls: calls, before: { frame in
+            if frame == held { await gate.wait() }
+        })
+        reader.start()
+        let landed = expectation(description: "two reads")
+        landed.expectedFulfillmentCount = 2
+        reader.onUpdate = { landed.fulfill() }
+        let grid = sample(generation: 1)
+        for area in [a, a, b, b] {
+            XCTAssertNil(reader.lines(in: area, of: grid)) // a in flight, then b waiting, each asked twice
+        }
+        await gate.release()
+        await fulfillment(of: [landed], timeout: 2)
+        try await Task.sleep(for: .milliseconds(100)) // settle: nothing more is read
+        let frames = await calls.frames
+        XCTAssertEqual(frames, [a, b])
+        reader.stop()
+    }
+
+    func testAReadOfOneLineOrNoneIsNoUpdate() async throws {
+        let calls = Calls()
+        let reader = makeReader(calls: calls, lines: { number, frame in
+            number == 1 ? [TextLine(text: "Library", frame: Frame(frame))] : []
+        })
+        reader.start()
+        reader.onUpdate = { XCTFail("one line or none makes no rung, so it is no update") }
+        let grid = sample(generation: 1)
+        XCTAssertNil(reader.lines(in: a, of: grid))
+        XCTAssertNil(reader.lines(in: b, of: grid)) // waits
+        try await Task.sleep(for: .milliseconds(200))
+        XCTAssertEqual(reader.lines(in: a, of: grid)?.map(\.text), ["Library"])
+        XCTAssertEqual(reader.lines(in: b, of: grid), [])
+        let count = await calls.count
+        XCTAssertEqual(count, 2)
+        reader.stop()
+    }
+
+    /// A card whose date ticks: its pixels change each sample. The lines last read for it stand while the new
+    /// ones are read, so its line does not drop to the card and back; never for another element at its frame.
+    func testWhileChangedPixelsAreReadTheElementsLastLinesStand() async throws {
+        let calls = Calls()
+        let gate = Gate()
+        let reader = makeReader(calls: calls, before: { _ in
+            if await calls.count == 2 { await gate.wait() } // the second read is held
+        }, lines: { number, frame in
+            number == 2 ? [TextLine(text: "title", frame: Frame(frame))] : Self.two(in: frame)
+        })
+        reader.start()
+        var updates = 0
+        let first = expectation(description: "the first read")
+        reader.onUpdate = {
+            updates += 1
+            first.fulfill()
+        }
+        let card = "Random, 4 seconds ago"
+        XCTAssertNil(reader.lines(in: a, of: sample(generation: 1), label: card))
+        await fulfillment(of: [first], timeout: 2)
+
+        let ticked = sample(generation: 2, marks: [CGRect(x: 320, y: 125, width: 10, height: 4)])
+        XCTAssertEqual(reader.lines(in: a, of: ticked, label: card), Self.two(in: a), "the lines last read stand while the new pixels are read")
+        XCTAssertNil(reader.lines(in: a, of: ticked, label: "Weeknight noodles, yesterday"), "never another element's at the same frame")
+
+        let second = expectation(description: "the second read, of one line")
+        reader.onUpdate = {
+            updates += 1
+            second.fulfill()
+        }
+        await gate.release()
+        await fulfillment(of: [second], timeout: 2)
+        XCTAssertEqual(updates, 2, "one line where two stood is an update, so the line's rung goes")
+        XCTAssertEqual(reader.lines(in: a, of: ticked, label: card)?.count, 1)
+        let count = await calls.count
+        XCTAssertEqual(count, 2)
+
+        reader.onUpdate = nil
+        reader.stop()
+        reader.start()
+        XCTAssertNil(reader.lines(in: a, of: sample(generation: 3), label: card), "stopped: nothing last read stands")
         reader.stop()
     }
 
