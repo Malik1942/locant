@@ -135,7 +135,7 @@ enum ElementResolver {
     static let clusterRawRole = "LocantCluster"
     /// specs/capture-shapes.md R116: a shape found on screen; a cluster too, but its frame is the edges seen.
     static let shapeRawRole = "LocantShape"
-    /// specs/capture-shapes.md R124: controls in one row or column whose frames touch.
+    /// specs/capture-shapes.md R124: controls in one row or column, lined up with small gaps.
     static let groupRawRole = "LocantGroup"
 
     /// A visual grouping computed from neighbouring elements. SwiftUI exposes leaves but not the
@@ -452,31 +452,39 @@ enum HitRefiner {
         return groups.first { union(of: $0).contains(CGPoint(x: f.midX, y: f.midY)) }
     }
 
-    /// R124: the next control in a row or column starts within this of where the last one ends.
+    /// R124: the next control in a row or column may overlap where the chain ends by this, or start this far
+    /// past it when that is more than `groupGapShare` allows.
     static let groupTouch: Double = 2
+    /// R124, amended Oct 26: the next control may start up to this share of the element's smaller side past
+    /// where the chain ends (9.8 pt for the Library capsule's 39.3 pt buttons; Filter sits 8 pt on, behind a
+    /// drawn divider).
+    static let groupGapShare: Double = 0.25
     /// R124: the controls of a row share their top and height (a column, their left and width) within this.
     static let groupAlign: Double = 1
 
     /// specs/capture-shapes.md R124: the controls among `siblings` that, with `element`, form a chain along
-    /// one axis, each touching the next. A row if it has two or more, else a column; its frame is the
-    /// exact union. Nil when `element` is alone. Where controls tile a glass capsule there is no rim to
-    /// point into and no pixel ring (R117 step 3), and the cluster's 16 pt padding spills past it.
+    /// one axis, each a small gap at most from the next. A row if it has two or more, else a column; its
+    /// frame is the exact union. Nil when `element` is alone. Where controls tile a glass capsule there is
+    /// no rim to point into and no pixel ring (R117 step 3), and the cluster's 16 pt padding spills past it.
     static func groupElement(around element: AttributeSet, among siblings: [AttributeSet], ancestors: [AttributeSet]) -> ResolvedElement? {
         guard let anchor = element.frame, anchor.w > 0, anchor.h > 0 else { return nil }
         for horizontal in [true, false] {
-            let chain = touchingChain(from: element, among: siblings, horizontal: horizontal)
-            if chain.count >= 2 {
-                return ElementResolver.computedElement(rawRole: ElementResolver.groupRawRole, frame: union(of: chain), members: chain, ancestors: ancestors)
+            let run = chain(from: element, among: siblings, horizontal: horizontal)
+            if run.count >= 2 {
+                return ElementResolver.computedElement(rawRole: ElementResolver.groupRawRole, frame: union(of: run), members: run, ancestors: ancestors)
             }
         }
         return nil
     }
 
     /// `element` and the controls reached outward from it in both directions along one axis (x when
-    /// `horizontal`), each starting within `groupTouch` of where the last ended and lined up with
-    /// `element` across the axis within `groupAlign`.
-    private static func touchingChain(from element: AttributeSet, among siblings: [AttributeSet], horizontal: Bool) -> [AttributeSet] {
+    /// `horizontal`), each starting between an overlap of `groupTouch` and a gap of
+    /// `max(groupTouch, groupGapShare × min(w, h))` (the element's sides) from where the chain ends, and
+    /// lined up with `element` across the axis within `groupAlign`. Of several, the nearest joins, then
+    /// the first in sibling order.
+    private static func chain(from element: AttributeSet, among siblings: [AttributeSet], horizontal: Bool) -> [AttributeSet] {
         let anchor = element.frame!
+        let reach = max(groupTouch, groupGapShare * min(anchor.w, anchor.h))
         func along(_ f: Frame) -> (start: Double, end: Double) { horizontal ? (f.x, f.x + f.w) : (f.y, f.y + f.h) }
         func lined(_ f: Frame) -> Bool {
             horizontal ? abs(f.y - anchor.y) <= groupAlign && abs(f.h - anchor.h) <= groupAlign
@@ -488,16 +496,22 @@ enum HitRefiner {
         }
         var chain = [element]
         var (start, end) = along(anchor)
+        // The control in `pool` whose `gap` from the chain is within the limits, the nearest first.
+        func nearest(_ gap: (Frame) -> Double) -> Int? {
+            pool.indices
+                .filter { let g = gap(pool[$0].frame!); return g >= -groupTouch && g <= reach }
+                .min { abs(gap(pool[$0].frame!)) < abs(gap(pool[$1].frame!)) }
+        }
         var grew = true
         while grew {
             grew = false
-            if let i = pool.firstIndex(where: { abs(along($0.frame!).start - end) <= groupTouch }) {
-                end = along(pool[i].frame!).end
+            if let i = nearest({ along($0).start - end }) {
+                end = max(end, along(pool[i].frame!).end)
                 chain.append(pool.remove(at: i))
                 grew = true
             }
-            if let i = pool.firstIndex(where: { abs(along($0.frame!).end - start) <= groupTouch }) {
-                start = along(pool[i].frame!).start
+            if let i = nearest({ start - along($0).end }) {
+                start = min(start, along(pool[i].frame!).start)
                 chain.append(pool.remove(at: i))
                 grew = true
             }
@@ -580,7 +594,7 @@ enum HitRefiner {
             levels.append(base)
         } else if let base {
             levels.append(base)
-            // R124: the row or column of touching controls it belongs to, before the looser cluster.
+            // R124: the row or column of controls it belongs to, before the looser cluster.
             if let siblings = snapshot.siblings,
                let group = groupElement(around: snapshot.element, among: siblings, ancestors: snapshot.ancestors) {
                 levels.append(group)
