@@ -160,13 +160,14 @@ final class TextLineReader {
 
     /// How to read the lines of an answer with `label`. Kana or Hangul anywhere: none, so no line rungs, until a
     /// real sample calibrates a reading for them (on Oct 26's synthetic renders `.fast` read 주말 국수 / 어제 as
-    /// "xu" and "X41"). Else, with Han: `.han`, since `.fast` reads no Han and returns junk for it rather than
-    /// nothing ("4 秒前" as "4 1JBIJ"). Else `.latin`.
+    /// "xu" and "X41"). The katakana middle dot and long vowel mark (U+30FB, U+30FC) are not kana here: Chinese
+    /// writes transliterated names with them (约翰・史密斯). Else, with Han: `.han`, since `.fast` reads no Han and
+    /// returns junk for it rather than nothing ("4 秒前" as "4 1JBIJ"). Else `.latin`.
     nonisolated static func reading(for label: String?) -> Reading? {
         var han = false
         for scalar in (label ?? "").unicodeScalars {
             switch scalar.value {
-            case 0x3040...0x30FF, 0x31F0...0x31FF, 0xFF65...0xFF9F: return nil // kana
+            case 0x3040...0x30FA, 0x30FD...0x30FF, 0x31F0...0x31FF, 0xFF65...0xFF9F: return nil // kana
             case 0x1100...0x11FF, 0x3130...0x318F, 0xA960...0xA97F, 0xAC00...0xD7FF: return nil // Hangul
             default: if scalar.properties.isIdeographic { han = true }
             }
