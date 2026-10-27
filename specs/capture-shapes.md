@@ -12,8 +12,9 @@ Amended Oct 26, after the R122 check and the final review:
 - **R121:** a committed shape's members are read after the crop has started, so the crop never waits for them.
 - **R122:** no change to the walk; the Oct 26 "miss" was the probe's 12-element cap.
 - **R124:** added Oct 26 for button rows like Oryne's toolbar capsule, after Malik's request: a row (or column) of touching controls is a rung on the ⌥ ladder.
+- **R125:** added Oct 26 after the in-app check: Device Hub's parent links skip the screen's content group, and its tab bar hides nothing behind it from hit tests.
 
-**Scope of this spec:** finding shapes, hover and the ⌥ ladder with shapes in them, the cluster under any parent, a row of touching controls as a rung, the readout and payload of a shape, and the drawn frame that found nothing in Device Hub.
+**Scope of this spec:** finding shapes, hover and the ⌥ ladder with shapes in them, the cluster under any parent, a row of touching controls as a rung, Device Hub's parent links and floating bars, the readout and payload of a shape, and the drawn frame that found nothing in Device Hub.
 **Out of scope:** drawn frames snapping to shapes; a gesture that steps inside a shape (⌥ goes up, pointing goes in); the 40 pt crop padding; a setting to turn shapes off; new schema fields; shapes in apps with no accessibility tree at all (iPhone Mirroring, canvases), which keep the fallback square because a shape there has no members to grep.
 
 Read `CLAUDE.md`; `specs/v0.1.md` R2, R2a, and R4; `specs/v0.2.md` R11–R16; `specs/v0.8.1.md` R59; `specs/v0.9-snap.md` R77; `Locant/Resolve/ElementResolver.swift` (`HitRefiner`); `Locant/Resolve/AccessibilityReader.swift` (`refine`, `snapshot(of:)`, `elements(in:pid:)`); `Locant/Capture/ScreenCapture.swift`; `Locant/Capture/SelectionOverlay.swift` (`Readout`); `Locant/Payload/MarkdownBuilder.swift`; and in `Locant/App/AppState.swift`, `drainHover`, `renderHover`, `resolveClicked`, `click`, `pin`, and `region`.
@@ -150,6 +151,20 @@ The existing region tests keep passing either way. R121's members depend on the 
 - **What it says.** The readout names the members as for any cluster: `cluster · folder, square.and.arrow.up, trash` (R121, code unchanged). The Markdown head line reads `cluster · N elements (controls in one row or column, grouped by Locant, not an accessibility element; frame is their union)`; the `LocantShape` and `LocantCluster` lines are unchanged. The `role` description in `schema/capture.schema.json` gains: "rawRole LocantGroup: controls in one row or column whose frames touch, its frame their union." No field is added.
 - **Members on commit.** The members found at hover stand: the drawn-frame walk of R121 applies only to a `LocantShape`.
 
+**R125. Device Hub's tree.** Malik's in-app check on Oct 26 found faults only inside the simulated screen: ⌥ from a button in Oryne's Library toolbar capsule still went to the whole screen, and the pointer on the floating tab bar outlined the card behind it. The probe (Library screen, Oct 26): the screen is an `AXGroup`, subrole `iOSContentGroup`, at 347.9,137.5 359.7×780.9; its elements sit in an inner group of the same frame but name the screen as their `AXParent`; the "Tab Bar" group (347.9,844.3 359.7×74.2) has no children, and a hit test on it at 527,880 answers with the card behind it (362.2,830.9 331.1×75.9).
+
+- **The parent that lists the element.** When the hovered element is not a container and its reported parent is a container that does not list it among its children, the reader searches below that parent for the container that does: depth first, through containers only, into nodes whose frame holds the element's within 1 pt, at most 4 levels down and 200 nodes. The answer is kept per element for 400 ms.
+  - **Found:** the siblings (R120) are that container's children, and it joins the path as the nearest ancestor, ahead of the reported parent (still at most 6 ancestors). So R124's group and R120's cluster form on the Library screen.
+  - **Not found:** the siblings come from the reported parent, as before.
+  - A container under the pointer reads its own children, which need no repair.
+- **The neighbor cache** is keyed by the container itself as well as its app, role, subrole, and frame, so the screen's group and the inner group, of one role and frame, never share an entry.
+- **Floating bars.** When the answer lies on the simulated screen (it or an ancestor has subrole `iOSContentGroup`), the screen's direct children are read. If the answer sits in (or is) a child that spans the screen, and the point lies in another direct child with a non-empty frame that does not span it, that child answers instead, refined as a hit is (R2). Of several, the smallest answers. Where the child that holds the answer cannot be told (a parent link that skips one), the point alone decides.
+  - **Spans the screen:** its frame matches the screen's within 1 pt.
+  - **Why:** a screen-sized content group lies under the chrome the simulator draws over it (the tab bar, toolbars, a sheet's grabber), whatever the reading order.
+  - **Today** the tab bar has no children, so the pointer on it outlines the `Tab Bar` group, with the ladder of any container answer (R120).
+  - Off the simulated screen, nothing more is read.
+- **Unchanged:** R124's 2 pt touch and R120's thresholds. Outside Device Hub, only the cache key changes, and it changes no answer.
+
 ## 2. Files
 
 - New:
@@ -159,8 +174,8 @@ The existing region tests keep passing either way. R121's members depend on the 
   - `LocantTests/Fixtures/shape-*.png` and `LocantTests/Fixtures/shapes.json`: the real-screen fixtures and their expected rectangles, beside the existing fixtures.
   - `scripts/blur-fixture-text.swift`: finds text with Vision and blurs it with Core Image, so fixtures from Malik's own screens can be public.
 - Changed:
-  - `ElementResolver.swift`: `HitRefiner`, R117, R120, and R124 (`groupRawRole`, `HitRefiner.groupElement`; `clusterElement` and the group share `computedElement`).
-  - `AccessibilityReader.swift`: R120. R122 changes nothing here.
+  - `ElementResolver.swift`: `HitRefiner`, R117, R120, R124 (`groupRawRole`, `HitRefiner.groupElement`; `clusterElement` and the group share `computedElement`), and R125 (`HitRefiner.overlayIndex`).
+  - `AccessibilityReader.swift`: R120, and R125 (the container that lists the element, the neighbor-cache key, floating bars). R122 changes nothing here.
   - `ScreenCapture.swift` (`regionImage`) and `Geometry.swift` (`sampleScale`), R118.
   - `AppState.swift`: hover, commit, and members, R117 and R121.
   - `SelectionOverlay.swift`: `Readout`, R121.
@@ -205,14 +220,19 @@ The existing region tests keep passing either way. R121's members depend on the 
     - A gap or overlap of 2 pt still groups, and one of 3 pt does not. A height 2 pt off, or a top edge 2 pt off, does not group; 1 pt off still does. A container neighbor and a neighbor with an empty frame do not group. The chain stops at the first gap.
     - A column of two touching buttons groups; a width 2 pt off does not. A lone button, and an element with no siblings read, have no group. In a grid the row comes before the column.
     - Shape-aware: a `FixedShapes` capsule within 2 pt of the union (past it, exact, or inside it) leaves the group and no separate shape rung; one 8 pt past it is its own rung after the group. With no shape found the ladder is today's, group included.
+  - **Device Hub's tree (R125):**
+    - `HitRefiner.overlayIndex` on the Library screen's direct children (the content group with the screen's frame, a generic element of no size at its origin, the Tab Bar). At 527,880, with the hit under the content group or not known: the Tab Bar. At 527,500: none. The element of no size and a second screen-sized child: never. With the hit already under the Tab Bar: none.
+    - Currents as the repaired reader reads it (ancestors the inner group, then the screen; siblings the Library elements): ⌥ goes to the group of Recent and Currents (Filter, 8 pt on, is not in it), then the cluster, then the screen, and `simulatedScreen` still finds the screen. Read as before the repair, ⌥ goes from the button straight to the screen.
 - `MarkdownBuilderTests`: the `LocantShape` head line, the `LocantCluster` line unchanged, and the `LocantGroup` head line.
 - R122 has no unit test: the walk reads live accessibility. The probe in R122 is its check.
+- R125's parent repair has no unit test either, since unit tests have no accessibility tree. The live probe is its check: on the Library screen, the snapshots of Currents, the "Product Ideas" header, and a card have the inner group as their nearest ancestor and its children as their siblings, and at 527,880 the reader answers the `Tab Bar` group.
 - The existing tests pass.
 - In the app, a Debug build, over Oryne in Device Hub (the five cases in the status line), first with the headless probe printing the readout and ladder, then by hand:
   - **The pill** (no edge on screen, so the fallback). In the pill's padding the outline is as today, and ⌥ from "Thought deleted" outlines the cluster `cluster · Thought deleted, Undo`. Committed, the crop holds the whole pill.
   - **The toolbar.** The pointer on the toolbar capsule's rim outlines the capsule, and on the pencil it outlines `button · pencil`. ⌥ from the pencil goes to the capsule, then up.
   - **The toolbar's three buttons (R124).** On the thought-detail screen, ⌥ from `folder`, from `square.and.arrow.up`, or from `trash` outlines the three buttons together, the readout `cluster · folder, square.and.arrow.up, trash`, and a second ⌥ goes on, to the cluster that holds the meta line where no shape is found around the button. The pointer on a button stays on that button.
   - **Recent/Currents.** ⌥ from Recent outlines the capsule in one press.
+  - **Device Hub's tree (R125).** On the Library screen, ⌥ from Currents outlines Recent and Currents together, not the screen. The pointer on the tab bar outlines the `Tab Bar` group, not the card behind it.
   - **The sheet** (no edge at its bottom, so the fallback, and not solved by this spec).
     - Between the sheet's heading, button, and card, the outline is their cluster (R120).
     - In its empty margin, it is the 334×726 screen group, as today. That group is a container that does not span Device Hub's window, so R120 keeps it.
