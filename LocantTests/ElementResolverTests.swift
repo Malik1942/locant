@@ -681,7 +681,8 @@ final class ElementResolverTests: XCTestCase {
         var shapes = FixedShapes(rects: [drawnCard], inks: [drawnCard])
         let onCard = ElementSnapshot(element: cardButton, ancestors: [l.inner, l.screen])
         let levels = HitRefiner.selectionLevels(for: onCard, at: CGPoint(x: 500, y: 616), shapes: &shapes, holding: nil)
-        XCTAssertEqual(levels.map { $0?.rawRole }, ["AXButton", "AXGroup"], "the card's fill merges into the button")
+        XCTAssertEqual(levels.map { $0?.rawRole }, ["AXButton", "AXGroup"],
+                       "the button, now outlining the card, then the screen's group: the card it outlines is no rung of its own")
         assertFrame(levels.first??.frame, tight, "in the padding below the card, the button is still rung 0, tightened to it")
         XCTAssertEqual(levels.first??.label, "Weeknight noodles, yesterday")
         XCTAssertEqual(levels.first??.path, ElementResolver.resolve(onCard)?.path)
