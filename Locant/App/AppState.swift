@@ -37,6 +37,7 @@ final class AppState {
             if phase != .hovering {
                 sampler.stop()
                 shapeMemo = ShapeLookup.Memo()
+                textReader.stop() // R127: the lines read from the sample go with it
             }
         }
     }
@@ -70,6 +71,9 @@ final class AppState {
     @ObservationIgnored private let sampler = ScreenSampler()
     /// R119: the last fill and the shapes found around rectangles, while the sample stays the same.
     @ObservationIgnored private var shapeMemo = ShapeLookup.Memo()
+    /// specs/capture-shapes.md R127: the lines of text inside an element that merges them, read from the sample;
+    /// started and stopped with it.
+    @ObservationIgnored private let textReader = TextLineReader()
     @ObservationIgnored private var lockedElement: ResolvedElement?
     @ObservationIgnored private var lockedElements: [RegionElement]?
     @ObservationIgnored private var lockedNearby: [RegionElement]?
@@ -138,6 +142,7 @@ final class AppState {
         overlay.onOptionPressed = { [weak self] in self?.optionPressed() }
         overlay.onRegion = { [weak self] rect, start in self?.region(rect, start: start) }
         sampler.onUpdate = { [weak self] in self?.rehover() }
+        textReader.onUpdate = { [weak self] in self?.rehover() }
         restartHotkey()
     }
 
@@ -561,6 +566,7 @@ final class AppState {
             windows = WindowList.onScreen()
             overlay.show()
             sampler.start()
+            textReader.start()
             showHintIfNeeded(key: Self.hintKey(for: requested), text: Self.hintText(for: requested))
         }
     }
@@ -710,7 +716,8 @@ final class AppState {
     }
 
     /// specs/capture-shapes.md R117: the ladder at `point`, with the shapes under the pointer once the screen
-    /// sample of their area has landed (R118). Until then, today's ladder; with no answer at the point, nothing.
+    /// sample of their area has landed (R118), and on Device Hub's screen the line of text under the pointer
+    /// (R127). Until then, today's ladder; with no answer at the point, nothing.
     private func shapeLevels(for snapshot: ElementSnapshot?, at point: CGPoint) async -> [ResolvedElement?] {
         guard let snapshot else { return [] }
         let bound = shapeBound(at: point, in: snapshot)
@@ -728,7 +735,17 @@ final class AppState {
         #if DEBUG
         NSLog("Locant shapes: %.2f ms", (ContinuousClock.now - started) / .milliseconds(1))
         #endif
-        return levels
+        // R127: the line under the pointer goes ahead of the ladder, which keeps the answer and what follows.
+        guard let line = textRung(for: snapshot, at: point, in: grid) else { return levels }
+        return [line] + levels
+    }
+
+    /// R127: on Device Hub's screen, the line of text under the pointer inside an answer that merges its lines,
+    /// once they are read from the sample. Until then, and anywhere else, nil.
+    private func textRung(for snapshot: ElementSnapshot, at point: CGPoint, in grid: PixelGrid) -> ResolvedElement? {
+        guard let area = HitRefiner.textArea(of: snapshot, at: point), let answer = ElementResolver.resolve(snapshot),
+              let lines = textReader.lines(in: area, of: grid, label: answer.label) else { return nil }
+        return HitRefiner.textRung(lines: lines, at: point, answer: answer, answerFrame: Frame(area))
     }
 
     /// R119's bound: the simulated screen in Device Hub, else the window under the point, else its display.
@@ -738,7 +755,8 @@ final class AppState {
             ?? SelectionOverlay.displayFrameCG(containing: point)
     }
 
-    /// R118: a new screen sample landed; the spot under the pointer is read again with it.
+    /// R118, R127: a new screen sample, or the lines read from it, landed; the spot under the pointer is read
+    /// again with it.
     private func rehover() {
         guard phase == .hovering, lastHoverSnapshot != nil else { return }
         hover(pendingHover ?? lastHoverPoint) // a newer point queued during a lookup stays the newer one
