@@ -656,18 +656,16 @@ extension HitRefiner {
     static func selectionLevels(for snapshot: ElementSnapshot?, at point: CGPoint,
                                 shapes: inout some ShapeSource, holding previous: ResolvedElement?) -> [ResolvedElement?] {
         guard let snapshot else { return [] }
-        let inPhone = simulatedScreen(in: snapshot) != nil
+        let screen = simulatedScreen(in: snapshot)
         var today = selectionLevels(for: snapshot, at: point)
-        if inPhone {
-            for index in today.indices {
-                if let rung = today[index] { today[index] = tightened(rung, shapes: &shapes) }
-            }
+        for index in today.indices {
+            if let rung = today[index] { today[index] = tightened(rung, on: screen, shapes: &shapes) }
         }
         let rung0: ResolvedElement
         var shapeAtPoint: CGRect?
         var heldIn: CGRect?
         if let hit = ElementResolver.resolve(snapshot), isElement(hit), hit.frame.cgRect.contains(point) {
-            rung0 = inPhone ? tightened(hit, shapes: &shapes) : hit
+            rung0 = tightened(hit, on: screen, shapes: &shapes)
         } else if let shape = shapes.shape(at: point) {
             shapeAtPoint = shape
             // R127: a line read from the screen is never held; it is read again at each step.
@@ -675,13 +673,13 @@ extension HitRefiner {
                previous.frame.cgRect.insetBy(dx: -shapeHold, dy: -shapeHold).contains(point),
                holds(shape, previous.frame.cgRect) {
                 // Held from the step before, which tightened it already where it could.
-                rung0 = inPhone ? tightened(previous, shapes: &shapes) : previous
+                rung0 = tightened(previous, on: screen, shapes: &shapes)
                 heldIn = shape
             } else {
                 rung0 = shapeElement(frame: shape, snapshot: snapshot)
             }
         } else {
-            return inPhone ? collapsingSameFrames(today) : today
+            return screen == nil ? today : collapsingSameFrames(today)
         }
         var around = shapes.shapes(around: rung0.frame.cgRect)
         // A held element is not the shape it sits in: that shape is the next rung even where nothing is
@@ -780,10 +778,13 @@ extension HitRefiner {
     }
 
     /// R126: `rung` with its frame tightened, when it is an accessibility rung that is neither a container
-    /// nor computed (a shape, a cluster, or a group). Its role, label, identifier, path, and members stay.
-    private static func tightened(_ rung: ResolvedElement, shapes: inout some ShapeSource) -> ResolvedElement {
+    /// nor computed (a shape, a cluster, or a group) and lies inside `screen`, the simulated screen the
+    /// sample shows (within 1 pt). Its role, label, identifier, path, and members stay. Off the screen
+    /// (`screen` nil), and for a rung around it, unchanged.
+    private static func tightened(_ rung: ResolvedElement, on screen: CGRect?, shapes: inout some ShapeSource) -> ResolvedElement {
         let frame = rung.frame.cgRect
-        guard isElement(rung), tightens(frame) else { return rung } // a small control costs no pixel read
+        guard let screen, isElement(rung), tightens(frame), // a small control costs no pixel read
+              screen.insetBy(dx: -1, dy: -1).contains(frame) else { return rung }
         var tight = rung
         tight.frame = Frame(tightFrame(frame, ink: shapes.ink(inside: frame)))
         return tight

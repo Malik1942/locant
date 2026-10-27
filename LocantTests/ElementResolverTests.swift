@@ -735,6 +735,21 @@ final class ElementResolverTests: XCTestCase {
                        HitRefiner.selectionLevels(for: plain, at: center(header)))
     }
 
+    /// R126: the sample shows the simulated screen only, so a rung that does not lie inside it, such as a
+    /// non-container around the screen, keeps its frame.
+    func testOnTheSimulatedScreenOnlyRungsInsideItTighten() throws {
+        let l = library()
+        let header = l.children[6]
+        let title = CGRect(x: 378, y: 338, width: 300, height: 21)
+        let around = AttributeSet(role: "AXUnknown", frame: Frame(x: 300, y: 60, w: 460, h: 900)) // holds the screen
+        var shapes = FixedShapes(rects: [], inks: [title])
+        let snapshot = ElementSnapshot(element: header, ancestors: [l.inner, l.screen, around], siblings: l.children)
+        let levels = HitRefiner.selectionLevels(for: snapshot, at: center(header), shapes: &shapes, holding: nil)
+        XCTAssertEqual(levels.map { $0?.rawRole }, ["AXButton", "LocantGroup", "LocantCluster", "AXGroup", "AXUnknown"])
+        assertFrame(levels[0]?.frame, title)
+        XCTAssertEqual(levels.last??.frame, around.frame, "around the screen: its own frame")
+    }
+
     /// R126: iOS pads a control smaller than its 44 pt tap target on purpose, so the capsule's 39.4×39.3
     /// buttons keep their frames, icons drawn or not.
     func testOnTheSimulatedScreenAControlUnder44PointsKeepsItsFrame() {
