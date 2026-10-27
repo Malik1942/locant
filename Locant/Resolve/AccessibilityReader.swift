@@ -108,15 +108,15 @@ actor AccessibilityReader {
         let elements = [hit] + read.ancestors
         let screen = elements[index]
         // Keyed by the screen as read: a detached copy's chain entry carries its children's union instead.
-        let known = neighbors(of: screen, attributes: index == 0 ? chain[0] : cachedAttributes(of: screen))
+        let hood = neighborhood(of: screen, attributes: index == 0 ? chain[0] : cachedAttributes(of: screen))
         // The cached children say whether any could answer at the point, whichever holds the hit; where none
-        // can (the pointer in the content group, the common case), nothing more is read.
-        guard HitRefiner.overlayIndex(at: point, screen: screenFrame, children: known, holding: nil) != nil else { return nil }
-        let kids = Array(children(of: screen).prefix(Self.neighborLimit))
-        let attributes = known.count == kids.count ? known : kids.map { lightAttributes(of: $0) }
+        // can (the pointer in the content group, the common case), nothing more is asked.
+        guard HitRefiner.overlayIndex(at: point, screen: screenFrame, children: hood.nodes, holding: nil) != nil else { return nil }
+        // The cache's elements, in step with its nodes (the first `neighborLimit`), say which holds the hit.
+        let kids = hood.elements.prefix(hood.nodes.count)
         let below = elements[..<index]
         let holding = kids.firstIndex { kid in below.contains { CFEqual($0, kid) } }
-        guard let chosen = HitRefiner.overlayIndex(at: point, screen: screenFrame, children: attributes, holding: holding) else { return nil }
+        guard let chosen = HitRefiner.overlayIndex(at: point, screen: screenFrame, children: hood.nodes, holding: holding) else { return nil }
         return refine(kids[chosen], at: point)
     }
 
