@@ -163,7 +163,8 @@ actor AccessibilityReader {
     /// Device Hub), the non-container elements a grid of hit tests finds inside `region`: every 8 pt or
     /// wider, about 400 tests at most, each element read once. A frame thinner than the step still gets
     /// one row or column. Bounded: a quarter second per call, no more tests once 200 ms have passed or
-    /// the app stops answering, keeping what was found.
+    /// the app stops answering, keeping what was found. The points come coarse to fine (`gridPoints`),
+    /// so a grid that stops early has still tested the whole frame, only more sparsely.
     func hitElements(in region: CGRect, pid: pid_t) -> [ElementSnapshot] {
         let app = AXUIElementCreateApplication(pid)
         enableAccessibilityIfNeeded(app: app, pid: pid)
@@ -173,35 +174,77 @@ actor AccessibilityReader {
         var found: [ElementSnapshot] = []
         var seenElements = Set<ElementKey>()
         var seenRoleFrames = Set<RoleFrame>()
-        var y = region.minY + min(step / 2, region.height / 2)
-        rows: while y < region.maxY {
-            var x = region.minX + min(step / 2, region.width / 2)
-            while x < region.maxX {
-                guard ContinuousClock.now < deadline else { break rows }
-                let answer = hitAnswer(app, at: CGPoint(x: x, y: y))
-                if answer.error == .cannotComplete { break rows } // the app is not answering
-                // A point mostly lands on its neighbour's element, often a container: identity first,
-                // then the role alone (no subrole maps to a container), and only then the rest.
-                if let element = answer.element, seenElements.insert(ElementKey(pid: pid, hash: CFHash(element))).inserted {
-                    AXUIElementSetMessagingTimeout(element, 0.25)
-                    let role = string(copy(element, kAXRoleAttribute))
-                    if !ElementResolver.containerRoles.contains(ElementResolver.mapRole(role ?? "", subrole: nil)) {
-                        let attributes = lightAttributes(of: element, role: role)
-                        if let frame = attributes.frame,
-                           seenRoleFrames.insert(RoleFrame(role: ElementResolver.mapRole(role ?? "", subrole: attributes.subrole), frame: frame)).inserted {
-                            found.append(ElementSnapshot(element: attributes, ancestors: []))
-                        }
+        for point in Self.gridPoints(in: region, step: step) {
+            guard ContinuousClock.now < deadline else { break }
+            let answer = hitAnswer(app, at: point)
+            if answer.error == .cannotComplete { break } // the app is not answering
+            // A point mostly lands on its neighbour's element, often a container: identity first,
+            // then the role alone (no subrole maps to a container), and only then the rest.
+            if let element = answer.element, seenElements.insert(ElementKey(pid: pid, hash: CFHash(element))).inserted {
+                AXUIElementSetMessagingTimeout(element, 0.25)
+                let role = string(copy(element, kAXRoleAttribute))
+                if !ElementResolver.containerRoles.contains(ElementResolver.mapRole(role ?? "", subrole: nil)) {
+                    let attributes = lightAttributes(of: element, role: role)
+                    if let frame = attributes.frame,
+                       seenRoleFrames.insert(RoleFrame(role: ElementResolver.mapRole(role ?? "", subrole: attributes.subrole), frame: frame)).inserted {
+                        found.append(ElementSnapshot(element: attributes, ancestors: []))
                     }
                 }
-                x += step
             }
-            y += step
         }
         return found
     }
 
     /// R122: how long the hit-test grid may sample.
     private static let hitGridBudget: Duration = .milliseconds(200)
+
+    /// R122: the grid's points, `step` apart from half a step inside `region`'s top left corner; a frame
+    /// thinner than the step gets one row or column through its middle. Coarse to fine, so a grid stopped
+    /// at its time limit still covers the whole frame evenly: rows and columns each take their turns in
+    /// bit-reversed order (first, middle, quarters, eighths, …), and a point comes at the later of its
+    /// row's and its column's turn.
+    nonisolated static func gridPoints(in region: CGRect, step: CGFloat) -> [CGPoint] {
+        guard step > 0, !region.isNull, !region.isInfinite else { return [] }
+        func line(from start: CGFloat, to end: CGFloat, length: CGFloat) -> [CGFloat] {
+            var values: [CGFloat] = []
+            var value = start + min(step / 2, length / 2)
+            while value < end {
+                values.append(value)
+                value += step
+            }
+            return values
+        }
+        let rows = line(from: region.minY, to: region.maxY, length: region.height)
+        let columns = line(from: region.minX, to: region.maxX, length: region.width)
+        let rowTurn = coarseToFine(rows.count), columnTurn = coarseToFine(columns.count)
+        var points: [(first: Int, second: Int, point: CGPoint)] = []
+        points.reserveCapacity(rows.count * columns.count)
+        for (r, y) in rows.enumerated() {
+            for (c, x) in columns.enumerated() {
+                let a = rowTurn[r], b = columnTurn[c]
+                points.append((max(a, b), min(a, b) * 2 + (a < b ? 0 : 1), CGPoint(x: x, y: y)))
+            }
+        }
+        points.sort { ($0.first, $0.second) < ($1.first, $1.second) }
+        return points.map(\.point)
+    }
+
+    /// Each of `count` indices' turn in bit-reversed order: 0, then the middle, then the quarters, and
+    /// so on, skipping what lies past the end.
+    private nonisolated static func coarseToFine(_ count: Int) -> [Int] {
+        var bits = 0
+        while (1 << bits) < count { bits += 1 }
+        var turn = [Int](repeating: 0, count: count)
+        var next = 0
+        for k in 0..<(1 << bits) {
+            var reversed = 0
+            for bit in 0..<bits where k & (1 << bit) != 0 { reversed |= 1 << (bits - 1 - bit) }
+            guard reversed < count else { continue }
+            turn[reversed] = next
+            next += 1
+        }
+        return turn
+    }
 
     /// R122: the walk's elements and the grid's, for a caller with no lazy-tree retry of its own (a
     /// committed shape's members; a drawn frame runs the grid once after its retry). `RegionResolver`

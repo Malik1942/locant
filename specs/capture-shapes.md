@@ -11,7 +11,7 @@ Amended Oct 26, after the R122 check and the final review:
 - **R120:** a container under the pointer reads its children, not its siblings, so the sibling cluster that used to follow a small container hit is gone.
 - **R121:** a committed shape's members come from the walk and R122's hit-test grid (`visibleElements(in:pid:)`), not the walk alone, read after the crop has started.
 - **R122:** the walk missed two buttons hover reads on the thought-detail screen, so a hit-test grid follows it for drawn frames and committed shapes.
-- **R122:** the grid is bounded: a quarter second per call, and it stops after 200 ms or at an app that does not answer.
+- **R122:** the grid is bounded: a quarter second per call, and it stops after 200 ms or at an app that does not answer. It visits its points coarse to fine, so a stopped grid still covers the whole frame.
 
 **Scope of this spec:** finding shapes, hover and the ⌥ ladder with shapes in them, the cluster under any parent, the readout and payload of a shape, and the drawn frame that found nothing in Device Hub.
 **Out of scope:** drawn frames snapping to shapes; a gesture that steps inside a shape (⌥ goes up, pointing goes in); the 40 pt crop padding; a setting to turn shapes off; new schema fields; shapes in apps with no accessibility tree at all (iPhone Mirroring, canvases), which keep the fallback square because a shape there has no members to grep.
@@ -130,7 +130,7 @@ Before any change, the thought-detail toolbar is checked with the probe:
 
 **The check, Oct 26.** On the thought-detail screen the walk found the toolbar's buttons: the Oct 18 miss did not reproduce. It missed two buttons hover reads there, "Ask Ocean" and "Grow a branch", and lifting the walk's depth and node limits did not help. So a grid of hit tests is added to the walk (`AccessibilityReader.hitElements(in:pid:)`):
 - a test every 8 pt or wider, at most about 400 tests, each element read once;
-- a quarter second per call; the grid stops after 200 ms, or at the first test the app does not answer, and keeps what it found;
+- a quarter second per call; the grid stops after 200 ms, or at the first test the app does not answer, and keeps what it found. Its points are visited coarse to fine (rows and columns each in bit-reversed order: first, middle, quarters, eighths), so a grid that stops early still covers the whole frame evenly, only more sparsely;
 - a drawn frame runs it once, after the walk's lazy-tree retry; a committed shape's members (R121) take the walk and the grid together (`visibleElements(in:pid:)`); auto-verify's refind (v0.6 R52) keeps the plain walk.
 
 An element smaller than the grid's step inside a large frame can still be missed.
