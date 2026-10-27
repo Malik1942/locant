@@ -838,6 +838,28 @@ final class ElementResolverTests: XCTestCase {
         }
     }
 
+    /// R126: the rule the ladder tightens an accessibility frame by, which iterations share: what is drawn inside it,
+    /// read only when the frame is at least 44 pt both ways and lies inside the simulated screen.
+    func testAFrameTightensOnlyInsideTheSimulatedScreen() {
+        let padded = cardButton.frame!.cgRect
+        var asked = 0
+        func ink(_ rect: CGRect) -> CGRect? {
+            asked += 1
+            return drawnCard
+        }
+        XCTAssertEqual(HitRefiner.tightFrame(padded, on: hubScreen.cgRect, ink: ink), drawnCard.intersection(padded))
+        XCTAssertEqual(asked, 1)
+        XCTAssertEqual(HitRefiner.tightFrame(padded, on: nil, ink: ink), padded, "off the simulated screen")
+        let around = CGRect(x: 300, y: 60, width: 460, height: 900) // holds the screen
+        XCTAssertEqual(HitRefiner.tightFrame(around, on: hubScreen.cgRect, ink: ink), around, "not inside the screen")
+        let currents = CGRect(x: 606.5, y: 220.0, width: 39.4, height: 39.3)
+        XCTAssertEqual(HitRefiner.tightFrame(currents, on: hubScreen.cgRect, ink: ink), currents, "under 44 pt")
+        XCTAssertEqual(asked, 1, "no pixels read for any of them")
+        XCTAssertEqual(HitRefiner.tightFrame(padded, on: hubScreen.cgRect, ink: { _ in nil }), padded, "nothing drawn inside it")
+        let edge = CGRect(x: hubScreen.x - 0.5, y: 543.2, width: 331.1, height: 75.9) // past the screen by half a point
+        XCTAssertNotEqual(HitRefiner.tightFrame(edge, on: hubScreen.cgRect, ink: { _ in self.drawnCard }), edge, "inside within 1 pt")
+    }
+
     // MARK: Text lines (specs/capture-shapes.md R127)
 
     /// The card's two lines as Vision might read them; it reads the list icon before "yesterday" as "=".

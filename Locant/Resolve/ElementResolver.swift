@@ -808,17 +808,27 @@ extension HitRefiner {
         return inset > shapeMerge ? tight : frame
     }
 
-    /// R126: `rung` with its frame tightened, when it is an accessibility rung that is neither a container
-    /// nor computed (a shape, a cluster, or a group) and lies inside `screen`, the simulated screen the
-    /// sample shows (within 1 pt). Its role, label, identifier, path, and members stay. Off the screen
-    /// (`screen` nil), and for a rung around it, unchanged.
+    /// R126: `rung` with its frame tightened (`tightFrame(_:on:ink:)`), when it is an accessibility rung that is
+    /// neither a container nor computed (a shape, a cluster, or a group). Its role, label, identifier, path, and
+    /// members stay.
     private static func tightened(_ rung: ResolvedElement, on screen: CGRect?, shapes: inout some ShapeSource) -> ResolvedElement {
+        guard isElement(rung) else { return rung }
         let frame = rung.frame.cgRect
-        guard let screen, isElement(rung), tightens(frame), // a small control costs no pixel read
-              screen.insetBy(dx: -1, dy: -1).contains(frame) else { return rung }
-        var tight = rung
-        tight.frame = Frame(tightFrame(frame, ink: shapes.ink(inside: frame)))
-        return tight
+        let tight = tightFrame(frame, on: screen) { shapes.ink(inside: $0) }
+        guard tight != frame else { return rung }
+        var tightened = rung
+        tightened.frame = Frame(tight)
+        return tightened
+    }
+
+    /// R126: an accessibility element's `frame` as the ladder outlines it on `screen`, Device Hub's simulated screen
+    /// the sample shows: what is drawn inside it (`ink`, asked only then: a small control costs no pixel read), cut
+    /// as `tightFrame(_:ink:)` cuts it, when the frame is at least `tightenMinSide` both ways and lies inside the
+    /// screen within 1 pt (the sample shows nothing beyond it). Else, and off the screen (`screen` nil), `frame`.
+    /// Iterations of a tightened capture tighten the element found again by the same rule (`AutoVerify.afterFrame`).
+    static func tightFrame(_ frame: CGRect, on screen: CGRect?, ink: (CGRect) -> CGRect?) -> CGRect {
+        guard let screen, tightens(frame), screen.insetBy(dx: -1, dy: -1).contains(frame) else { return frame }
+        return tightFrame(frame, ink: ink(frame))
     }
 
     /// R126: large enough both ways to be tightened.
