@@ -855,6 +855,17 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertEqual(HitRefiner.textLabel("Q天", within: "周末面条, 昨天"), "Q天")
     }
 
+    /// R127: a merged element's label ticks with the text it merges, so one element's two labels share a part.
+    func testLabelsOfOneElementShareAPart() {
+        XCTAssertTrue(HitRefiner.labelsSharePart("Random, 4 seconds ago", "Random, 5 seconds ago"))
+        XCTAssertTrue(HitRefiner.labelsSharePart("Tab Bar", "Tab Bar"))
+        XCTAssertTrue(HitRefiner.labelsSharePart(nil, nil), "equal")
+        XCTAssertTrue(HitRefiner.labelsSharePart("周末面条, 昨天", "周末面条, 4 秒前"))
+        XCTAssertFalse(HitRefiner.labelsSharePart("Random, 4 seconds ago", "Weeknight noodles, yesterday"))
+        XCTAssertFalse(HitRefiner.labelsSharePart("Random, 4 seconds ago", nil))
+        XCTAssertFalse(HitRefiner.labelsSharePart("Product Ideas, 12 thoughts", "Cooking, 1"), "\"1\" is too short to be contained")
+    }
+
     func testOfTwoLinesInReachTheNearerIsTheRung() throws {
         let l = library()
         let card = ElementSnapshot(element: cardButton, ancestors: [l.inner, l.screen])
@@ -904,6 +915,10 @@ final class ElementResolverTests: XCTestCase {
         other.description = "Cooking, 2 days ago"
         XCTAssertFalse(HitRefiner.isRereadLine(first, in: card, again, in: ElementSnapshot(element: other, ancestors: [l.inner, l.screen])),
                        "an answer whose label shares no part")
+        var ticked = cardButton
+        ticked.description = "Weeknight noodles, today"
+        XCTAssertTrue(HitRefiner.isRereadLine(first, in: card, again, in: ElementSnapshot(element: ticked, ancestors: [l.inner, l.screen])),
+                      "the label ticked with the text the card merges, in the same step as the pixels")
         var shifted = cardButton
         shifted.frame = Frame(x: 362.2, y: 623.2, w: 331.1, h: 75.9)
         XCTAssertFalse(HitRefiner.isRereadLine(first, in: card, again, in: ElementSnapshot(element: shifted, ancestors: [l.inner, l.screen])),

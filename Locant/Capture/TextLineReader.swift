@@ -4,8 +4,8 @@ import Vision
 
 /// specs/capture-shapes.md R127: the lines of text inside an element that merges them (a SwiftUI list card,
 /// Device Hub's floating tab bar), read from the screen sample with Vision. Hover never waits for them:
-/// without lines for a rectangle's pixels it asks for them and goes on with the lines last read for that
-/// element, if any, and when they land `onUpdate` has the spot read again. Memory only, dropped on `stop()`.
+/// without lines for a rectangle's pixels it asks for them and goes on with the lines last read there for the
+/// same element, if any, and when they land `onUpdate` has the spot read again. Memory only, dropped on `stop()`.
 @MainActor
 final class TextLineReader {
     /// How an answer's lines are read, decided from its label before anything is read (`reading(for:)`).
@@ -22,7 +22,7 @@ final class TextLineReader {
     /// Rectangles whose lines are kept; past this the cache starts over.
     static let cacheLimit = 32
 
-    /// Lines landed that can change the ladder: two or more, or fewer where two or more were known for the element.
+    /// Lines landed that can change the ladder: two or more, or fewer where two or more were known in the frame.
     var onUpdate: (() -> Void)?
 
     /// A rectangle and its pixels: lines read once stand while the pixels inside it do not change, so the
@@ -34,17 +34,10 @@ final class TextLineReader {
         var reading: Reading
     }
 
-    /// An element as the reader knows it: its frame and its label. Its lines last read stand while its changed
-    /// pixels are read again. Another element at the same frame (a pushed screen of the same layout, a reused
-    /// cell, another tab under the tab bar) has another label, so it never shows them.
-    private struct Element: Hashable, Sendable {
-        var frame: Frame
-        var label: String?
-    }
-
     private struct Request: Sendable {
         var key: Key
-        var element: Element
+        /// The label of the element the lines are read for.
+        var label: String?
         var frame: CGRect
         var grid: PixelGrid
     }
@@ -52,8 +45,12 @@ final class TextLineReader {
     private let recognize: Recognize
     private var running = false
     private var cache: [Key: [TextLine]] = [:]
-    /// The lines last read for each element, whatever its pixels then.
-    private var latest: [Element: [TextLine]] = [:]
+    /// The lines last read in each frame, whatever its pixels then, and the label of the element they were read
+    /// for. They stand while the frame's changed pixels are read again, for an element whose label shares a part
+    /// with that one (`HitRefiner.labelsSharePart`): a merged element's label ticks with the text it merges
+    /// ("Random, 4 seconds ago" to "Random, 5 seconds ago"), while another element at the same frame (a pushed
+    /// screen of the same layout, a reused cell, another tab under the tab bar) shares no part with it.
+    private var latest: [Frame: (label: String?, lines: [TextLine])] = [:]
     private var inFlight: Key?
     /// The newest request that came while one was in flight; an older one waiting is dropped.
     private var waiting: Request?
@@ -84,23 +81,23 @@ final class TextLineReader {
     }
 
     /// The lines read in `frame` (global points) of `grid` for the element there with `label`, when its pixels
-    /// there have been read. Else they are asked for, and meanwhile the lines last read for that element (the
-    /// same frame and label) stand, or nil. The label also says how to read them (`reading(for:)`); one that
-    /// gives no reading gives no lines, and nothing is read.
+    /// there have been read. Else they are asked for, and meanwhile the lines last read in that frame stand when
+    /// they were read for the same element as far as the labels tell (`latest`), or nil. The label also says how
+    /// to read them (`reading(for:)`); one that gives no reading gives no lines, and nothing is read.
     func lines(in frame: CGRect, of grid: PixelGrid, label: String? = nil) -> [TextLine]? {
         guard running, let reading = Self.reading(for: label), let key = key(for: frame, in: grid, reading: reading) else { return nil }
-        let element = Element(frame: Frame(frame), label: label)
         if let known = cache[key] {
-            remember(known, for: element)
+            remember(known, in: key.frame, label: label)
             return known
         }
-        ask(Request(key: key, element: element, frame: frame, grid: grid))
-        return latest[element]
+        ask(Request(key: key, label: label, frame: frame, grid: grid))
+        guard let last = latest[key.frame], HitRefiner.labelsSharePart(last.label, label) else { return nil }
+        return last.lines
     }
 
-    private func remember(_ lines: [TextLine], for element: Element) {
-        if latest[element] == nil, latest.count >= Self.cacheLimit { latest.removeAll() }
-        latest[element] = lines
+    private func remember(_ lines: [TextLine], in frame: Frame, label: String?) {
+        if latest[frame] == nil, latest.count >= Self.cacheLimit { latest.removeAll() }
+        latest[frame] = (label, lines)
     }
 
     private func key(for frame: CGRect, in grid: PixelGrid, reading: Reading) -> Key? {
@@ -144,11 +141,12 @@ final class TextLineReader {
             }.value
             guard let self, self.session == session else { return }
             self.inFlight = nil
-            let landed = lines ?? [] // a failed read gives no lines, and is not tried again on the same pixels
-            let shown = self.latest[request.element]?.count ?? 0 // what hover may show for the element meanwhile
+            // A failed read caches no lines for these pixels: they are read again only once they change.
+            let landed = lines ?? []
+            let shown = self.latest[request.key.frame]?.lines.count ?? 0 // what hover may show in the frame meanwhile
             if self.cache.count >= Self.cacheLimit { self.cache.removeAll() }
             self.cache[request.key] = landed
-            self.remember(landed, for: request.element)
+            self.remember(landed, in: request.key.frame, label: request.label)
             // One line or none makes no rung (R127), so only a landing that can change the ladder reads the spot again.
             if landed.count >= 2 || shown >= 2 { self.onUpdate?() }
             if let next = self.waiting {

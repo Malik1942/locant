@@ -245,8 +245,9 @@ final class TextLineReaderTests: XCTestCase {
         reader.stop()
     }
 
-    /// A card whose date ticks: its pixels change each sample. The lines last read for it stand while the new
-    /// ones are read, so its line does not drop to the card and back; never for another element at its frame.
+    /// A card whose date ticks: its pixels and its label (the texts it merges) change in the same step. The lines
+    /// last read in its frame stand while the new ones are read, since the new label shares a part with the old,
+    /// so its line does not drop to the card and back; never for an element whose label shares no part.
     func testWhileChangedPixelsAreReadTheElementsLastLinesStand() async throws {
         let calls = Calls()
         let gate = Gate()
@@ -267,8 +268,12 @@ final class TextLineReaderTests: XCTestCase {
         await fulfillment(of: [first], timeout: 2)
 
         let ticked = sample(generation: 2, marks: [CGRect(x: 320, y: 125, width: 10, height: 4)])
-        XCTAssertEqual(reader.lines(in: a, of: ticked, label: card), Self.two(in: a), "the lines last read stand while the new pixels are read")
-        XCTAssertNil(reader.lines(in: a, of: ticked, label: "Weeknight noodles, yesterday"), "never another element's at the same frame")
+        let later = "Random, 5 seconds ago"
+        XCTAssertEqual(reader.lines(in: a, of: ticked, label: later), Self.two(in: a),
+                       "the label ticked with the pixels: the lines last read stand while the new pixels are read")
+        XCTAssertEqual(reader.lines(in: a, of: ticked, label: card), Self.two(in: a))
+        XCTAssertNil(reader.lines(in: a, of: ticked, label: "Weeknight noodles, yesterday"), "never for a label that shares no part")
+        XCTAssertNil(reader.lines(in: a, of: ticked, label: nil), "nor for no label")
 
         let second = expectation(description: "the second read, of one line")
         reader.onUpdate = {
@@ -278,7 +283,7 @@ final class TextLineReaderTests: XCTestCase {
         await gate.release()
         await fulfillment(of: [second], timeout: 2)
         XCTAssertEqual(updates, 2, "one line where two stood is an update, so the line's rung goes")
-        XCTAssertEqual(reader.lines(in: a, of: ticked, label: card)?.count, 1)
+        XCTAssertEqual(reader.lines(in: a, of: ticked, label: later)?.count, 1)
         let count = await calls.count
         XCTAssertEqual(count, 2)
 

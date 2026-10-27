@@ -933,6 +933,16 @@ extension HitRefiner {
     static let textMatchMinLength = 3
     static let textMatchMinHan = 2
 
+    /// R127: two labels of one element, though the text it merges has changed: equal (both nil included), or
+    /// some ", "-part of one reads like a part of the other (`textMatches`). "Random, 4 seconds ago" and
+    /// "Random, 5 seconds ago" share "Random"; a pushed screen's or a reused cell's card shares no part.
+    static func labelsSharePart(_ a: String?, _ b: String?) -> Bool {
+        if a == b { return true }
+        guard let a, let b else { return false }
+        let others = labelParts(b)
+        return labelParts(a).contains { part in others.contains { textMatches(part, $0) } }
+    }
+
     private static func textKey(_ s: String) -> String { String(s.lowercased().filter { $0.isLetter || $0.isNumber }) }
 
     private static func labelParts(_ label: String) -> [String] {
@@ -941,13 +951,14 @@ extension HitRefiner {
 
     /// R127: `a` and `b`, the rung 0 of two hover steps, are one line read again: both read from the screen, of
     /// the same label and path and with overlapping boxes, in answers (`answerA`, `answerB`) of the same frame
-    /// and label. A re-read can move a line's box a little; it is no move to another rung.
+    /// whose labels share a part (`labelsSharePart`; the label of a merged element ticks with the text it
+    /// merges). A re-read can move a line's box a little; it is no move to another rung.
     static func isRereadLine(_ a: ResolvedElement?, in answerA: ElementSnapshot?, _ b: ResolvedElement?, in answerB: ElementSnapshot?) -> Bool {
         guard let a, let b, let answerA, let answerB,
               a.rawRole == ElementResolver.textRawRole, b.rawRole == ElementResolver.textRawRole,
               a.label == b.label, a.path == b.path, a.frame.cgRect.intersects(b.frame.cgRect),
               let frame = answerA.element.frame, frame == answerB.element.frame else { return false }
         func label(_ node: AttributeSet) -> String? { ElementResolver.nonEmpty(node.title) ?? ElementResolver.nonEmpty(node.description) }
-        return label(answerA.element) == label(answerB.element)
+        return labelsSharePart(label(answerA.element), label(answerB.element))
     }
 }
