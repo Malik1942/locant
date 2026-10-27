@@ -802,7 +802,7 @@ extension HitRefiner {
     static func isRetightened(_ a: ResolvedElement?, _ b: ResolvedElement?) -> Bool {
         guard let a, var b else { return false }
         let (fa, fb) = (a.frame.cgRect, b.frame.cgRect)
-        guard fa.contains(fb) || fb.contains(fa) else { return false }
+        guard lies(fb, inside: fa) || lies(fa, inside: fb) else { return false }
         b.frame = a.frame
         return a == b
     }
@@ -819,8 +819,14 @@ extension HitRefiner {
         guard let snapshot, simulatedScreen(in: snapshot) != nil, var own = ElementResolver.resolve(snapshot) else { return false }
         let frame = own.frame.cgRect
         own.frame = shown.frame
-        return own == shown && frame.contains(shown.frame.cgRect)
+        return own == shown && lies(shown.frame.cgRect, inside: frame)
             && frame.insetBy(dx: -stickiness, dy: -stickiness).contains(point)
+    }
+
+    /// R126: `inner` lies inside `outer`, give or take a hundredth of a point: a frame cut to another and
+    /// stored as x, y, w, h can end an ulp past it (x + w).
+    private static func lies(_ inner: CGRect, inside outer: CGRect) -> Bool {
+        outer.insetBy(dx: -0.01, dy: -0.01).contains(inner)
     }
 
     /// `outer` holds `inner`, give or take `shapeMerge`.

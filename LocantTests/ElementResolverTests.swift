@@ -1002,6 +1002,21 @@ final class ElementResolverTests: XCTestCase {
         XCTAssertFalse(HitRefiner.isRetightened(header, nil))
     }
 
+    /// R126: a frame cut to another and stored as x, y, w, h can end an ulp past it (x + w), so "inside"
+    /// allows a hundredth of a point. Built the way `tightFrame` builds it.
+    func testATightenedFrameAnUlpPastItsElementsStillLiesInside() throws {
+        let frame = Frame(x: 291.4, y: 197.4, w: 603.7, h: 665.1)
+        let tight = Frame(HitRefiner.tightFrame(frame.cgRect, ink: CGRect(x: 300.2, y: 223.8, width: 730.1, height: 12.1)))
+        XCTAssertFalse(frame.cgRect.contains(tight.cgRect), "the case: 895.1000000000001 past 895.1")
+        let phone = AttributeSet(role: "AXGroup", subrole: HitRefiner.simulatedScreenSubrole, frame: Frame(x: 200, y: 100, w: 800, h: 900))
+        let snapshot = ElementSnapshot(element: AttributeSet(role: "AXButton", description: "Row", frame: frame), ancestors: [phone])
+        let own = try XCTUnwrap(ElementResolver.resolve(snapshot))
+        var shown = own
+        shown.frame = tight
+        XCTAssertTrue(HitRefiner.isRetightened(own, shown))
+        XCTAssertTrue(HitRefiner.clickIsOnHover(CGPoint(x: 295, y: 800), shown: shown, snapshot: snapshot), "in its padding")
+    }
+
     /// R126: when the rung drawn is not the snapshot's element (R117 step 3, a shape over an element reached
     /// through the tolerance; step 2, an element held inside a shape), a click in that element's frame far
     /// from the rung is a click elsewhere.
