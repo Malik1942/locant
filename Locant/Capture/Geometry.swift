@@ -159,6 +159,23 @@ enum Geometry {
         return !candidates[..<index].contains { $0.layer == 0 && $0.ownerPID != owner }
     }
 
+    /// One of an app's windows as accessibility lists it, for `regionWindows`.
+    struct AppWindow: Sendable, Equatable {
+        var frame: CGRect?
+        var minimized: Bool
+    }
+
+    /// specs/region-windows.md R136: which of an app's windows a drawn frame reads, by index. Never a
+    /// minimized one: it keeps reporting the frame it had on screen, so its elements land under any
+    /// frame drawn there. Of the rest, the one the frame was drawn on (`owner`, from the window list),
+    /// so a window of the same app behind it stays out; when none is that window, every one that shows.
+    static func regionWindows(_ windows: [AppWindow], owner: CGRect?) -> [Int] {
+        let shown = windows.indices.filter { !windows[$0].minimized }
+        guard let owner else { return shown }
+        let drawnOn = shown.filter { windows[$0].frame.map { matches($0, owner) } ?? false }
+        return drawnOn.isEmpty ? shown : drawnOn
+    }
+
     /// The same window, read once from the window list and once through accessibility.
     private static func matches(_ a: CGRect, _ b: CGRect) -> Bool {
         abs(a.minX - b.minX) <= 2 && abs(a.minY - b.minY) <= 2 && abs(a.width - b.width) <= 2 && abs(a.height - b.height) <= 2

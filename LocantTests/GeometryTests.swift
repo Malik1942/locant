@@ -157,6 +157,23 @@ final class GeometryTests: XCTestCase {
         XCTAssertFalse(WindowList.isOnScreen(Geometry.WindowRecord(ownerPID: 1, layer: 0, bounds: .zero, windowID: 0x7fff_fff0)))
     }
 
+    // specs/region-windows.md R136: a frame drawn on Dia's full-screen window (Oct 28) kept the
+    // heading and links of a minimized Dia window, which still reports the frame it had on screen.
+    func testRegionWindowsAreTheWindowDrawnOnAndNeverAMinimizedOne() {
+        let oryne = CGRect(x: 0, y: 33, width: 1728, height: 1084)
+        let roblox = CGRect(x: 75, y: 6, width: 1456, height: 780)
+        let dia: [Geometry.AppWindow] = [.init(frame: roblox, minimized: true), .init(frame: oryne, minimized: false)]
+        XCTAssertEqual(Geometry.regionWindows(dia, owner: oryne), [1])
+        XCTAssertEqual(Geometry.regionWindows(dia, owner: nil), [1], "no owner: every window that shows")
+        let back = CGRect(x: 200, y: 100, width: 800, height: 600)
+        XCTAssertEqual(Geometry.regionWindows([.init(frame: back, minimized: false), .init(frame: oryne, minimized: false)], owner: oryne), [1],
+                       "the app's window behind the one drawn on stays out")
+        XCTAssertEqual(Geometry.regionWindows([.init(frame: back, minimized: false), .init(frame: roblox, minimized: true)],
+                                              owner: CGRect(x: 0, y: -1692, width: 3008, height: 1692)), [0],
+                       "the owner is none of them (the desktop, the Dock): every window that shows")
+        XCTAssertEqual(Geometry.regionWindows([.init(frame: nil, minimized: false)], owner: oryne), [0], "a frame that cannot be read stands")
+    }
+
     // R122: a menu is open when another app shows a window from the pop-up menu level up to, not
     // including, the screen saver level.
     func testOpenMenuIsAnotherAppsWindowFromPopUpMenuLevelToBelowScreenSaver() {
