@@ -75,12 +75,14 @@ actor AccessibilityReader {
         let app = AXUIElementCreateApplication(pid)
         enableAccessibilityIfNeeded(app: app, pid: pid)
         guard let element = hit(app, at: point) else { return nil }
-        let window = self.element(copy(element, kAXWindowAttribute)).flatMap { frame(copy($0, Self.frameAttribute)) }
-        guard Geometry.answerIsVisible(frame: frame(copy(element, Self.frameAttribute))?.cgRect, window: window?.cgRect,
+        // specs/hover-speed.md R136: the window and the frame in one call.
+        let placed = copy(element, [kAXWindowAttribute, Self.frameAttribute])
+        let window = self.element(placed[0]).flatMap { frame(copy($0, Self.frameAttribute)) }
+        guard Geometry.answerIsVisible(frame: frame(placed[1])?.cgRect, window: window?.cgRect,
                                        owner: pid, at: point, candidates: candidates) else { return nil }
         let refined = refine(element, at: point)
-        let reading = read(refined, at: point)
-        if let over = overlay(at: point, hit: refined, read: reading) { return snapshot(of: over, at: point) }
+        let reading = read(refined.element, at: point, attributes: refined.attributes)
+        if let over = overlay(at: point, hit: refined.element, read: reading) { return snapshot(of: over, at: point) }
         if let smaller = smallerSibling(at: point, read: reading) { return snapshot(of: smaller, at: point) }
         return reading.snapshot
     }
@@ -117,7 +119,7 @@ actor AccessibilityReader {
         let below = elements[..<index]
         let holding = kids.firstIndex { kid in below.contains { CFEqual($0, kid) } }
         guard let chosen = HitRefiner.overlayIndex(at: point, screen: screenFrame, children: hood.nodes, holding: holding) else { return nil }
-        return refine(kids[chosen], at: point)
+        return refine(kids[chosen], at: point).element
     }
 
     /// The system-wide hit test sees whatever is topmost, which under the overlay may be Locant
@@ -127,21 +129,30 @@ actor AccessibilityReader {
         var pid: pid_t = 0
         AXUIElementGetPid(element, &pid)
         guard pid != ProcessInfo.processInfo.processIdentifier else { return nil }
-        return snapshot(of: refine(element, at: point), at: point)
+        let refined = refine(element, at: point)
+        return read(refined.element, at: point, attributes: refined.attributes).snapshot
     }
 
     /// R2 hover precision: a container hit is replaced by the best control among its descendants
     /// near the point (see `HitRefiner`). Descends only through nodes whose frame is near the point,
-    /// so the walk stays small even on a large tree.
-    private func refine(_ base: AXUIElement, at point: CGPoint) -> AXUIElement {
-        let baseAttributes = attributes(of: base)
-        guard ElementResolver.isContainer(baseAttributes) else { return base }
+    /// so the walk stays small even on a large tree. Where the base stands, its full attributes come with it,
+    /// so its snapshot does not read them again (specs/hover-speed.md R137).
+    private func refine(_ base: AXUIElement, at point: CGPoint) -> (element: AXUIElement, attributes: AttributeSet?) {
+        // R137: a container's children are read below, and their number is its count; only a leaf asks for it.
+        var baseAttributes = attributes(of: base, counting: false)
+        guard ElementResolver.isContainer(baseAttributes) else {
+            baseAttributes.childCount = childCount(of: base)
+            return (base, baseAttributes)
+        }
         let tolerance = HitRefiner.tolerance
         var candidates: [(element: AXUIElement, attributes: AttributeSet)] = []
         var stack: [(element: AXUIElement, depth: Int)] = []
-        // First level: reuse the cached neighborhood when it lines up with the live children.
-        let kids = children(of: base)
-        let known = neighbors(of: base, attributes: baseAttributes)
+        // First level: reuse the cached neighborhood when it lines up with the live children. Children the cache
+        // has just read are the live ones (R137).
+        let hood = neighborhood(of: base, attributes: baseAttributes)
+        let kids = hood.fresh ? hood.elements : children(of: base)
+        baseAttributes.childCount = kids.count
+        let known = hood.nodes
         if known.count == kids.count {
             for (kid, attributes) in zip(kids, known) {
                 guard let frame = attributes.frame, frame.cgRect.insetBy(dx: -tolerance, dy: -tolerance).contains(point) else { continue }
@@ -164,8 +175,8 @@ actor AccessibilityReader {
             }
         }
         guard let chosen = HitRefiner.choose(from: candidates.map(\.attributes), replacing: baseAttributes, at: point),
-              let match = candidates.first(where: { $0.attributes == chosen }) else { return base }
-        return match.element
+              let match = candidates.first(where: { $0.attributes == chosen }) else { return (base, baseAttributes) }
+        return (match.element, nil)
     }
 
     private func children(of element: AXUIElement) -> [AXUIElement] {
@@ -376,9 +387,9 @@ actor AccessibilityReader {
     }
 
     /// The snapshot of `element`, hit at `point`, and the elements of its ancestors, nearest first, one for
-    /// each of `snapshot.ancestors`.
-    private func read(_ element: AXUIElement, at point: CGPoint) -> (snapshot: ElementSnapshot, ancestors: [AXUIElement]) {
-        let elementAttributes = attributes(of: element)
+    /// each of `snapshot.ancestors`. `attributes`, when given, are the element's full attributes just read.
+    private func read(_ element: AXUIElement, at point: CGPoint, attributes known: AttributeSet? = nil) -> (snapshot: ElementSnapshot, ancestors: [AXUIElement]) {
+        let elementAttributes = known ?? attributes(of: element)
         // v0.8: a web node's ancestors are web nodes too; their DOM handles make the path grep-able.
         let web = elementAttributes.isWebNode
         var ancestors: [AttributeSet] = []
@@ -554,8 +565,7 @@ actor AccessibilityReader {
         if let cached = attributeCache[key], now - cached.stamp < Self.neighborTTL, !web || cached.attributes.domClasses != nil {
             return cached.attributes
         }
-        var read = lightAttributes(of: element)
-        if web { readDOM(of: element, into: &read) }
+        let read = lightAttributes(of: element, dom: web)
         if attributeCache.count > 256 { attributeCache.removeAll() }
         attributeCache[key] = (now, read)
         return read
@@ -571,11 +581,14 @@ actor AccessibilityReader {
 
     /// The DOM id and class list, which WebKit and Chromium publish on every web node and nothing
     /// else has. `domClasses` becomes non-nil exactly when the node is a web node.
-    private func readDOM(of element: AXUIElement, into attributes: inout AttributeSet) {
-        if let classes = copy(element, "AXDOMClassList") as? [String] {
+    private static let domAttributes = ["AXDOMClassList", "AXDOMIdentifier"]
+
+    /// `classes` and `id` as read for `domAttributes`.
+    private func setDOM(classes: CFTypeRef?, id: CFTypeRef?, into attributes: inout AttributeSet) {
+        if let classes = classes as? [String] {
             attributes.domClasses = classes
-            attributes.domId = string(copy(element, "AXDOMIdentifier"))
-        } else if let id = string(copy(element, "AXDOMIdentifier")) {
+            attributes.domId = string(id)
+        } else if let id = string(id) {
             attributes.domClasses = []
             attributes.domId = id
         }
@@ -629,60 +642,91 @@ actor AccessibilityReader {
 
     /// A container's children: all of them as elements (they come in one read), so a check for one of them
     /// never misses a late child, and the first `neighborLimit` as attributes.
-    private func neighborhood(of container: AXUIElement, attributes: AttributeSet) -> (elements: [AXUIElement], nodes: [AttributeSet]) {
+    /// `fresh` says the children were read by this call.
+    private func neighborhood(of container: AXUIElement, attributes: AttributeSet) -> (elements: [AXUIElement], nodes: [AttributeSet], fresh: Bool) {
         var pid: pid_t = 0
         AXUIElementGetPid(container, &pid)
         let key = NeighborKey(pid: pid, role: attributes.role, subrole: attributes.subrole, frame: attributes.frame, hash: CFHash(container))
         let now = ContinuousClock.now
         if let cached = neighborCache[key], now - cached.stamp < Self.neighborTTL {
-            return (cached.elements, cached.nodes)
+            return (cached.elements, cached.nodes, false)
         }
         let elements = children(of: container)
         let nodes = elements.prefix(Self.neighborLimit).map { lightAttributes(of: $0) }
         if neighborCache.count > 32 { neighborCache.removeAll() }
         neighborCache[key] = (now, elements, nodes)
-        return (elements, nodes)
+        return (elements, nodes, true)
     }
 
     private func neighbors(of container: AXUIElement, attributes: AttributeSet) -> [AttributeSet] {
         neighborhood(of: container, attributes: attributes).nodes
     }
 
-    /// What clustering needs and nothing more: six reads instead of eight.
-    private func lightAttributes(of element: AXUIElement) -> AttributeSet {
-        AttributeSet(
-            role: string(copy(element, kAXRoleAttribute)),
-            subrole: string(copy(element, kAXSubroleAttribute)),
-            title: string(copy(element, kAXTitleAttribute)),
-            description: string(copy(element, kAXDescriptionAttribute)),
+    /// What clustering needs and nothing more: six attributes instead of eight, and with `dom` a web node's
+    /// DOM id and class list, in one call (specs/hover-speed.md R136).
+    private static let lightNames = [kAXRoleAttribute, kAXSubroleAttribute, kAXTitleAttribute, kAXDescriptionAttribute,
+                                     kAXIdentifierAttribute, frameAttribute]
+
+    private func lightAttributes(of element: AXUIElement, dom: Bool = false) -> AttributeSet {
+        let read = copy(element, dom ? Self.lightNames + Self.domAttributes : Self.lightNames)
+        var attributes = AttributeSet(
+            role: string(read[0]),
+            subrole: string(read[1]),
+            title: string(read[2]),
+            description: string(read[3]),
             value: nil,
-            identifier: string(copy(element, kAXIdentifierAttribute)),
-            frame: frame(copy(element, Self.frameAttribute)),
+            identifier: string(read[4]),
+            frame: frame(read[5]),
             childCount: nil
         )
+        if dom { setDOM(classes: read[6], id: read[7], into: &attributes) }
+        return attributes
     }
 
-    private func attributes(of element: AXUIElement) -> AttributeSet {
+    private static let fullNames = [kAXRoleAttribute, kAXSubroleAttribute, kAXTitleAttribute, kAXDescriptionAttribute,
+                                    kAXValueAttribute, kAXIdentifierAttribute, frameAttribute] + domAttributes
+
+    /// Without `counting`, `childCount` is left for the caller, who has the children.
+    private func attributes(of element: AXUIElement, counting: Bool = true) -> AttributeSet {
+        let read = copy(element, Self.fullNames)
+        var attributes = AttributeSet(
+            role: string(read[0]),
+            subrole: string(read[1]),
+            title: string(read[2]),
+            description: string(read[3]),
+            value: value(read[4]),
+            identifier: string(read[5]),
+            frame: frame(read[6]),
+            childCount: counting ? childCount(of: element) : nil
+        )
+        setDOM(classes: read[7], id: read[8], into: &attributes)
+        return attributes
+    }
+
+    private func childCount(of element: AXUIElement) -> Int {
         var childCount: CFIndex = 0
         AXUIElementGetAttributeValueCount(element, kAXChildrenAttribute as CFString, &childCount)
-        var read = AttributeSet(
-            role: string(copy(element, kAXRoleAttribute)),
-            subrole: string(copy(element, kAXSubroleAttribute)),
-            title: string(copy(element, kAXTitleAttribute)),
-            description: string(copy(element, kAXDescriptionAttribute)),
-            value: value(copy(element, kAXValueAttribute)),
-            identifier: string(copy(element, kAXIdentifierAttribute)),
-            frame: frame(copy(element, Self.frameAttribute)),
-            childCount: Int(childCount)
-        )
-        readDOM(of: element, into: &read)
-        return read
+        return Int(childCount)
     }
 
     private func copy(_ element: AXUIElement, _ attribute: String) -> CFTypeRef? {
         var value: CFTypeRef?
         let error = AXUIElementCopyAttributeValue(element, attribute as CFString, &value)
         return error == .success ? value : nil
+    }
+
+    /// specs/hover-speed.md R136: several attributes in one call, which costs about what one read does against
+    /// the Simulator. Each answer is nil where the element has none (the call's error values), as one read each
+    /// gives; when the call fails, the attributes are read one by one.
+    private func copy(_ element: AXUIElement, _ attributes: [String]) -> [CFTypeRef?] {
+        var values: CFArray?
+        if AXUIElementCopyMultipleAttributeValues(element, attributes as CFArray, [], &values) == .success,
+           let read = values as? [AnyObject], read.count == attributes.count {
+            return read.map { value in
+                CFGetTypeID(value) == AXValueGetTypeID() && AXValueGetType(value as! AXValue) == .axError ? nil : value
+            }
+        }
+        return attributes.map { copy(element, $0) }
     }
 
     private func element(_ value: CFTypeRef?) -> AXUIElement? {
