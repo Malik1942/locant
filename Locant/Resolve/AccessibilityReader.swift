@@ -179,7 +179,9 @@ actor AccessibilityReader {
 
     /// v0.2 R12: every element of the app whose frame touches `region`, with its ancestors, walking
     /// only through nodes that intersect the region. Frameless roots (the application) are descended.
-    func elements(in region: CGRect, pid: pid_t) -> [ElementSnapshot] {
+    /// specs/region-windows.md R136: of the app's windows, only those `Geometry.regionWindows` keeps
+    /// for `window`, the bounds of the window the frame was drawn on.
+    func elements(in region: CGRect, pid: pid_t, window: CGRect? = nil) -> [ElementSnapshot] {
         let app = AXUIElementCreateApplication(pid)
         enableAccessibilityIfNeeded(app: app, pid: pid)
         var found: [ElementSnapshot] = []
@@ -194,12 +196,23 @@ actor AccessibilityReader {
                 found.append(ElementSnapshot(element: attributes, ancestors: Array(ancestors.prefix(ElementResolver.maxAncestors))))
             }
             let nextAncestors = [attributes] + ancestors
-            for child in children(of: node) {
+            let kids = children(of: node)
+            for child in depth == 0 ? regionWindows(among: kids, owner: window) : kids {
                 walk(child, ancestors: nextAncestors, depth: depth + 1)
             }
         }
         walk(app, ancestors: [], depth: 0)
         return found
+    }
+
+    /// R136: the application's children with the windows a drawn frame does not read left out. The
+    /// rest (the menu bar, the Finder desktop) stand.
+    private func regionWindows(among kids: [AXUIElement], owner: CGRect?) -> [AXUIElement] {
+        let windows = kids.filter { (copy($0, kAXRoleAttribute) as? String) == kAXWindowRole }
+        let states = windows.map { Geometry.AppWindow(frame: frame(copy($0, Self.frameAttribute))?.cgRect,
+                                                      minimized: (copy($0, kAXMinimizedAttribute) as? Bool) == true) }
+        let kept = Geometry.regionWindows(states, owner: owner).map { windows[$0] }
+        return kids.filter { kid in !windows.contains { CFEqual($0, kid) } || kept.contains { CFEqual($0, kid) } }
     }
 
     /// Title of the app's focused window, falling back to its main window.
