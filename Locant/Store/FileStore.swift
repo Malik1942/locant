@@ -101,6 +101,38 @@ struct FileStore: Sendable {
         }
     }
 
+    /// `data` written atomically, then the extended attributes the file had put back. An atomic
+    /// write is a new inode, and the Finder tags and the pin (`app.locant.pinned`) lived on the
+    /// old one: a sidecar resolved by an agent or given an iteration lost its tags (Nov 2 2026).
+    /// An attribute the system will not take back (its provenance, say) is skipped.
+    static func rewrite(_ data: Data, at url: URL) throws {
+        let attributes = extendedAttributes(of: url)
+        try data.write(to: url, options: .atomic)
+        let path = url.path(percentEncoded: false)
+        for (name, value) in attributes {
+            _ = value.withUnsafeBytes { setxattr(path, name, $0.baseAddress, value.count, 0, 0) }
+        }
+    }
+
+    /// Every extended attribute on the file, by name.
+    static func extendedAttributes(of url: URL) -> [String: Data] {
+        let path = url.path(percentEncoded: false)
+        let length = listxattr(path, nil, 0, 0)
+        guard length > 0 else { return [:] }
+        var names = [CChar](repeating: 0, count: length)
+        guard listxattr(path, &names, length, 0) == length else { return [:] }
+        var attributes: [String: Data] = [:]
+        for name in names.split(separator: 0).map({ String(decoding: $0.map { UInt8(bitPattern: $0) }, as: UTF8.self) }) {
+            let size = getxattr(path, name, nil, 0, 0, 0)
+            guard size >= 0 else { continue }
+            var value = Data(count: size)
+            let read = value.withUnsafeMutableBytes { getxattr(path, name, $0.baseAddress, size, 0, 0) }
+            guard read == size else { continue }
+            attributes[name] = value
+        }
+        return attributes
+    }
+
     /// App name lowercased, non-alphanumerics removed, max 16 characters.
     static func slug(_ appName: String) -> String {
         let cleaned = appName.lowercased().filter { $0.isLetter || $0.isNumber }

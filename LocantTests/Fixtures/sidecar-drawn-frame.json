@@ -1,0 +1,59 @@
+{
+  "schemaVersion" : 1,
+  "id" : "20261102-094020-m2vb",
+  "createdAt" : "2026-11-02T09:40:20-08:00",
+  "mode" : "reference",
+  "image" : {
+    "path" : "/Users/malik/Pictures/Locant/locant-snap-finder-20261102-094020-m2vb.png",
+    "widthPt" : 370,
+    "heightPt" : 120,
+    "scale" : 2,
+    "crop" : { "x" : 43, "y" : 590, "w" : 370, "h" : 120 }
+  },
+  "source" : {
+    "app" : { "bundleId" : "com.apple.finder", "name" : "Finder" },
+    "window" : { "title" : "Downloads" },
+    "url" : null,
+    "simulator" : null
+  },
+  "element" : {
+    "role" : "cluster",
+    "rawRole" : "LocantShape",
+    "label" : null,
+    "identifier" : null,
+    "identifierSource" : "unknown",
+    "value" : null,
+    "frame" : { "x" : 43, "y" : 590, "w" : 370, "h" : 120 },
+    "path" : [
+      { "role" : "window", "identifier" : null },
+      { "role" : "group", "identifier" : null },
+      { "role" : "cluster", "identifier" : null }
+    ],
+    "members" : [
+      { "role" : "staticText", "label" : "Shortcut", "identifier" : null },
+      { "role" : "button", "label" : "Action Button", "identifier" : "shortcutActionButton" }
+    ]
+  },
+  "note" : "",
+  "ocr" : "Shortcut\nAction Button",
+  "iterations" : [],
+  "resolved" : true,
+  "elements" : [
+    {
+      "role" : "staticText",
+      "rawRole" : "AXStaticText",
+      "label" : "Shortcut",
+      "identifier" : null,
+      "identifierSource" : "unknown",
+      "frame" : { "x" : 95, "y" : 590, "w" : 140, "h" : 28 }
+    },
+    {
+      "role" : "button",
+      "rawRole" : "AXButton",
+      "label" : "Action Button",
+      "identifier" : "shortcutActionButton",
+      "identifierSource" : "declared",
+      "frame" : { "x" : 59, "y" : 660, "w" : 169, "h" : 50 }
+    }
+  ]
+}

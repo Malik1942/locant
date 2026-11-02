@@ -8,9 +8,9 @@ final class DOMIdentifierTests: XCTestCase {
         return try JSONDecoder().decode(ElementSnapshot.self, from: Data(contentsOf: url))
     }
 
-    private func capture(_ element: ResolvedElement, url: String? = nil) -> Capture {
+    private func capture(_ element: ResolvedElement, url: String? = nil, mode: CaptureMode = .reference) -> Capture {
         Capture(
-            id: "20260916-120000-ab12", createdAt: "2026-09-16T12:00:00-07:00", mode: .reference,
+            id: "20260916-120000-ab12", createdAt: "2026-09-16T12:00:00-07:00", mode: mode,
             image: ImageInfo(path: "/tmp/x.png", widthPt: 300, heightPt: 124, scale: 2, crop: nil),
             source: SourceInfo(app: AppInfo(bundleId: "company.thebrowser.dia", name: "Dia"), window: WindowInfo(title: "Cart"), url: url, simulator: nil),
             element: element, note: "make this rounded"
@@ -48,10 +48,14 @@ final class DOMIdentifierTests: XCTestCase {
     func testClassesOnlyIsCappedAndAdvisesAnId() throws {
         let e = try XCTUnwrap(ElementResolver.resolve(try fixture("chromium-classes-only")))
         XCTAssertNil(e.dom?.id)
-        let md = MarkdownBuilder.build(capture(e))
+        let md = MarkdownBuilder.build(capture(e, url: "http://localhost:5173/cart", mode: .fix))
         XCTAssertTrue(md.contains("staticText · .text-sm.font-medium.text-muted.tracking-tight.uppercase.mt-2 (+2 more)\n"), md)
         XCTAssertTrue(md.contains("No id attribute. Grep the class names"), md)
         XCTAssertFalse(md.contains("accessibilityIdentifier"), "web advice, not SwiftUI advice")
+        // Someone else's page: the fact, not an id to add.
+        let reference = MarkdownBuilder.build(capture(e))
+        XCTAssertTrue(reference.contains("(+2 more)\nNo id attribute.\nValue: \"Total\"\n"), reference)
+        XCTAssertFalse(reference.contains("give the element an id"))
     }
 
     func testHoverReadoutShowsDOMHandle() throws {

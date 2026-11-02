@@ -9,6 +9,45 @@ import Foundation
 actor AccessibilityReader {
     static let frameAttribute = "AXFrame"
 
+    /// How long a message to an app that does not answer waits, in place of the system's six seconds:
+    /// a beachballing target used to hold the hover, the click, and even the overlay's appearance for
+    /// seconds per attribute. Set once per process on the system-wide element; the helpers that set a
+    /// shorter timeout on an app element keep theirs.
+    static let messagingTimeout: TimeInterval = 1.0
+    /// An app whose message just timed out is left alone for this long, so a hung app costs one
+    /// timeout per hover rather than one per attribute read.
+    static let hungFor: Duration = .seconds(3)
+    private static let globalTimeout: Void = {
+        _ = AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), Float(messagingTimeout))
+    }()
+    /// Apps not to ask until the instant passes.
+    private var hungUntil: [pid_t: ContinuousClock.Instant] = [:]
+
+    init() {
+        _ = Self.globalTimeout
+    }
+
+    /// Whether a failed message took the timeout: the app is hung, not merely without the attribute.
+    /// A little under counts, since the clock started before the call.
+    nonisolated static func timedOut(_ error: AXError, after elapsed: Duration) -> Bool {
+        error == .cannotComplete && elapsed >= .milliseconds(Int(messagingTimeout * 900))
+    }
+
+    private func noteHang(_ error: AXError, since started: ContinuousClock.Instant, on element: AXUIElement) {
+        guard Self.timedOut(error, after: ContinuousClock.now - started) else { return }
+        var pid: pid_t = 0
+        guard AXUIElementGetPid(element, &pid) == .success, pid > 0 else { return }
+        hungUntil[pid] = ContinuousClock.now + Self.hungFor
+    }
+
+    /// True while `pid` is being left alone after a timeout.
+    private func isHung(_ pid: pid_t) -> Bool {
+        guard let until = hungUntil[pid] else { return false }
+        if ContinuousClock.now < until { return true }
+        hungUntil[pid] = nil
+        return false
+    }
+
     /// Accessibility trust for this process. `prompt` shows the system dialog once.
     nonisolated static func isTrusted(prompt: Bool) -> Bool {
         let options = ["AXTrustedCheckOptionPrompt": prompt] as CFDictionary
@@ -72,6 +111,7 @@ actor AccessibilityReader {
     /// Per-app hit test. Nil when the app has nothing at the point, or answers with something that
     /// does not show there (see `Geometry.answerIsVisible`).
     private func snapshot(at point: CGPoint, pid: pid_t, candidates: [Geometry.WindowRecord] = []) -> ElementSnapshot? {
+        guard !isHung(pid) else { return nil }
         let app = AXUIElementCreateApplication(pid)
         enableAccessibilityIfNeeded(app: app, pid: pid)
         guard let element = hit(app, at: point) else { return nil }
@@ -182,6 +222,7 @@ actor AccessibilityReader {
     /// specs/region-windows.md R136: of the app's windows, only those `Geometry.regionWindows` keeps
     /// for `window`, the bounds of the window the frame was drawn on.
     func elements(in region: CGRect, pid: pid_t, window: CGRect? = nil) -> [ElementSnapshot] {
+        guard !isHung(pid) else { return [] }
         let app = AXUIElementCreateApplication(pid)
         enableAccessibilityIfNeeded(app: app, pid: pid)
         var found: [ElementSnapshot] = []
@@ -217,6 +258,7 @@ actor AccessibilityReader {
 
     /// Title of the app's focused window, falling back to its main window.
     func focusedWindowTitle(pid: pid_t) -> String? {
+        guard !isHung(pid) else { return nil }
         let app = AXUIElementCreateApplication(pid)
         guard let window = element(copy(app, kAXFocusedWindowAttribute)) ?? element(copy(app, kAXMainWindowAttribute)) else {
             return nil
@@ -367,7 +409,9 @@ actor AccessibilityReader {
 
     private func hit(_ root: AXUIElement, at point: CGPoint) -> AXUIElement? {
         var out: AXUIElement?
+        let started = ContinuousClock.now
         let error = AXUIElementCopyElementAtPosition(root, Float(point.x), Float(point.y), &out)
+        noteHang(error, since: started, on: root)
         return error == .success ? out : nil
     }
 
@@ -452,6 +496,7 @@ actor AccessibilityReader {
     /// whose frame holds the point, at most 10 levels and 150 nodes, to the first node with subrole
     /// `iOSContentGroup` and a non-empty frame. Nil when there is none.
     private func realScreen(pid: pid_t, at point: CGPoint) -> RealScreen? {
+        guard !isHung(pid) else { return nil }
         let app = AXUIElementCreateApplication(pid)
         var window: (element: AXUIElement, frame: Frame)?
         for candidate in elements(of: app, kAXWindowsAttribute) {
@@ -681,7 +726,9 @@ actor AccessibilityReader {
 
     private func copy(_ element: AXUIElement, _ attribute: String) -> CFTypeRef? {
         var value: CFTypeRef?
+        let started = ContinuousClock.now
         let error = AXUIElementCopyAttributeValue(element, attribute as CFString, &value)
+        noteHang(error, since: started, on: element)
         return error == .success ? value : nil
     }
 

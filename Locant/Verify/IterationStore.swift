@@ -1,7 +1,7 @@
 import Foundation
 
-/// R34: iterations live in the capture's own sidecar. The file is rewritten whole; last writer wins,
-/// and the app never caches sidecars.
+/// R34: iterations live in the capture's own sidecar. The file is rewritten whole, keeping its
+/// Finder tags and pin; last writer wins, and the app never caches sidecars.
 enum IterationStore {
     static func load(_ sidecar: URL) throws -> Capture {
         try JSONDecoder().decode(Capture.self, from: Data(contentsOf: sidecar))
@@ -13,7 +13,7 @@ enum IterationStore {
         capture.iterations.append(iteration)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-        try encoder.encode(capture).write(to: sidecar, options: .atomic)
+        try FileStore.rewrite(encoder.encode(capture), at: sidecar)
         return capture
     }
 

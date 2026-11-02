@@ -40,7 +40,8 @@ struct CaptureIndex: Sendable {
         entries().first { $0.capture.id == id }
     }
 
-    /// Sets `resolved: true` and rewrites the sidecar with every other key as it was.
+    /// Sets `resolved: true` and rewrites the sidecar with every other key, and its Finder tags
+    /// and pin, as they were.
     @discardableResult
     func resolve(id: String) throws -> Entry {
         guard let entry = entry(id: id) else { throw Failure.notFound(id) }
@@ -50,7 +51,7 @@ struct CaptureIndex: Sendable {
         }
         object["resolved"] = true
         let json = try JSONSerialization.data(withJSONObject: object, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
-        try json.write(to: entry.url, options: .atomic)
+        try FileStore.rewrite(json, at: entry.url)
         var resolved = entry
         resolved.capture.resolved = true
         return resolved
