@@ -73,7 +73,7 @@ Three seconds, start to paste.
    cancels; nothing is written and the clipboard is untouched.
 
 <p align="center">
-  <img src="site/assets/overlay-note.jpg" width="720" alt="The equals key outlined in blue on the overlay, with a note field below reading make this key bigger and the hint ↩ copy · esc cancel.">
+  <img src="site/assets/overlay-note.jpg" width="720" alt="The equals key outlined in blue on the overlay, with a note field below reading make this key bigger, a Return button and an × at its right.">
 </p>
 
 Paste into your agent. Each capture also lands in `~/Pictures/Locant/` as a PNG and a JSON sidecar that
