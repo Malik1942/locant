@@ -4,7 +4,9 @@
 
 - **Accessibility.** Reads the element under your cursor and listens for its hotkeys through one event tap. A matched chord is swallowed; every other key passes through untouched, and nothing is logged.
 - **Screen Recording.** Captures the pixels of the element or region you chose, through ScreenCaptureKit, with Locant's own windows excluded.
+- **Recapture when your app changes** (Settings › Captures, on by default). For a day after a Point capture in an app you build, each time that app comes forward Locant looks for the element again over Accessibility, captures its region of the screen, and when the pixels differ writes an after-image beside the capture with the git facts. Only your own apps (fix mode); other apps are never watched.
 - **The clipboard.** Written only after a capture succeeds, with one item carrying the PNG and the Markdown. A failed capture never touches it. With **Paste into agent** on (off by default), Locant also brings forward the agent app you used last and posts ⌘V into it; it never presses Return.
+- **Paste completion** (on by default; `defaults write com.malikzhang.deixis completesPaste -bool NO` turns it off). While the clipboard still holds the newest capture, your own plain ⌘V in Cursor, Codex, or Grok Bot makes Locant read that app's front window over Accessibility to find the message box, and add the image after the text your key pasted. The key is never held, replaced, or posted again, and nothing is read in any other app.
 - **Files.** `~/Pictures/Locant` (or the folder you chose) for captures and their JSON sidecars; its settings under `com.malikzhang.deixis`. With Connect in Settings › Agents, one `locant` server entry in `~/.claude.json`, `~/.cursor/mcp.json`, or `~/.codex/config.toml`; Disconnect removes it.
 - **git.** Before & After reads `git` facts about your repository through `/usr/bin/git`, read-only. Locant never commits, never installs hooks, never writes to a repository.
 
