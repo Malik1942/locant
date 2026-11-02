@@ -15,6 +15,8 @@ final class IterationStoreTests: XCTestCase {
         )
         let encoder = JSONEncoder()
         try encoder.encode(capture).write(to: sidecar)
+        FileStore.setFinderTags(["Locant", "Simulator", "fix"], on: sidecar)
+        Lifecycle.pin([sidecar])
 
         XCTAssertEqual(IterationStore.afterImageURL(for: sidecar, index: 1).lastPathComponent, "locant-simulator-20260913-180000-ab12-after-1.png")
         XCTAssertEqual(IterationStore.sidecarURL(forImage: URL(filePath: capture.image.path)), sidecar)
@@ -31,5 +33,8 @@ final class IterationStoreTests: XCTestCase {
         XCTAssertEqual(try IterationStore.load(sidecar), capture)
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: sidecar)) as? [String: Any])
         XCTAssertEqual((json["source"] as? [String: Any])?["gitCommit"] as? String, "abc123")
+        // The rewrite kept the sidecar's Finder tags and its pin (Nov 2 2026; the atomic write dropped them).
+        XCTAssertEqual(try sidecar.resourceValues(forKeys: [.tagNamesKey]).tagNames, ["Locant", "Simulator", "fix"])
+        XCTAssertTrue(Lifecycle.isPinned(sidecar))
     }
 }
