@@ -230,8 +230,8 @@ Statuses say "untested" until someone tests them. A report of what your agent di
 over MCP, is a welcome issue.
 
 Ran it on a Mac that is not mine? The [tester form](https://github.com/Malik1942/locant/issues/new?template=tester.yml)
-takes two minutes, and [`docs/rc-checklist.md`](docs/rc-checklist.md) lists what to try. A Mac on
-macOS 15, an Intel Mac, a non-English system, or a second display is what 0.9 is waiting on.
+takes two minutes, and [`docs/rc-checklist.md`](docs/rc-checklist.md) lists what to try. Reports from a
+Mac on macOS 15, an Intel Mac, a non-English system, or a second display are the ones still missing.
 
 ## Known limitations
 

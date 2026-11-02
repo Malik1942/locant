@@ -2,6 +2,11 @@
 
 Every release is a signed, notarized `Locant.dmg` on [GitHub Releases](https://github.com/Malik1942/locant/releases). Drag the new copy over the old one; the permissions carry over.
 
+## Unreleased
+
+- **A drawn frame reads only the window it was drawn on.** A window of the same app that was minimized still reports the frame it had on screen, so its links and headings could fall inside a frame drawn over another page and mark empty parts of it. The frame now reads the window it was drawn on, and never a minimized one.
+- The first-launch sentence for Screen Recording says macOS offers Quit & Reopen. It used to read as if Locant would relaunch itself, which it never did.
+
 ## 1.1.0 (2026-10-27)
 
 - **Menus and menu bar windows can be captured.** The screen now freezes when Point, Snap, Text, or Cut opens, and the image is cut from that frozen screen. A window that opens from the menu bar used to close at your click and come out as wallpaper; now it comes out as you saw it, and you can still pick a control inside it. A standard menu closes as soon as the overlay opens, so it is taken as one window. Clicking the ball while a menu is open no longer closes the menu.
@@ -36,7 +41,7 @@ Locant 1.0. Point at a button on your Mac, in an iPhone app in the Simulator, or
 - **Option always moves the outline.** Containers that share one rectangle are one step: in the Simulator, Device Hub, and web pages, several presses used to leave the outline where it was.
 - **Snap and Cut's top rung is the window** in apps whose content fills the whole window, such as Device Hub, and reads `window · Device Hub` instead of `group`.
 
-## 0.9.0 (release candidate)
+## 0.9.0 (2026-09-30)
 
 The version for feedback from Macs that are not the author's. No change to the capture flow, the payload, the schema, or the MCP server.
 
