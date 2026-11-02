@@ -2,6 +2,12 @@
 
 Every release is a signed, notarized `Locant.dmg` on [GitHub Releases](https://github.com/Malik1942/locant/releases). Drag the new copy over the old one; the permissions carry over.
 
+## Unreleased
+
+- **The image path is the first line of every capture.** A reference capture (someone else's app, a live site) opened with your note and put the image path under it, while the MCP server, the README, and the Locant skill all said the path came first. Now both modes read the same way: the image path, the app, the element, and the note last, so an agent that gets only the text opens the PNG from the first line.
+- **A reference capture no longer tells the agent to edit the app you pointed at.** Where an element has no identifier, the payload still says so; the advice to add `.accessibilityIdentifier(…)` or an `id` so the next capture is exact now appears only for a fix, where the code on screen is yours.
+- **A sidecar without `iterations` is read.** The schema never required that key, but the MCP server refused a capture that lacked it and left it out of `list_captures` and `get_capture` without a word. Every key the schema marks optional may now be missing from a sidecar. CI checks three sidecar fixtures against the schema on every push.
+
 ## 1.1.0 (2026-10-27)
 
 - **Menus and menu bar windows can be captured.** The screen now freezes when Point, Snap, Text, or Cut opens, and the image is cut from that frozen screen. A window that opens from the menu bar used to close at your click and come out as wallpaper; now it comes out as you saw it, and you can still pick a control inside it. A standard menu closes as soon as the overlay opens, so it is taken as one window. Clicking the ball while a menu is open no longer closes the menu.
