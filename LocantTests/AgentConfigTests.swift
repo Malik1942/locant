@@ -216,4 +216,23 @@ final class AgentConfigTests: XCTestCase {
         XCTAssertNil(AgentConnector.shellLookup("locant-no-such-tool-\(UUID().uuidString.prefix(6))"))
         XCTAssertNil(AgentConnector.shellLookup("ls; echo"), "only a name goes to the shell")
     }
+
+    // 9: a path that dies with the eject or the move is refused before anything is written (Nov 2 2026).
+    func testConnectRefusesAnExecutableThatWillStopWorking() throws {
+        let dir = FileManager.default.temporaryDirectory.appending(path: "LocantAgents-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let url = dir.appending(path: ".cursor/mcp.json")
+        for executable in ["/Volumes/Locant/Locant.app/Contents/MacOS/Locant",
+                           "/private/var/folders/x1/T/AppTranslocation/1B2C/d/Locant.app/Contents/MacOS/Locant"] {
+            XCTAssertTrue(AgentConfig.isTemporaryLocation(executable))
+            XCTAssertThrowsError(try AgentConnector.connect(.cursor, at: url, executable: executable, cli: nil)) {
+                XCTAssertEqual($0 as? AgentConnector.Failure, .temporaryLocation)
+                XCTAssertEqual($0.localizedDescription, "Move Locant to Applications first.")
+            }
+            XCTAssertThrowsError(try AgentConnector.connect(.claudeCode, at: url, executable: executable, cli: nil))
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: dir.path(percentEncoded: false)))
+        XCTAssertFalse(AgentConfig.isTemporaryLocation(exe))
+        XCTAssertFalse(AgentConfig.isTemporaryLocation("/Users/me/Volumes/Locant"))
+    }
 }

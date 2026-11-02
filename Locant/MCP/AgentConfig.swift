@@ -57,6 +57,13 @@ enum AgentConfig {
         case configuredByHand
     }
 
+    /// A path that stops working on its own: a mounted disk image (`/Volumes/…`, gone at the
+    /// eject after the drag) or Gatekeeper's translocation folder, where a downloaded app runs
+    /// until it is moved. Written into an agent's config, it would break at the next start.
+    static func isTemporaryLocation(_ executable: String) -> Bool {
+        executable.hasPrefix("/Volumes/") || executable.contains("/AppTranslocation/")
+    }
+
     // MARK: JSON (Claude Code's ~/.claude.json, Cursor's mcp.json, any .mcp.json)
 
     /// `mcpServers.locant` set to this executable; every other key kept.
@@ -374,10 +381,14 @@ enum AgentConnector {
     enum Failure: Error, LocalizedError, Equatable {
         case cli(String)
         case file(String)
+        /// The executable is on a mounted dmg or in Gatekeeper's translocation folder (Nov 2 2026):
+        /// written into an agent's config, that path breaks at the eject or the move.
+        case temporaryLocation
 
         var errorDescription: String? {
             switch self {
             case .cli(let message), .file(let message): message
+            case .temporaryLocation: "Move Locant to Applications first."
             }
         }
     }
@@ -415,6 +426,7 @@ enum AgentConnector {
     /// `url` is the agent's file and `cli` its tool when found; both are parameters so tests run on
     /// temporary files with no tool.
     static func connect(_ agent: Agent, at url: URL, executable: String, cli: URL?) throws -> Outcome {
+        guard !AgentConfig.isTemporaryLocation(executable) else { throw Failure.temporaryLocation }
         if let name = agent.cli {
             guard let cli else { return .command(commandLine(name, addArguments(agent, executable: executable))) }
             _ = try? run(cli, removeArguments(agent))
