@@ -67,7 +67,10 @@ EOF
 run() { print -r -- "$1" | sed "s|--mcp|--mcp --folder $folder|" | /bin/sh }
 out=$(run $command) || fail "the command failed: ${out[1,300]}"
 [[ $out == "## Locant capture"* ]] || fail "the command printed: ${out[1,300]}"
-[[ $out == *"Image: $png"* ]] || fail "no image path in the payload"
+# specs/v0.7.1.md R55: the image path is the first line under the heading, in reference mode too (this fixture is
+# one), so an agent that gets only the text opens the PNG from the first line.
+first=${${(M)${(f)out}:#[^#]*}[1]}
+[[ $first == "Image: $png" ]] || fail "the first line under the heading is not the image path: $first"
 [[ $out == *'button "8" · id=Eight'* ]] || fail "no element in the payload"
 [[ $out == *"make this key bigger"* ]] || fail "no note in the payload"
 [[ $out == *"\"id\" : \"$id\""* ]] || fail "no id in the sidecar block"
