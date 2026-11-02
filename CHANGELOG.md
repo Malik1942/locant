@@ -2,6 +2,10 @@
 
 Every release is a signed, notarized `Locant.dmg` on [GitHub Releases](https://github.com/Malik1942/locant/releases). Drag the new copy over the old one; the permissions carry over.
 
+## Unreleased
+
+- **Connect touches only the one server, and never a file it should not.** A symlinked `~/.cursor/mcp.json` or `~/.codex/config.toml` (a dotfiles checkout, say) used to be replaced by a plain file; now the file the link names is edited in place, and a copy of it as it was, `<name>.locant-backup`, is kept beside it before each rewrite. Claude Code is connected only through its `claude` command, now also found where your login shell finds it (nvm, fnm, volta); when there is none, the row shows the `claude mcp add` command to paste instead of writing `~/.claude.json` behind Claude Code's back. In Codex's file, `[mcp_servers."locant"]`, a header with a comment after it, and `locant = { … }` under `[mcp_servers]` are recognised, so Connect replaces them instead of appending a second table Codex refused to parse; a form Locant cannot rewrite says so, and a table without a `command` no longer reads as connected. A copy of Locant running from the dmg or from where macOS opens a downloaded app is refused with "Move Locant to Applications first", since that path dies with the eject. And a capture an agent resolves, or that gains an iteration, keeps its Finder tags and its pin.
+
 ## 1.1.0 (2026-10-27)
 
 - **Menus and menu bar windows can be captured.** The screen now freezes when Point, Snap, Text, or Cut opens, and the image is cut from that frozen screen. A window that opens from the menu bar used to close at your click and come out as wallpaper; now it comes out as you saw it, and you can still pick a control inside it. A standard menu closes as soon as the overlay opens, so it is taken as one window. Clicking the ball while a menu is open no longer closes the menu.
