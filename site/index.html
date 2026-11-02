@@ -1181,7 +1181,7 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
   }
   function cancel() { end(); setStep(1, AGAIN); }
 
-  // ---- the payload, as MarkdownBuilder writes it: the note first for a reference, last for a fix ----
+  // ---- the payload, as MarkdownBuilder writes it: the image path first and the note last in both modes (R55) ----
   function pad(n) { return (n < 10 ? '0' : '') + n; }
   function build(el, text, when) {
     var i = info(el), wd = i.win.dataset, kind = wd.mode;
@@ -1205,9 +1205,7 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
     if (advice) elem.push(advice);
     if (i.value != null) elem.push('Value: "' + i.value + '"');
     elem.push('Frame: x=' + num(f[0]) + ' y=' + num(f[1]) + ' w=' + num(f[2]) + ' h=' + num(f[3]), 'Path: ' + (i.isWin ? wd.path : el.dataset.path));
-    var noteBlock = '### Note\n' + text;
-    var blocks = kind === 'reference' ? [noteBlock, src.join('\n'), elem.join('\n')] : [src.join('\n'), elem.join('\n'), noteBlock];
-    return '## Locant capture (' + kind + ')\n' + blocks.join('\n\n') + '\n';
+    return '## Locant capture (' + kind + ')\n' + [src.join('\n'), elem.join('\n'), '### Note\n' + text].join('\n\n') + '\n';
   }
 
   // ---- what your agent receives: the picture Locant saves, the note, the element's name, and where it is ----

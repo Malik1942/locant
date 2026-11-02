@@ -48,17 +48,17 @@ final class MarkdownBuilderTests: XCTestCase {
         XCTAssertTrue(md.hasSuffix("### Note\nmake this rounded\n"))
     }
 
-    // 2
-    func testReferenceModeLeadsWithNote() {
+    // 2: specs/v0.7.1.md R55, the image path first in reference mode too (v0.1 led with the note; amended 2026-11-02).
+    func testReferenceModeLeadsWithTheImagePath() {
         let md = MarkdownBuilder.build(capture(mode: .reference, element: element(), note: "make mine like this"))
         let l = lines(md)
         XCTAssertEqual(l[0], "## Locant capture (reference)")
-        XCTAssertEqual(l[1], "### Note")
-        XCTAssertEqual(l[2], "make mine like this")
-        XCTAssertEqual(l[3], "")
-        let note = md.range(of: "### Note")!, image = md.range(of: "Image: ")!, element = md.range(of: "### Target element")!
-        XCTAssertLessThan(note.lowerBound, image.lowerBound)
+        XCTAssertEqual(l[1], "Image: /Users/malik/Pictures/Locant/locant-simulator-20260912-140312-k7q2.png")
+        XCTAssertEqual(l[2], "App: Simulator (com.malikzhang.oryne) · Window: iPhone 17 Pro")
+        let image = md.range(of: "Image: ")!, element = md.range(of: "### Target element")!, note = md.range(of: "### Note")!
         XCTAssertLessThan(image.lowerBound, element.lowerBound)
+        XCTAssertLessThan(element.lowerBound, note.lowerBound)
+        XCTAssertTrue(md.hasSuffix("### Note\nmake mine like this\n"), "the note closes the payload, as in fix mode")
     }
 
     // 3

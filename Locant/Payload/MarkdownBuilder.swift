@@ -4,23 +4,17 @@ import Foundation
 enum MarkdownBuilder {
     static func build(_ capture: Capture) -> String {
         var sections: [String] = ["## Locant capture (\(capture.mode.rawValue))"]
-        let note = noteBlock(capture.note)
         let extras = [elementsBlock(capture), nearbyBlock(capture), textBlock(capture)].compactMap { $0 }
         // v0.8 R58: a set selected with Shift is numbered; "this" and "that" match how notes are worded.
         let elementBlocks = capture.targets.map { targets in targets.enumerated().map { targetBlock($1, index: $0, capture: capture) } }
             ?? [elementBlock(capture.element)]
-        switch capture.mode {
-        case .fix:
-            sections.append(sourceBlock(capture))
-            sections.append(contentsOf: elementBlocks)
-            sections.append(contentsOf: extras)
-            if let note { sections.append(note) }
-        case .reference:
-            if let note { sections.append(note) }
-            sections.append(sourceBlock(capture))
-            sections.append(contentsOf: elementBlocks)
-            sections.append(contentsOf: extras)
-        }
+        // specs/v0.7.1.md R55: the image path leads in both modes, so a terminal agent that receives only the text
+        // can open the PNG; the note closes the payload. v0.1 had a reference capture lead with the note; amended
+        // 2026-11-02, since the MCP server, the README, and the skill all promise the path first.
+        sections.append(sourceBlock(capture))
+        sections.append(contentsOf: elementBlocks)
+        sections.append(contentsOf: extras)
+        if let note = noteBlock(capture.note) { sections.append(note) }
         // The heading sits directly on the first block (section 5); blocks are separated by a blank line.
         let heading = sections.removeFirst()
         return heading + "\n" + sections.joined(separator: "\n\n") + "\n"
