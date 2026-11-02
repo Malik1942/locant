@@ -37,6 +37,24 @@ final class HotkeyTests: XCTestCase {
         XCTAssertEqual(fired, 0, "double-tap Option is not bound")
     }
 
+    func testKeyBetweenTapsEndsThePair() {
+        var fired = 0
+        let m = monitor([.init(.doubleTap(.control)) { fired += 1 }])
+        // ⌃A then ⌃E in a terminal: two Control presses inside the window, a key between them.
+        m.handleFlags([.control], keyCode: 59, timestamp: 1.00)
+        XCTAssertFalse(m.handleKey([.control], keyCode: 0), "⌃A is nobody's chord")
+        m.handleFlags([], keyCode: 59, timestamp: 1.10)
+        m.handleFlags([.control], keyCode: 59, timestamp: 1.20)
+        XCTAssertEqual(fired, 0, "the first press was a shortcut's modifier, not a tap")
+        XCTAssertFalse(m.handleKey([.control], keyCode: 14))
+        m.handleFlags([], keyCode: 59, timestamp: 1.25)
+        // Two bare presses after the shortcuts still fire.
+        m.handleFlags([.control], keyCode: 59, timestamp: 1.30)
+        m.handleFlags([], keyCode: 59, timestamp: 1.35)
+        m.handleFlags([.control], keyCode: 59, timestamp: 1.45)
+        XCTAssertEqual(fired, 1)
+    }
+
     func testDoubleTapWithAnotherModifierHeldIsAChord() {
         var fired = 0
         let m = monitor([.init(.doubleTap(.control)) { fired += 1 }])

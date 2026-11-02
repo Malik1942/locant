@@ -119,6 +119,10 @@ final class AppState {
     @ObservationIgnored private var restartingCapture = false
     @ObservationIgnored private var openedSettingsPanes: Set<String> = []
     @ObservationIgnored private let ownPID = ProcessInfo.processInfo.processIdentifier
+    /// Settings recorders listening right now; the real hotkeys stay off while any is, and come back
+    /// when the last one ends, whichever order they end in.
+    @ObservationIgnored private var pausedRecorders = 0
+    @ObservationIgnored private var trustTask: Task<Void, Never>?
 
     var captureDirectory: URL { preferences.captureFolderURL }
 
@@ -152,11 +156,16 @@ final class AppState {
         sampler.onUpdate = { [weak self] in self?.rehover() }
         textReader.onUpdate = { [weak self] in self?.rehover() }
         restartHotkey()
+        watchAccessibilityTrust()
     }
 
-    /// One monitor for the capture hotkey and every action hotkey (R29).
+    /// One monitor for the capture hotkey and every action hotkey (R29). None while a Settings
+    /// recorder listens; `resumeHotkey` builds it again.
     private func restartHotkey() {
         hotkeys?.stop()
+        hotkeys = nil
+        ball?.ringHints = ringHints()
+        guard pausedRecorders == 0 else { return }
         var bindings = [HotkeyMonitor.Binding(preferences.hotkey) { [weak self] in self?.beginCapture() }]
         for (name, key) in preferences.actionHotkeys {
             guard let fire = fire(forAction: name) else { continue }
@@ -166,7 +175,26 @@ final class AppState {
         monitor.onKey = { [weak self] event in self?.completePasteIfOurs(event) }
         monitor.start()
         hotkeys = monitor
-        ball?.ringHints = ringHints()
+    }
+
+    /// The event tap needs Accessibility trust, and on a first launch the grant comes after `start()`:
+    /// until the monitor is rebuilt, a chord fires Locant and still reaches the frontmost app, and the
+    /// paste completion (specs/handoff.md R83) hears nothing. The grant is polled, often while it is
+    /// missing and rarely once it is held, and the monitor is rebuilt when it changes: the tap is in
+    /// place as soon as the user is back from System Settings, and monitors take over if trust goes.
+    private func watchAccessibilityTrust() {
+        trustTask?.cancel()
+        trustTask = Task { [weak self] in
+            var trusted = AccessibilityReader.isTrusted(prompt: false)
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(trusted ? 15 : 2))
+                guard let self else { return }
+                let now = AccessibilityReader.isTrusted(prompt: false)
+                guard now != trusted else { continue }
+                trusted = now
+                self.restartHotkey()
+            }
+        }
     }
 
     /// What an action hotkey starts, by the action's name in `Preferences.hotkeyActions`.
@@ -212,11 +240,16 @@ final class AppState {
         }
     }
 
-    /// While the Settings recorder listens, the real hotkeys must not fire.
+    /// While a Settings recorder listens, the real hotkeys must not fire. Counted, so two recorders
+    /// ending in either order leave the hotkeys running, and a recorder ending twice changes nothing.
     func pauseHotkey() {
-        hotkeys?.stop()
+        pausedRecorders += 1
+        restartHotkey()
     }
-    func resumeHotkey() { restartHotkey() }
+    func resumeHotkey() {
+        pausedRecorders = max(0, pausedRecorders - 1)
+        restartHotkey()
+    }
 
     // MARK: Session
 
