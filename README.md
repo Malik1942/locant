@@ -50,8 +50,8 @@ Window-level tools give your agent the window. Locant gives it the element.
 2. Launch it. There is no Dock icon; look for the pointing hand in the menu bar.
 3. Allow the two permissions it asks for, in this order:
    - **Accessibility** reads what is under your cursor and listens for the hotkey. Without it nothing works.
-   - **Screen Recording** captures the pixels of the element. macOS applies a fresh grant after a relaunch,
-     and Locant offers to do that itself.
+   - **Screen Recording** captures the pixels of the element. macOS applies the grant only after Locant
+     reopens, and offers Quit & Reopen when you turn it on; take it before the first capture.
 
    There is no third prompt. Nothing leaves the machine: no telemetry, no accounts. The one request Locant
    makes is a daily check for a newer release on GitHub; turn it off in Settings › General.

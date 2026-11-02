@@ -151,7 +151,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             _ = AccessibilityReader.isTrusted(prompt: true)
         }
         if !ScreenCapture.hasPermission() {
-            explain("Locant captures the element through Screen Recording. Nothing leaves the machine. macOS applies this grant after Locant reopens; it will offer to do that.")
+            explain("Locant captures the element through Screen Recording. Nothing leaves the machine. macOS applies this grant after Locant reopens, and offers Quit & Reopen when you turn it on.")
             ScreenCapture.requestPermission()
         }
     }
