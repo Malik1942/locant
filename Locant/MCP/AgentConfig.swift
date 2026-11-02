@@ -24,9 +24,11 @@ enum Agent: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// The command-line tool that owns the file, when it should do the editing. Claude Code's
-    /// `~/.claude.json` is its private state, so its CLI writes there. Codex's config.toml is the
-    /// user's own file, and `codex mcp add` re-serializes all of it; one appended table is gentler.
+    /// The command-line tool that owns the file, when only it should do the editing. Claude Code's
+    /// `~/.claude.json` is its private state, rewritten while Claude Code runs, so its CLI writes
+    /// there and Locant never does (Nov 2 2026): without the CLI the row shows the command instead.
+    /// Codex's config.toml is the user's own file, and `codex mcp add` re-serializes all of it; one
+    /// appended table is gentler.
     var cli: String? {
         switch self {
         case .claudeCode: "claude"
@@ -358,6 +360,12 @@ enum AgentConfig {
     static func tomlSnippet(executable: String) -> String {
         (try? tomlAdding(nil, executable: executable)) ?? ""
     }
+
+    /// The path as a shell reads it: bare when it has only path characters, else single-quoted.
+    static func shellQuoted(_ s: String) -> String {
+        let bare = !s.isEmpty && s.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || "/._-+:@%".contains($0)) }
+        return bare ? s : "'" + s.replacing("'", with: "'\\''") + "'"
+    }
 }
 
 /// R56: reads and writes the agents' files, through their CLIs when those exist. The CLI lookup
@@ -372,6 +380,13 @@ enum AgentConnector {
             case .cli(let message), .file(let message): message
             }
         }
+    }
+
+    /// What Connect or Disconnect did: the agent's file written or its CLI run; or, for Claude
+    /// Code without a `claude` on this Mac, nothing, and the command the user runs in its place.
+    enum Outcome: Equatable, Sendable {
+        case done
+        case command(String)
     }
 
     /// This copy of Locant, as the agents will start it.
@@ -389,21 +404,22 @@ enum AgentConnector {
         return found.map { .connected(executable: $0) } ?? .notConnected
     }
 
-    static func connect(_ agent: Agent) throws {
+    static func connect(_ agent: Agent) throws -> Outcome {
         try connect(agent, at: agent.configURL, executable: executable, cli: agent.cli.flatMap(cliURL))
     }
 
-    static func disconnect(_ agent: Agent) throws {
+    static func disconnect(_ agent: Agent) throws -> Outcome {
         try disconnect(agent, at: agent.configURL, cli: agent.cli.flatMap(cliURL))
     }
 
     /// `url` is the agent's file and `cli` its tool when found; both are parameters so tests run on
     /// temporary files with no tool.
-    static func connect(_ agent: Agent, at url: URL, executable: String, cli: URL?) throws {
-        if let cli {
+    static func connect(_ agent: Agent, at url: URL, executable: String, cli: URL?) throws -> Outcome {
+        if let name = agent.cli {
+            guard let cli else { return .command(commandLine(name, addArguments(agent, executable: executable))) }
             _ = try? run(cli, removeArguments(agent))
             try run(cli, addArguments(agent, executable: executable))
-            return
+            return .done
         }
         let text = try? String(contentsOf: url, encoding: .utf8)
         let updated: String
@@ -415,12 +431,14 @@ enum AgentConnector {
             throw Failure.file("\(url.path(percentEncoded: false)) is not JSON; add the server by hand.")
         }
         try write(updated, to: url)
+        return .done
     }
 
-    static func disconnect(_ agent: Agent, at url: URL, cli: URL?) throws {
-        if let cli {
+    static func disconnect(_ agent: Agent, at url: URL, cli: URL?) throws -> Outcome {
+        if let name = agent.cli {
+            guard let cli else { return .command(commandLine(name, removeArguments(agent))) }
             try run(cli, removeArguments(agent))
-            return
+            return .done
         }
         let text = try? String(contentsOf: url, encoding: .utf8)
         let updated: String?
@@ -432,6 +450,7 @@ enum AgentConnector {
             throw Failure.file("\(url.path(percentEncoded: false)) is not JSON; remove the server by hand.")
         }
         if let updated { try write(updated, to: url) }
+        return .done
     }
 
     private static func addArguments(_ agent: Agent, executable: String) -> [String] {
@@ -450,7 +469,14 @@ enum AgentConnector {
         }
     }
 
-    /// The agent's command-line tool, in the places installers put it; the app's PATH is empty.
+    /// The command as the user pastes it in a terminal.
+    private static func commandLine(_ name: String, _ arguments: [String]) -> String {
+        ([name] + arguments).map(AgentConfig.shellQuoted).joined(separator: " ")
+    }
+
+    /// The agent's command-line tool: in the places installers put it, else where the user's login
+    /// shell finds it, since nvm, fnm, volta and the like put it on a PATH only the shell's rc files
+    /// set and the app's own PATH is empty. Nil when neither knows it.
     static func cliURL(_ name: String) -> URL? {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let candidates = [
@@ -460,7 +486,48 @@ enum AgentConnector {
             home.appending(path: ".claude/local/\(name)"),
             home.appending(path: ".npm-global/bin/\(name)"),
         ]
-        return candidates.first { FileManager.default.isExecutableFile(atPath: $0.path(percentEncoded: false)) }
+        if let found = candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0.path(percentEncoded: false)) }) { return found }
+        return shellLookup(name)
+    }
+
+    /// `command -v <name>` in the user's login shell, interactive so its rc files run, under a
+    /// deadline: an rc file that waits on something (a prompt, a tmux) must not hold Settings.
+    /// The output goes to a file, not a pipe, so a chatty rc file or a background job it starts
+    /// cannot block the read. The answer is the last line that is an executable's path; an alias
+    /// or a function is not one.
+    static func shellLookup(_ name: String, timeout: TimeInterval = 5) -> URL? {
+        guard !name.isEmpty, name.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" || $0 == ".") }) else { return nil }
+        let output = FileManager.default.temporaryDirectory.appending(path: "locant-cli-\(UUID().uuidString)")
+        guard FileManager.default.createFile(atPath: output.path(percentEncoded: false), contents: nil),
+              let handle = try? FileHandle(forWritingTo: output) else { return nil }
+        defer { try? FileManager.default.removeItem(at: output) }
+        let process = Process()
+        process.executableURL = loginShell
+        process.arguments = ["-lic", "command -v \(name)"]
+        process.standardInput = FileHandle.nullDevice
+        process.standardOutput = handle
+        process.standardError = FileHandle.nullDevice
+        let finished = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in finished.signal() }
+        do { try process.run() } catch { return nil }
+        try? handle.close()
+        if finished.wait(timeout: .now() + timeout) == .timedOut {
+            process.terminate()
+            if finished.wait(timeout: .now() + 1) == .timedOut { kill(process.processIdentifier, SIGKILL) }
+            return nil
+        }
+        guard process.terminationStatus == 0, let data = try? Data(contentsOf: output) else { return nil }
+        let lines = String(decoding: data, as: UTF8.self).split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
+        return lines.last { $0.hasPrefix("/") && FileManager.default.isExecutableFile(atPath: $0) }.map { URL(filePath: $0) }
+    }
+
+    /// The user's login shell from the directory, `/bin/zsh` when it names none that runs.
+    private static var loginShell: URL {
+        if let entry = getpwuid(getuid()), let shell = entry.pointee.pw_shell, let path = String(validatingCString: shell),
+           FileManager.default.isExecutableFile(atPath: path) {
+            return URL(filePath: path)
+        }
+        return URL(filePath: "/bin/zsh")
     }
 
     private static func run(_ url: URL, _ arguments: [String]) throws {

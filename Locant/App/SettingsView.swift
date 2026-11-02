@@ -635,8 +635,12 @@ private struct MyAppRow: View {
 struct AgentSettings: View {
     @State private var statuses: [Agent: AgentStatus] = [:]
     @State private var failures: [Agent: String] = [:]
+    /// Claude Code without a `claude` on this Mac (Nov 2 2026): the command the user pastes, shown
+    /// with a Copy button like Other agents' snippet, since Locant no longer writes `~/.claude.json`.
+    @State private var commands: [Agent: String] = [:]
     @State private var busy: Set<Agent> = []
     @State private var copied = false
+    @State private var copiedCommand: Agent?
     @Environment(AppState.self) private var state
 
     private var executable: String { AgentConnector.executable }
@@ -657,8 +661,11 @@ struct AgentSettings: View {
                         executable: executable,
                         busy: busy.contains(agent),
                         failure: failures[agent],
+                        command: commands[agent],
+                        copied: copiedCommand == agent,
                         connect: { act(agent, connect: true) },
-                        disconnect: { act(agent, connect: false) }
+                        disconnect: { act(agent, connect: false) },
+                        copyCommand: { copyCommand(for: agent) }
                     )
                 }
             }
@@ -689,22 +696,37 @@ struct AgentSettings: View {
         let found = await Task.detached {
             Dictionary(uniqueKeysWithValues: Agent.allCases.map { ($0, AgentConnector.status($0)) })
         }.value
+        // A command shown is done once the agent's state moves: the user ran it.
+        for agent in Agent.allCases where found[agent] != statuses[agent] && !statuses.isEmpty { commands[agent] = nil }
         statuses = found
     }
 
     private func act(_ agent: Agent, connect: Bool) {
         busy.insert(agent)
         failures[agent] = nil
+        commands[agent] = nil
         Task {
             do {
-                try await Task.detached {
-                    if connect { try AgentConnector.connect(agent) } else { try AgentConnector.disconnect(agent) }
+                let outcome = try await Task.detached {
+                    connect ? try AgentConnector.connect(agent) : try AgentConnector.disconnect(agent)
                 }.value
+                if case .command(let command) = outcome { commands[agent] = command }
             } catch {
                 failures[agent] = error.localizedDescription
             }
             await refresh()
             busy.remove(agent)
+        }
+    }
+
+    private func copyCommand(for agent: Agent) {
+        guard let command = commands[agent] else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(command, forType: .string)
+        copiedCommand = agent
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            if copiedCommand == agent { copiedCommand = nil }
         }
     }
 }
@@ -721,8 +743,12 @@ private struct AgentRow: View {
     let executable: String
     let busy: Bool
     let failure: String?
+    /// The command to paste in a terminal when Locant cannot connect this agent itself.
+    let command: String?
+    let copied: Bool
     let connect: () -> Void
     let disconnect: () -> Void
+    let copyCommand: () -> Void
 
     var body: some View {
         // The state is one row of plain views, rebuilt as a whole on each change: a disabled
@@ -736,6 +762,9 @@ private struct AgentRow: View {
                     Text("Working…")
                         .foregroundStyle(.secondary)
                 } else if let status {
+                    if command != nil {
+                        Button(copied ? "Copied" : "Copy Command", action: copyCommand)
+                    }
                     switch status {
                     case .notConnected:
                         Button("Connect", action: connect)
@@ -761,6 +790,13 @@ private struct AgentRow: View {
         } label: {
             Text(agent.title)
             if let failure { ConflictNote(text: failure) }
+            if let command {
+                ConflictNote(text: "claude was not found; paste this in a terminal.")
+                Text(command)
+                    .font(.footnote.monospaced())
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
         }
     }
 }

@@ -157,7 +157,7 @@ final class AgentConfigTests: XCTestCase {
         try FileManager.default.createSymbolicLink(at: link, withDestinationURL: real)
         let inode = try FileManager.default.attributesOfItem(atPath: real.path(percentEncoded: false))[.systemFileNumber] as? Int
 
-        XCTAssertNoThrow(try AgentConnector.connect(.cursor, at: link, executable: exe, cli: nil))
+        XCTAssertEqual(try AgentConnector.connect(.cursor, at: link, executable: exe, cli: nil), .done)
         XCTAssertEqual(try FileManager.default.destinationOfSymbolicLink(atPath: link.path(percentEncoded: false)), real.path(percentEncoded: false), "the link is still a link")
         let written = try object(try String(contentsOf: real, encoding: .utf8))
         XCTAssertEqual((written["mcpServers"] as? [String: Any])?.keys.sorted(), ["agentation", "locant"])
@@ -167,7 +167,7 @@ final class AgentConfigTests: XCTestCase {
         XCTAssertEqual(AgentConnector.status(.cursor, at: link), .connected(executable: exe))
 
         // The next write replaces the backup with what it found, so there is one backup, not a pile.
-        XCTAssertNoThrow(try AgentConnector.disconnect(.cursor, at: link, cli: nil))
+        XCTAssertEqual(try AgentConnector.disconnect(.cursor, at: link, cli: nil), .done)
         XCTAssertTrue(try String(contentsOf: backup, encoding: .utf8).contains("locant"), "the backup is the file before this write")
         XCTAssertFalse(try String(contentsOf: real, encoding: .utf8).contains("locant"))
         XCTAssertEqual(AgentConnector.status(.cursor, at: link), .notConnected)
@@ -175,7 +175,7 @@ final class AgentConfigTests: XCTestCase {
 
         // A file that is not there yet is created, with no backup, and the folder with it.
         let fresh = dir.appending(path: "home2/.cursor/mcp.json")
-        XCTAssertNoThrow(try AgentConnector.connect(.cursor, at: fresh, executable: exe, cli: nil))
+        XCTAssertEqual(try AgentConnector.connect(.cursor, at: fresh, executable: exe, cli: nil), .done)
         XCTAssertEqual(AgentConnector.status(.cursor, at: fresh), .connected(executable: exe))
         XCTAssertFalse(FileManager.default.fileExists(atPath: fresh.path(percentEncoded: false) + ".locant-backup"))
 
@@ -183,7 +183,7 @@ final class AgentConfigTests: XCTestCase {
         let toml = dir.appending(path: "home/.codex/config.toml")
         try FileManager.default.createDirectory(at: toml.deletingLastPathComponent(), withIntermediateDirectories: true)
         try "model = \"gpt-5\"\n".write(to: toml, atomically: true, encoding: .utf8)
-        XCTAssertNoThrow(try AgentConnector.connect(.codex, at: toml, executable: exe, cli: nil))
+        XCTAssertEqual(try AgentConnector.connect(.codex, at: toml, executable: exe, cli: nil), .done)
         XCTAssertEqual(AgentConnector.status(.codex, at: toml), .connected(executable: exe))
         XCTAssertEqual(try String(contentsOf: toml.appendingPathExtension("locant-backup"), encoding: .utf8), "model = \"gpt-5\"\n")
         try "[mcp_servers]\nlocant = { command = \"/m\", args = [\n\"--mcp\"] }\n".write(to: toml, atomically: true, encoding: .utf8)
@@ -192,5 +192,28 @@ final class AgentConfigTests: XCTestCase {
         }
         XCTAssertThrowsError(try AgentConnector.disconnect(.codex, at: toml, cli: nil))
         XCTAssertTrue(try String(contentsOf: toml, encoding: .utf8).hasPrefix("[mcp_servers]\nlocant = { command = \"/m\""), "left alone")
+    }
+
+    // 8: Claude Code without its CLI gets the command, and ~/.claude.json is never written (Nov 2 2026).
+    func testClaudeCodeWithoutItsCLIShowsTheCommandAndLeavesTheFileAlone() throws {
+        let dir = FileManager.default.temporaryDirectory.appending(path: "LocantAgents-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let url = dir.appending(path: ".claude.json")
+        let state = #"{"numStartups": 3, "mcpServers": {}}"#
+        try state.write(to: url, atomically: true, encoding: .utf8)
+
+        XCTAssertEqual(try AgentConnector.connect(.claudeCode, at: url, executable: exe, cli: nil), .command("claude mcp add --scope user locant -- \(exe) --mcp"))
+        XCTAssertEqual(try AgentConnector.disconnect(.claudeCode, at: url, cli: nil), .command("claude mcp remove --scope user locant"))
+        XCTAssertEqual(try String(contentsOf: url, encoding: .utf8), state)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: dir.path(percentEncoded: false)), [".claude.json"])
+        XCTAssertEqual(try AgentConnector.connect(.claudeCode, at: url, executable: "/Applications/My Apps/Locant.app/Contents/MacOS/Locant", cli: nil),
+                       .command("claude mcp add --scope user locant -- '/Applications/My Apps/Locant.app/Contents/MacOS/Locant' --mcp"))
+        XCTAssertEqual(AgentConfig.shellQuoted("it's"), "'it'\\''s'")
+
+        // The login shell finds what the fixed folders do not; a name nobody has stays nil.
+        XCTAssertEqual(AgentConnector.cliURL("uname")?.path(percentEncoded: false), "/usr/bin/uname")
+        XCTAssertNil(AgentConnector.shellLookup("locant-no-such-tool-\(UUID().uuidString.prefix(6))"))
+        XCTAssertNil(AgentConnector.shellLookup("ls; echo"), "only a name goes to the shell")
     }
 }
