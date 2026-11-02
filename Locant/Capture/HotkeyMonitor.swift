@@ -4,7 +4,8 @@ import AppKit
 /// default, for Point) or a chord (⌃⌥ and a digit by default, one per action). One event tap
 /// serves every binding: a matched chord is swallowed so it never also reaches the frontmost app;
 /// double-taps pass through, since a modifier press is harmless. Without Accessibility trust the
-/// tap cannot be made and `NSEvent` monitors observe instead.
+/// tap cannot be made and `NSEvent` monitors observe instead; `AppState` rebuilds the monitor when
+/// trust changes, so the tap is in place as soon as it is granted.
 @MainActor
 final class HotkeyMonitor {
     struct Binding {
@@ -93,7 +94,7 @@ final class HotkeyMonitor {
     // MARK: Double-tap
 
     /// Fires on the second rising edge of the same modifier inside the window, with no other
-    /// modifier held at either press.
+    /// modifier held at either press and no key pressed between them (`handleKey`).
     func handleFlags(_ flags: NSEvent.ModifierFlags, keyCode: UInt16, timestamp: TimeInterval) {
         let held = flags.intersection(Self.all)
         let rising = held.subtracting(heldModifiers)
@@ -125,6 +126,9 @@ final class HotkeyMonitor {
     /// key is auto-repeating: a held chord fires once and stays swallowed).
     @discardableResult
     func handleKey(_ flags: NSEvent.ModifierFlags, keyCode: UInt16, isRepeat: Bool = false) -> Bool {
+        // A key between two presses of a modifier makes them shortcuts, not a double-tap: ⌃A then ⌃E
+        // inside the window must not open Point.
+        lastTap = nil
         let matched = bindings.filter { binding in
             if case .chord(let wantedCode, let wantedModifiers, _) = binding.hotkey {
                 return Self.matches(keyCode: keyCode, flags: flags, wantedCode: wantedCode, wantedModifiers: wantedModifiers)

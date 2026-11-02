@@ -2,6 +2,13 @@
 
 Every release is a signed, notarized `Locant.dmg` on [GitHub Releases](https://github.com/Malik1942/locant/releases). Drag the new copy over the old one; the permissions carry over.
 
+## Unreleased
+
+- **Closing Settings while a hotkey recorder listens no longer leaves the hotkeys dead.** A recorder left running when its window closed, hid, or went behind another kept the real hotkeys paused and ate every key typed into a Locant window, the overlay's note field included, until Esc happened to be pressed in one. A recording now ends with its window.
+- **The hotkey takes hold as soon as Accessibility is granted.** On a first launch the grant comes after Locant has started, and until a relaunch a chord fired Locant and still reached the app in front (⌃⌥2 also reached Xcode). Locant now notices the grant and puts its event tap in place.
+- **A double-tap is two bare presses.** ⌃A then ⌃E within 350 ms in a terminal used to open Point; a key between the two presses now ends the pair.
+- **An app that does not answer no longer holds the overlay.** Each accessibility message to a hung app waited the system's six seconds, so the overlay could take many seconds to appear and the hover froze over it. A message now waits one second at most, and an app that timed out is left alone for three seconds, so the cost is one wait per hover rather than one per attribute.
+
 ## 1.1.0 (2026-10-27)
 
 - **Menus and menu bar windows can be captured.** The screen now freezes when Point, Snap, Text, or Cut opens, and the image is cut from that frozen screen. A window that opens from the menu bar used to close at your click and come out as wallpaper; now it comes out as you saw it, and you can still pick a control inside it. A standard menu closes as soon as the overlay opens, so it is taken as one window. Clicking the ball while a menu is open no longer closes the menu.
