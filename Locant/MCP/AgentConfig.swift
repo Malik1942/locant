@@ -50,6 +50,9 @@ enum AgentConfig {
     enum Failure: Error, Equatable {
         case notJSON
         case notAnObject
+        /// The TOML defines `locant` in a form Locant cannot cut out line by line (a value that
+        /// runs on past its line, an array of tables): the user edits it.
+        case configuredByHand
     }
 
     // MARK: JSON (Claude Code's ~/.claude.json, Cursor's mcp.json, any .mcp.json)
@@ -96,53 +99,229 @@ enum AgentConfig {
 
     static let tomlHeader = "[mcp_servers.\(serverName)]"
 
-    /// The `[mcp_servers.locant]` table appended after everything else; an older one removed first.
-    static func tomlAdding(_ text: String?, executable: String) -> String {
-        var body = tomlRemoving(text) ?? (text ?? "")
+    /// The `[mcp_servers.locant]` table appended after everything else; an older definition
+    /// removed first, in whichever form the file wrote it. Throws `configuredByHand` when that
+    /// form cannot be removed safely, so the file is left alone rather than given a second
+    /// `locant`, which Codex refuses to parse.
+    static func tomlAdding(_ text: String?, executable: String) throws -> String {
+        var body = try tomlRemoving(text) ?? (text ?? "")
         if !body.isEmpty, !body.hasSuffix("\n") { body += "\n" }
         if !body.isEmpty, !body.hasSuffix("\n\n") { body += "\n" }
         let args = arguments.map { tomlString($0) }.joined(separator: ", ")
         return body + "\(tomlHeader)\ncommand = \(tomlString(executable))\nargs = [\(args)]\n"
     }
 
-    /// The table and its sub-tables removed. Nil when there was none.
-    static func tomlRemoving(_ text: String?) -> String? {
-        guard let text, let range = tomlTableRange(text) else { return nil }
+    /// Every line that defines the server removed: its table and sub-tables, under any spelling of
+    /// the header, or an inline table or dotted keys under `[mcp_servers]`. Nil when there was none;
+    /// `configuredByHand` when a line's value runs on past it or the server is an array of tables.
+    static func tomlRemoving(_ text: String?) throws -> String? {
+        guard let text, let entry = tomlEntry(text) else { return nil }
+        guard entry.removable else { throw Failure.configuredByHand }
         var lines = text.components(separatedBy: "\n")
-        lines.removeSubrange(range)
-        // One blank line where the table was, not two.
-        if range.lowerBound > 0, range.lowerBound < lines.count,
-           lines[range.lowerBound - 1].trimmingCharacters(in: .whitespaces).isEmpty,
-           lines[range.lowerBound].trimmingCharacters(in: .whitespaces).isEmpty {
-            lines.remove(at: range.lowerBound)
+        // Each run of lines, from the last: cut it, then one of the two blank lines it leaves touching.
+        for run in runs(entry.lines).reversed() {
+            lines.removeSubrange(run)
+            if run.lowerBound > 0, run.lowerBound < lines.count,
+               lines[run.lowerBound - 1].trimmingCharacters(in: .whitespaces).isEmpty,
+               lines[run.lowerBound].trimmingCharacters(in: .whitespaces).isEmpty {
+                lines.remove(at: run.lowerBound)
+            }
         }
         return lines.joined(separator: "\n")
     }
 
+    /// The executable the `locant` server runs, in whichever form the file defines it. Nil when
+    /// there is no server, and when it names no `command`: neither is a connection.
     static func tomlExecutable(_ text: String?) -> String? {
-        guard let text, let range = tomlTableRange(text) else { return nil }
-        let lines = text.components(separatedBy: "\n")[range]
-        for line in lines {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            guard trimmed.hasPrefix("command") else { continue }
-            let value = trimmed.drop { $0 != "=" }.dropFirst().trimmingCharacters(in: .whitespaces)
-            return tomlUnquote(value)
-        }
-        return ""
+        guard let text else { return nil }
+        return tomlEntry(text)?.command
     }
 
-    /// Lines of the `[mcp_servers.locant]` table: its header through the line before the next
-    /// header that is not one of its sub-tables, or the end.
-    private static func tomlTableRange(_ text: String) -> Range<Int>? {
-        let lines = text.components(separatedBy: "\n")
-        guard let start = lines.firstIndex(where: { $0.trimmingCharacters(in: .whitespaces) == tomlHeader }) else { return nil }
-        var end = start + 1
-        while end < lines.count {
-            let trimmed = lines[end].trimmingCharacters(in: .whitespaces)
-            if trimmed.hasPrefix("["), !trimmed.hasPrefix("[mcp_servers.\(serverName).") { break }
-            end += 1
+    /// Where a file defines the server. Line-based: Codex's file is the user's own, so the rewrite
+    /// cuts whole lines and appends, and never re-serializes.
+    private struct TOMLEntry {
+        /// The lines of its table and sub-tables, and of an inline table or dotted keys under
+        /// `[mcp_servers]` (or dotted from the root).
+        var lines: [Int] = []
+        /// False when cutting those lines would break the file: a value that runs on past its line
+        /// (a multi-line array or string), or an `[[array]]` of tables.
+        var removable = true
+        var command: String?
+    }
+
+    private static func tomlEntry(_ text: String) -> TOMLEntry? {
+        var entry = TOMLEntry()
+        var table: [String] = []
+        var inTable = false
+        for (index, line) in text.components(separatedBy: "\n").enumerated() {
+            if let header = tomlHeader(line) {
+                table = header.path
+                inTable = isServer(header.path)
+                if inTable {
+                    entry.lines.append(index)
+                    if header.array { entry.removable = false }
+                }
+                continue
+            }
+            if inTable { entry.lines.append(index) }
+            guard let pair = tomlKeyValue(line) else { continue }
+            let path = table + pair.path
+            guard isServer(path) else { continue }
+            if entry.command == nil {
+                if path.count == 3, path[2] == "command" { entry.command = tomlUnquote(pair.value) }
+                if path.count == 2 { entry.command = tomlInlineCommand(pair.value) }
+            }
+            if !inTable {
+                entry.lines.append(index)
+                if !tomlScan(Substring(pair.value)) { entry.removable = false }
+            }
         }
-        return start..<end
+        return entry.lines.isEmpty ? nil : entry
+    }
+
+    private static func isServer(_ path: [String]) -> Bool {
+        path.count >= 2 && path[0] == "mcp_servers" && path[1] == serverName
+    }
+
+    private static func runs(_ indices: [Int]) -> [Range<Int>] {
+        var runs: [Range<Int>] = []
+        for index in indices.sorted() {
+            if let last = runs.last, last.upperBound == index {
+                runs[runs.count - 1] = last.lowerBound..<(index + 1)
+            } else {
+                runs.append(index..<(index + 1))
+            }
+        }
+        return runs
+    }
+
+    /// A `[header]` or `[[header]]` line's key path, quotes and spaces dropped and a trailing
+    /// comment allowed: `[mcp_servers."locant"] # mine` is `["mcp_servers", "locant"]`. Nil for any other line.
+    private static func tomlHeader(_ line: String) -> (path: [String], array: Bool)? {
+        let trimmed = Substring(line.trimmingCharacters(in: .whitespaces))
+        guard trimmed.hasPrefix("[") else { return nil }
+        let array = trimmed.hasPrefix("[[")
+        let close = array ? "]]" : "]"
+        guard let parsed = tomlKeyPath(trimmed.dropFirst(close.count)), parsed.rest.hasPrefix(close) else { return nil }
+        let after = parsed.rest.dropFirst(close.count).drop { $0 == " " || $0 == "\t" }
+        guard after.isEmpty || after.hasPrefix("#") else { return nil }
+        return (parsed.path, array)
+    }
+
+    /// A `key = value` line's key path and the text of its value, comment and all.
+    private static func tomlKeyValue(_ line: String) -> (path: [String], value: String)? {
+        let trimmed = Substring(line.trimmingCharacters(in: .whitespaces))
+        guard let first = trimmed.first, first != "[", first != "#" else { return nil }
+        guard let parsed = tomlKeyPath(trimmed), parsed.rest.hasPrefix("=") else { return nil }
+        return (parsed.path, parsed.rest.dropFirst().trimmingCharacters(in: .whitespaces))
+    }
+
+    /// The dotted keys at the start of `s`, bare or quoted, and what follows them. Nil without one.
+    private static func tomlKeyPath(_ s: Substring) -> (path: [String], rest: Substring)? {
+        var path: [String] = []
+        var cursor = s
+        while true {
+            cursor = cursor.drop { $0 == " " || $0 == "\t" }
+            guard let first = cursor.first else { break }
+            if first == "\"" || first == "'" {
+                var key = ""
+                var index = cursor.index(after: cursor.startIndex)
+                var closed = false
+                while index < cursor.endIndex {
+                    let ch = cursor[index]
+                    if first == "\"", ch == "\\", cursor.index(after: index) < cursor.endIndex {
+                        key.append(cursor[cursor.index(after: index)])
+                        index = cursor.index(index, offsetBy: 2)
+                        continue
+                    }
+                    index = cursor.index(after: index)
+                    if ch == first { closed = true; break }
+                    key.append(ch)
+                }
+                guard closed else { return nil }
+                path.append(key)
+                cursor = cursor[index...]
+            } else {
+                let bare = cursor.prefix { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "_" || $0 == "-") }
+                guard !bare.isEmpty else { break }
+                path.append(String(bare))
+                cursor = cursor[bare.endIndex...]
+            }
+            let next = cursor.drop { $0 == " " || $0 == "\t" }
+            guard next.first == "." else { cursor = next; break }
+            cursor = next.dropFirst()
+        }
+        guard !path.isEmpty else { return nil }
+        return (path, cursor)
+    }
+
+    /// The `command` of an inline table, `{ command = "…", args = […] }`, read from what is on
+    /// its line whether or not the table closes there, so a table that runs on still reports the
+    /// command it names. Nil when the value is not one or names no whole command.
+    private static func tomlInlineCommand(_ value: String) -> String? {
+        let whole = Substring(value)
+        guard whole.hasPrefix("{") else { return nil }
+        var close: Substring.Index?
+        _ = tomlScan(whole) { index, depth in if close == nil, depth == 0, whole[index] == "}" { close = index } }
+        let inner = whole[whole.index(after: whole.startIndex)..<(close ?? whole.endIndex)]
+        var cuts: [Substring.Index] = []
+        _ = tomlScan(inner) { index, depth in if depth == 0, inner[index] == "," { cuts.append(index) } }
+        var parts: [Substring] = []
+        var start = inner.startIndex
+        for cut in cuts {
+            parts.append(inner[start..<cut])
+            start = inner.index(after: cut)
+        }
+        parts.append(inner[start...])
+        for part in parts {
+            guard let pair = tomlKeyValue(String(part)), pair.path == ["command"], tomlScan(Substring(pair.value)) else { continue }
+            return tomlUnquote(pair.value)
+        }
+        return nil
+    }
+
+    /// Walks the text of a value, `visit` seeing each character outside strings with the bracket
+    /// depth at it. True when every string and bracket closes on the line: a `#` at depth zero
+    /// ends it as a comment, one inside a bracket leaves the bracket open.
+    private static func tomlScan(_ s: Substring, _ visit: (Substring.Index, Int) -> Void = { _, _ in }) -> Bool {
+        var depth = 0
+        var index = s.startIndex
+        while index < s.endIndex {
+            let ch = s[index]
+            switch ch {
+            case "\"", "'":
+                let quote = s[index...].hasPrefix(String(repeating: ch, count: 3)) ? String(repeating: ch, count: 3) : String(ch)
+                var cursor = s.index(index, offsetBy: quote.count)
+                var closed = false
+                while cursor < s.endIndex {
+                    if ch == "\"", s[cursor] == "\\" {
+                        cursor = s.index(cursor, offsetBy: 2, limitedBy: s.endIndex) ?? s.endIndex
+                        continue
+                    }
+                    if s[cursor...].hasPrefix(quote) {
+                        cursor = s.index(cursor, offsetBy: quote.count)
+                        closed = true
+                        break
+                    }
+                    cursor = s.index(after: cursor)
+                }
+                guard closed else { return false }
+                index = cursor
+                continue
+            case "#":
+                return depth == 0
+            case "[", "{":
+                depth += 1
+            case "]", "}":
+                depth -= 1
+                guard depth >= 0 else { return false }
+            default:
+                break
+            }
+            visit(index, depth)
+            index = s.index(after: index)
+        }
+        return depth == 0
     }
 
     private static func tomlString(_ s: String) -> String {
@@ -177,7 +356,7 @@ enum AgentConfig {
     }
 
     static func tomlSnippet(executable: String) -> String {
-        tomlAdding(nil, executable: executable)
+        (try? tomlAdding(nil, executable: executable)) ?? ""
     }
 }
 
@@ -214,7 +393,9 @@ enum AgentConnector {
         let text = try? String(contentsOf: agent.configURL, encoding: .utf8)
         let updated: String
         do {
-            updated = agent == .codex ? AgentConfig.tomlAdding(text, executable: executable) : try AgentConfig.jsonAdding(text, executable: executable)
+            updated = agent == .codex ? try AgentConfig.tomlAdding(text, executable: executable) : try AgentConfig.jsonAdding(text, executable: executable)
+        } catch AgentConfig.Failure.configuredByHand {
+            throw Failure.file("\(AgentConfig.serverName) is already configured by hand in \(agent.configURL.path(percentEncoded: false)); edit it there.")
         } catch {
             throw Failure.file("\(agent.configURL.path(percentEncoded: false)) is not JSON; add the server by hand.")
         }
@@ -229,7 +410,9 @@ enum AgentConnector {
         let text = try? String(contentsOf: agent.configURL, encoding: .utf8)
         let updated: String?
         do {
-            updated = agent == .codex ? AgentConfig.tomlRemoving(text) : try AgentConfig.jsonRemoving(text)
+            updated = agent == .codex ? try AgentConfig.tomlRemoving(text) : try AgentConfig.jsonRemoving(text)
+        } catch AgentConfig.Failure.configuredByHand {
+            throw Failure.file("\(AgentConfig.serverName) is already configured by hand in \(agent.configURL.path(percentEncoded: false)); edit it there.")
         } catch {
             throw Failure.file("\(agent.configURL.path(percentEncoded: false)) is not JSON; remove the server by hand.")
         }

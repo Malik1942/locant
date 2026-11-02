@@ -50,14 +50,14 @@ final class AgentConfigTests: XCTestCase {
         command = "npx"
         args = [ "-y", "agentation-mcp", "server" ]
         """
-        let added = AgentConfig.tomlAdding(existing, executable: exe)
+        let added = try AgentConfig.tomlAdding(existing, executable: exe)
         XCTAssertEqual(added, existing + "\n\n[mcp_servers.locant]\ncommand = \"\(exe)\"\nargs = [\"--mcp\"]\n")
-        XCTAssertEqual(AgentConfig.tomlAdding(nil, executable: exe), "[mcp_servers.locant]\ncommand = \"\(exe)\"\nargs = [\"--mcp\"]\n")
+        XCTAssertEqual(try AgentConfig.tomlAdding(nil, executable: exe), "[mcp_servers.locant]\ncommand = \"\(exe)\"\nargs = [\"--mcp\"]\n")
         // Adding twice replaces, never duplicates.
-        let twice = AgentConfig.tomlAdding(added, executable: "/elsewhere/Locant")
+        let twice = try AgentConfig.tomlAdding(added, executable: "/elsewhere/Locant")
         XCTAssertEqual(twice.components(separatedBy: "[mcp_servers.locant]").count, 2)
         XCTAssertEqual(AgentConfig.tomlExecutable(twice), "/elsewhere/Locant")
-        XCTAssertEqual(AgentConfig.tomlExecutable(AgentConfig.tomlAdding(nil, executable: "/a \"quoted\"/Locant")), "/a \"quoted\"/Locant")
+        XCTAssertEqual(AgentConfig.tomlExecutable(try AgentConfig.tomlAdding(nil, executable: "/a \"quoted\"/Locant")), "/a \"quoted\"/Locant")
     }
 
     // 4
@@ -75,12 +75,12 @@ final class AgentConfigTests: XCTestCase {
         [mcp_servers.agentation]
         command = "npx"
         """
-        XCTAssertEqual(AgentConfig.tomlRemoving(existing), "model = \"gpt-5\"\n\n[mcp_servers.agentation]\ncommand = \"npx\"")
-        XCTAssertNil(AgentConfig.tomlRemoving(nil))
-        XCTAssertNil(AgentConfig.tomlRemoving("model = \"gpt-5\"\n"))
+        XCTAssertEqual(try AgentConfig.tomlRemoving(existing), "model = \"gpt-5\"\n\n[mcp_servers.agentation]\ncommand = \"npx\"")
+        XCTAssertNil(try AgentConfig.tomlRemoving(nil))
+        XCTAssertNil(try AgentConfig.tomlRemoving("model = \"gpt-5\"\n"))
         // A table at the end of the file.
         let tail = "a = 1\n\n[mcp_servers.locant]\ncommand = \"/x\"\n"
-        XCTAssertEqual(AgentConfig.tomlRemoving(tail), "a = 1\n")
+        XCTAssertEqual(try AgentConfig.tomlRemoving(tail), "a = 1\n")
     }
 
     // 5
@@ -91,7 +91,7 @@ final class AgentConfigTests: XCTestCase {
         XCTAssertNil(AgentConfig.tomlExecutable(nil))
         XCTAssertNil(AgentConfig.tomlExecutable("[mcp_servers.other]\ncommand = \"x\"\n"))
         XCTAssertEqual(AgentConfig.tomlExecutable("[mcp_servers.locant]\ncommand = \"/x/Locant\" # comment\nargs = []\n"), "/x/Locant")
-        XCTAssertEqual(AgentConfig.tomlExecutable("[mcp_servers.locant]\nargs = []\n"), "")
+        XCTAssertNil(AgentConfig.tomlExecutable("[mcp_servers.locant]\nargs = []\n"), "a table without a command is no connection")
 
         let snippet = try object(AgentConfig.jsonSnippet(executable: exe))
         XCTAssertEqual(((snippet["mcpServers"] as? [String: Any])?["locant"] as? [String: Any])?["args"] as? [String], ["--mcp"])
@@ -99,5 +99,48 @@ final class AgentConfigTests: XCTestCase {
         XCTAssertEqual(Agent.claudeCode.configURL.lastPathComponent, ".claude.json")
         XCTAssertEqual(Agent.cursor.configURL.path(percentEncoded: false).hasSuffix("/.cursor/mcp.json"), true)
         XCTAssertEqual(Agent.codex.configURL.path(percentEncoded: false).hasSuffix("/.codex/config.toml"), true)
+    }
+
+    // 6: the spellings a hand writes into Codex's file (Nov 2 2026). Before, only the exact
+    // `[mcp_servers.locant]` was seen, and Connect appended a second table Codex refused to parse.
+    func testTOMLRecognisesTheFormsAHandWrites() throws {
+        let quoted = "model = \"gpt-5\"\n\n[mcp_servers.\"locant\"] # mine\ncommand = \"/x/Locant\"\nargs = [\"--mcp\"]\n"
+        XCTAssertEqual(AgentConfig.tomlExecutable(quoted), "/x/Locant")
+        XCTAssertEqual(try AgentConfig.tomlRemoving(quoted), "model = \"gpt-5\"\n")
+        let readded = try AgentConfig.tomlAdding(quoted, executable: exe)
+        XCTAssertEqual(readded, "model = \"gpt-5\"\n\n[mcp_servers.locant]\ncommand = \"\(exe)\"\nargs = [\"--mcp\"]\n")
+        XCTAssertEqual(AgentConfig.tomlExecutable("[ mcp_servers . 'locant' ]\ncommand = '/y/Locant'\n"), "/y/Locant")
+        XCTAssertEqual(AgentConfig.tomlExecutable("[\"mcp_servers\".locant]\t# tab\ncommand = \"/t/Locant\"\n"), "/t/Locant")
+
+        // Inline under [mcp_servers]: that one line goes, the neighbours stay, the table is appended.
+        let inline = "[mcp_servers]\nagentation = { command = \"npx\" }\nlocant = { command = \"/z/Locant\", args = [\"--mcp\"] }\n\n[other]\na = 1\n"
+        XCTAssertEqual(AgentConfig.tomlExecutable(inline), "/z/Locant")
+        XCTAssertEqual(try AgentConfig.tomlRemoving(inline), "[mcp_servers]\nagentation = { command = \"npx\" }\n\n[other]\na = 1\n")
+        XCTAssertEqual(try AgentConfig.tomlAdding(inline, executable: exe), "[mcp_servers]\nagentation = { command = \"npx\" }\n\n[other]\na = 1\n\n[mcp_servers.locant]\ncommand = \"\(exe)\"\nargs = [\"--mcp\"]\n")
+        XCTAssertEqual(AgentConfig.tomlExecutable("[mcp_servers]\nlocant = { args = [\"--mcp\"], command = \"/c, d/Locant\" } # note\n"), "/c, d/Locant")
+
+        // Dotted keys under [mcp_servers], and from the root.
+        let dotted = "[mcp_servers]\nlocant.command = \"/d/Locant\"\nlocant.args = [\"--mcp\"]\n[other]\na = 1\n"
+        XCTAssertEqual(AgentConfig.tomlExecutable(dotted), "/d/Locant")
+        XCTAssertEqual(try AgentConfig.tomlRemoving(dotted), "[mcp_servers]\n[other]\na = 1\n")
+        XCTAssertEqual(AgentConfig.tomlExecutable("mcp_servers.locant.command = \"/r/Locant\"\n"), "/r/Locant")
+
+        // A value that runs on past its line, or an array of tables, cannot be cut out: by hand.
+        let multiline = "[mcp_servers]\nlocant = { command = \"/m/Locant\", args = [\n  \"--mcp\"\n] }\n"
+        XCTAssertEqual(AgentConfig.tomlExecutable(multiline), "/m/Locant")
+        XCTAssertThrowsError(try AgentConfig.tomlRemoving(multiline)) { XCTAssertEqual($0 as? AgentConfig.Failure, .configuredByHand) }
+        XCTAssertThrowsError(try AgentConfig.tomlAdding(multiline, executable: exe)) { XCTAssertEqual($0 as? AgentConfig.Failure, .configuredByHand) }
+        XCTAssertThrowsError(try AgentConfig.tomlRemoving("[[mcp_servers.locant]]\ncommand = \"/a/Locant\"\n"))
+
+        // No command is no connection, wherever the word appears.
+        XCTAssertNil(AgentConfig.tomlExecutable("[mcp_servers.locant]\n[mcp_servers.locant.env]\ncommand = \"not ours\"\n"))
+        XCTAssertNil(AgentConfig.tomlExecutable("[mcp_servers.locant]\ncommands = \"x\"\n"))
+        XCTAssertNil(AgentConfig.tomlExecutable("[mcp_servers.locantx]\ncommand = \"x\"\n"))
+        XCTAssertNil(AgentConfig.tomlExecutable("[mcp_servers]\nlocant = { args = [] }\n"))
+        // A commented-out header is a comment.
+        XCTAssertNil(AgentConfig.tomlExecutable("# [mcp_servers.locant]\n# command = \"x\"\n"))
+        // And a table without a command is replaced, not duplicated.
+        let bare = "[mcp_servers.locant]\nargs = []\n"
+        XCTAssertEqual(try AgentConfig.tomlAdding(bare, executable: exe).components(separatedBy: "[mcp_servers.locant]").count, 2)
     }
 }
