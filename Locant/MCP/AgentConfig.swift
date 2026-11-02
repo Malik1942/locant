@@ -360,9 +360,10 @@ enum AgentConfig {
     }
 }
 
-/// R56: reads and writes the agents' files, through their CLIs when those exist. Not pure; not tested.
+/// R56: reads and writes the agents' files, through their CLIs when those exist. The CLI lookup
+/// and the writes to the real files are not tested; the file editing is, on temporary files.
 enum AgentConnector {
-    enum Failure: Error, LocalizedError {
+    enum Failure: Error, LocalizedError, Equatable {
         case cli(String)
         case file(String)
 
@@ -379,44 +380,58 @@ enum AgentConnector {
     }
 
     static func status(_ agent: Agent) -> AgentStatus {
-        let text = try? String(contentsOf: agent.configURL, encoding: .utf8)
+        status(agent, at: agent.configURL)
+    }
+
+    static func status(_ agent: Agent, at url: URL) -> AgentStatus {
+        let text = try? String(contentsOf: url, encoding: .utf8)
         let found = agent == .codex ? AgentConfig.tomlExecutable(text) : AgentConfig.jsonExecutable(text)
         return found.map { .connected(executable: $0) } ?? .notConnected
     }
 
-    static func connect(_ agent: Agent, executable: String = executable) throws {
-        if let cli = agent.cli, let url = cliURL(cli) {
-            _ = try? run(url, removeArguments(agent))
-            try run(url, addArguments(agent, executable: executable))
+    static func connect(_ agent: Agent) throws {
+        try connect(agent, at: agent.configURL, executable: executable, cli: agent.cli.flatMap(cliURL))
+    }
+
+    static func disconnect(_ agent: Agent) throws {
+        try disconnect(agent, at: agent.configURL, cli: agent.cli.flatMap(cliURL))
+    }
+
+    /// `url` is the agent's file and `cli` its tool when found; both are parameters so tests run on
+    /// temporary files with no tool.
+    static func connect(_ agent: Agent, at url: URL, executable: String, cli: URL?) throws {
+        if let cli {
+            _ = try? run(cli, removeArguments(agent))
+            try run(cli, addArguments(agent, executable: executable))
             return
         }
-        let text = try? String(contentsOf: agent.configURL, encoding: .utf8)
+        let text = try? String(contentsOf: url, encoding: .utf8)
         let updated: String
         do {
             updated = agent == .codex ? try AgentConfig.tomlAdding(text, executable: executable) : try AgentConfig.jsonAdding(text, executable: executable)
         } catch AgentConfig.Failure.configuredByHand {
-            throw Failure.file("\(AgentConfig.serverName) is already configured by hand in \(agent.configURL.path(percentEncoded: false)); edit it there.")
+            throw Failure.file("\(AgentConfig.serverName) is already configured by hand in \(url.path(percentEncoded: false)); edit it there.")
         } catch {
-            throw Failure.file("\(agent.configURL.path(percentEncoded: false)) is not JSON; add the server by hand.")
+            throw Failure.file("\(url.path(percentEncoded: false)) is not JSON; add the server by hand.")
         }
-        try write(updated, to: agent.configURL)
+        try write(updated, to: url)
     }
 
-    static func disconnect(_ agent: Agent) throws {
-        if let cli = agent.cli, let url = cliURL(cli) {
-            try run(url, removeArguments(agent))
+    static func disconnect(_ agent: Agent, at url: URL, cli: URL?) throws {
+        if let cli {
+            try run(cli, removeArguments(agent))
             return
         }
-        let text = try? String(contentsOf: agent.configURL, encoding: .utf8)
+        let text = try? String(contentsOf: url, encoding: .utf8)
         let updated: String?
         do {
             updated = agent == .codex ? try AgentConfig.tomlRemoving(text) : try AgentConfig.jsonRemoving(text)
         } catch AgentConfig.Failure.configuredByHand {
-            throw Failure.file("\(AgentConfig.serverName) is already configured by hand in \(agent.configURL.path(percentEncoded: false)); edit it there.")
+            throw Failure.file("\(AgentConfig.serverName) is already configured by hand in \(url.path(percentEncoded: false)); edit it there.")
         } catch {
-            throw Failure.file("\(agent.configURL.path(percentEncoded: false)) is not JSON; remove the server by hand.")
+            throw Failure.file("\(url.path(percentEncoded: false)) is not JSON; remove the server by hand.")
         }
-        if let updated { try write(updated, to: agent.configURL) }
+        if let updated { try write(updated, to: url) }
     }
 
     private static func addArguments(_ agent: Agent, executable: String) -> [String] {
@@ -471,12 +486,28 @@ enum AgentConnector {
         }
     }
 
-    private static func write(_ text: String, to url: URL) throws {
+    /// The text written to the file the path leads to: through a symlink to the file it names (a
+    /// dotfiles checkout, say) and into that file, never over the link and never as a new inode,
+    /// so its hard links, mode, and attributes stay. One backup of what was there, `<name>.locant-backup`
+    /// beside it, before each rewrite. Nov 2 2026; before, the atomic write replaced the link with a plain file.
+    static func write(_ text: String, to url: URL) throws {
+        let target = url.resolvingSymlinksInPath()
+        let path = target.path(percentEncoded: false)
         do {
-            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try text.write(to: url, atomically: true, encoding: .utf8)
+            try FileManager.default.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+            guard FileManager.default.fileExists(atPath: path) else {
+                try Data(text.utf8).write(to: target, options: .atomic)
+                return
+            }
+            let backup = target.appendingPathExtension("locant-backup")
+            if FileManager.default.fileExists(atPath: backup.path(percentEncoded: false)) { try FileManager.default.removeItem(at: backup) }
+            try FileManager.default.copyItem(at: target, to: backup)
+            let handle = try FileHandle(forWritingTo: target)
+            defer { try? handle.close() }
+            try handle.truncate(atOffset: 0)
+            try handle.write(contentsOf: Data(text.utf8))
         } catch {
-            throw Failure.file("Could not write \(url.path(percentEncoded: false)): \(error.localizedDescription)")
+            throw Failure.file("Could not write \(path): \(error.localizedDescription)")
         }
     }
 }

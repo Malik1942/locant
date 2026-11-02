@@ -143,4 +143,54 @@ final class AgentConfigTests: XCTestCase {
         let bare = "[mcp_servers.locant]\nargs = []\n"
         XCTAssertEqual(try AgentConfig.tomlAdding(bare, executable: exe).components(separatedBy: "[mcp_servers.locant]").count, 2)
     }
+
+    // 7: writes follow a symlink into the file it names and keep one backup beside it (Nov 2 2026).
+    func testWriteFollowsASymlinkAndKeepsOneBackup() throws {
+        let dir = FileManager.default.temporaryDirectory.appending(path: "LocantAgents-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let real = dir.appending(path: "dotfiles/cursor/mcp.json")
+        let link = dir.appending(path: "home/.cursor/mcp.json")
+        try FileManager.default.createDirectory(at: real.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: link.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let first = #"{"mcpServers": {"agentation": {"command": "npx"}}}"#
+        try first.write(to: real, atomically: true, encoding: .utf8)
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: real)
+        let inode = try FileManager.default.attributesOfItem(atPath: real.path(percentEncoded: false))[.systemFileNumber] as? Int
+
+        XCTAssertNoThrow(try AgentConnector.connect(.cursor, at: link, executable: exe, cli: nil))
+        XCTAssertEqual(try FileManager.default.destinationOfSymbolicLink(atPath: link.path(percentEncoded: false)), real.path(percentEncoded: false), "the link is still a link")
+        let written = try object(try String(contentsOf: real, encoding: .utf8))
+        XCTAssertEqual((written["mcpServers"] as? [String: Any])?.keys.sorted(), ["agentation", "locant"])
+        XCTAssertEqual(try FileManager.default.attributesOfItem(atPath: real.path(percentEncoded: false))[.systemFileNumber] as? Int, inode, "the file was edited in place")
+        let backup = dir.appending(path: "dotfiles/cursor/mcp.json.locant-backup")
+        XCTAssertEqual(try String(contentsOf: backup, encoding: .utf8), first)
+        XCTAssertEqual(AgentConnector.status(.cursor, at: link), .connected(executable: exe))
+
+        // The next write replaces the backup with what it found, so there is one backup, not a pile.
+        XCTAssertNoThrow(try AgentConnector.disconnect(.cursor, at: link, cli: nil))
+        XCTAssertTrue(try String(contentsOf: backup, encoding: .utf8).contains("locant"), "the backup is the file before this write")
+        XCTAssertFalse(try String(contentsOf: real, encoding: .utf8).contains("locant"))
+        XCTAssertEqual(AgentConnector.status(.cursor, at: link), .notConnected)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: real.deletingLastPathComponent().path(percentEncoded: false)).sorted(), ["mcp.json", "mcp.json.locant-backup"])
+
+        // A file that is not there yet is created, with no backup, and the folder with it.
+        let fresh = dir.appending(path: "home2/.cursor/mcp.json")
+        XCTAssertNoThrow(try AgentConnector.connect(.cursor, at: fresh, executable: exe, cli: nil))
+        XCTAssertEqual(AgentConnector.status(.cursor, at: fresh), .connected(executable: exe))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fresh.path(percentEncoded: false) + ".locant-backup"))
+
+        // Codex's file, the same way.
+        let toml = dir.appending(path: "home/.codex/config.toml")
+        try FileManager.default.createDirectory(at: toml.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try "model = \"gpt-5\"\n".write(to: toml, atomically: true, encoding: .utf8)
+        XCTAssertNoThrow(try AgentConnector.connect(.codex, at: toml, executable: exe, cli: nil))
+        XCTAssertEqual(AgentConnector.status(.codex, at: toml), .connected(executable: exe))
+        XCTAssertEqual(try String(contentsOf: toml.appendingPathExtension("locant-backup"), encoding: .utf8), "model = \"gpt-5\"\n")
+        try "[mcp_servers]\nlocant = { command = \"/m\", args = [\n\"--mcp\"] }\n".write(to: toml, atomically: true, encoding: .utf8)
+        XCTAssertThrowsError(try AgentConnector.connect(.codex, at: toml, executable: exe, cli: nil)) {
+            XCTAssertTrue($0.localizedDescription.contains("already configured by hand"), $0.localizedDescription)
+        }
+        XCTAssertThrowsError(try AgentConnector.disconnect(.codex, at: toml, cli: nil))
+        XCTAssertTrue(try String(contentsOf: toml, encoding: .utf8).hasPrefix("[mcp_servers]\nlocant = { command = \"/m\""), "left alone")
+    }
 }
