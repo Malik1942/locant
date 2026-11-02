@@ -99,6 +99,26 @@ final class MarkdownBuilderTests: XCTestCase {
         XCTAssertTrue(md.contains("Path: group > toolbar > button\n"))
     }
 
+    // A reference capture is someone else's app: the missing identifier is stated, never an edit to make.
+    func testReferenceModeStatesTheMissingIdentifierWithoutAdvice() {
+        let md = MarkdownBuilder.build(capture(mode: .reference, element: element(identifier: nil, source: .unknown)))
+        XCTAssertTrue(md.contains("button \"Capture\" · no identifier\nNo identifier.\nFrame: x=312 y=88 w=64 h=32\n"), md)
+        XCTAssertFalse(md.contains("accessibilityIdentifier"), "not the user's code")
+        XCTAssertFalse(md.contains("so the next capture is exact"))
+
+        var web = element(identifier: nil, role: "staticText", label: nil, source: .unknown)
+        web.dom = DOMInfo(id: nil, classes: ["price", "muted"])
+        let classes = MarkdownBuilder.build(capture(mode: .reference, element: web))
+        XCTAssertTrue(classes.contains("staticText · .price.muted\nNo id attribute.\nFrame:"), classes)
+        web.dom = DOMInfo(id: nil, classes: [])
+        let bare = MarkdownBuilder.build(capture(mode: .reference, element: web))
+        XCTAssertTrue(bare.contains("staticText · no identifier\nNo id or class.\nFrame:"), bare)
+        XCTAssertFalse(classes.contains("give the element an id") || bare.contains("give the element an id"))
+
+        let fix = MarkdownBuilder.build(capture(mode: .fix, element: web))
+        XCTAssertTrue(fix.contains("No id or class. Grep the label text; give the element an id so the next capture is exact.\n"), fix)
+    }
+
     func testClusterRendersMembers() throws {
         let cluster = ResolvedElement(
             role: "cluster", rawRole: "LocantCluster", label: nil, identifier: nil, identifierSource: .unknown, value: nil,

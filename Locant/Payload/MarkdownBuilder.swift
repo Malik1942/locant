@@ -7,7 +7,7 @@ enum MarkdownBuilder {
         let extras = [elementsBlock(capture), nearbyBlock(capture), textBlock(capture)].compactMap { $0 }
         // v0.8 R58: a set selected with Shift is numbered; "this" and "that" match how notes are worded.
         let elementBlocks = capture.targets.map { targets in targets.enumerated().map { targetBlock($1, index: $0, capture: capture) } }
-            ?? [elementBlock(capture.element)]
+            ?? [elementBlock(capture.element, mode: capture.mode)]
         // specs/v0.7.1.md R55: the image path leads in both modes, so a terminal agent that receives only the text
         // can open the PNG; the note closes the payload. v0.1 had a reference capture lead with the note; amended
         // 2026-11-02, since the MCP server, the README, and the skill all promise the path first.
@@ -56,19 +56,19 @@ enum MarkdownBuilder {
         }
         if let url = target.url, url != capture.source.url { lines.append("URL: \(url)") }
         if let path = target.imagePath { lines.append("Image: \(path)") }
-        lines.append(contentsOf: elementLines(target.element))
+        lines.append(contentsOf: elementLines(target.element, mode: capture.mode))
         return lines.joined(separator: "\n")
     }
 
-    private static func elementBlock(_ element: ResolvedElement?) -> String {
+    private static func elementBlock(_ element: ResolvedElement?, mode: CaptureMode) -> String {
         guard let element else {
             return "### Target element\nNo element information available (app exposes no accessibility tree). Use the image.\nIf this view is yours, give it .accessibilityElement() and .accessibilityIdentifier(\"…\") so Locant can point at it next time."
         }
-        return (["### Target element"] + elementLines(element)).joined(separator: "\n")
+        return (["### Target element"] + elementLines(element, mode: mode)).joined(separator: "\n")
     }
 
     /// The lines under an element heading: the head line, advice, value, frame, and path.
-    private static func elementLines(_ element: ResolvedElement) -> [String] {
+    private static func elementLines(_ element: ResolvedElement, mode: CaptureMode) -> [String] {
         if element.role == ElementResolver.clusterRole {
             let members = element.members ?? []
             // specs/capture-shapes.md R129: a shape's frame is the edges seen on screen; a cluster's, an estimate.
@@ -112,17 +112,25 @@ enum MarkdownBuilder {
             lines.append(Self.textLineNote)
             lines.append(Self.textLineAdvice)
         } else if element.identifier == nil, element.dom == nil {
-            lines.append("No identifier. Grep the label text; add .accessibilityIdentifier(\"…\") to this view so the next capture is exact.")
+            lines.append(missingHandleLine("No identifier.", mode: mode,
+                                           fix: "Grep the label text; add .accessibilityIdentifier(\"…\") to this view so the next capture is exact."))
         } else if element.identifier == nil, element.dom?.id == nil {
             lines.append(hasHandle
-                ? "No id attribute. Grep the class names or the label text; give the element an id so the next capture is exact."
-                : "No id or class. Grep the label text; give the element an id so the next capture is exact.")
+                ? missingHandleLine("No id attribute.", mode: mode, fix: "Grep the class names or the label text; give the element an id so the next capture is exact.")
+                : missingHandleLine("No id or class.", mode: mode, fix: "Grep the label text; give the element an id so the next capture is exact."))
         }
         if let value = element.value { lines.append("Value: \(valueText(value))") }
         let f = element.frame
         lines.append("Frame: x=\(number(f.x)) y=\(number(f.y)) w=\(number(f.w)) h=\(number(f.h))")
         lines.append("Path: " + element.path.map(pathText).joined(separator: " > "))
         return lines
+    }
+
+    /// The line under an element with no handle: the fact in both modes. The advice to grep and add a handle
+    /// only in fix mode, where the code on screen is the user's own; a reference capture is someone else's app,
+    /// and the agent must not be told to edit it.
+    private static func missingHandleLine(_ fact: String, mode: CaptureMode, fix advice: String) -> String {
+        mode == .fix ? fact + " " + advice : fact
     }
 
     // v0.2 blocks

@@ -1181,7 +1181,8 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
   }
   function cancel() { end(); setStep(1, AGAIN); }
 
-  // ---- the payload, as MarkdownBuilder writes it: the image path first and the note last in both modes (R55) ----
+  // ---- the payload, as MarkdownBuilder writes it: the image path first and the note last in both modes;
+  // ---- under an element with no handle, the fact in both and the edit to make only for a fix (R55)
   function pad(n) { return (n < 10 ? '0' : '') + n; }
   function build(el, text, when) {
     var i = info(el), wd = i.win.dataset, kind = wd.mode;
@@ -1193,16 +1194,16 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
     if (i.web) { if (i.domId) head += ' · #' + i.domId; if (i.classes.length) head += ' · .' + i.classes.slice(0, 6).join('.') + (i.classes.length > 6 ? ' (+' + (i.classes.length - 6) + ' more)' : ''); }
     var hasHandle = !!(i.ident || (i.web && (i.domId || i.classes.length)));
     if (!hasHandle) head += ' · no identifier';
-    var advice = null;
-    if (!i.ident && !i.web) advice = 'No identifier. Grep the label text; add .accessibilityIdentifier("…") to this view so the next capture is exact.';
-    else if (!i.ident && !i.domId) advice = hasHandle ? 'No id attribute. Grep the class names or the label text; give the element an id so the next capture is exact.'
-                                                      : 'No id or class. Grep the label text; give the element an id so the next capture is exact.';
+    var advice = null;   // [the fact, the edit to make]
+    if (!i.ident && !i.web) advice = ['No identifier.', 'Grep the label text; add .accessibilityIdentifier("…") to this view so the next capture is exact.'];
+    else if (!i.ident && !i.domId) advice = hasHandle ? ['No id attribute.', 'Grep the class names or the label text; give the element an id so the next capture is exact.']
+                                                      : ['No id or class.', 'Grep the label text; give the element an id so the next capture is exact.'];
     var src = ['Image: ~/Pictures/Locant/locant-' + wd.file + '-' + stamp + '-' + id + '.png', 'App: ' + wd.app + ' (' + wd.bundle + ') · Window: ' + wd.label,
                'Captured: ' + at + ' · Image region: ' + num(f[2] + 80) + '×' + num(f[3] + 80) + ' pt @2x (element + 40 pt)'];
     if (wd.url) src.push('URL: ' + wd.url);
     if (wd.project) src.push('Project: ' + wd.project, ADVICE);
     var elem = ['### Target element', head];
-    if (advice) elem.push(advice);
+    if (advice) elem.push(kind === 'fix' ? advice.join(' ') : advice[0]);
     if (i.value != null) elem.push('Value: "' + i.value + '"');
     elem.push('Frame: x=' + num(f[0]) + ' y=' + num(f[1]) + ' w=' + num(f[2]) + ' h=' + num(f[3]), 'Path: ' + (i.isWin ? wd.path : el.dataset.path));
     return '## Locant capture (' + kind + ')\n' + [src.join('\n'), elem.join('\n'), '### Note\n' + text].join('\n\n') + '\n';
