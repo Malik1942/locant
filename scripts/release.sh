@@ -9,6 +9,12 @@
 # specs/v0.9.md R68: the app bundle carries its own ticket, so a copy dragged out of the dmg opens
 # offline. Before 0.9 only the dmg was stapled and the first launch depended on Gatekeeper's online
 # lookup.
+#
+# ~/Documents can be an iCloud Drive (File Provider) folder. The provider tags a bundle built there
+# with com.apple.FinderInfo and com.apple.fileprovider.fpfs#P, and codesign then refuses it
+# ("resource fork, Finder information, or similar detritus not allowed"). So DerivedData, the app,
+# the zip for notarytool and the dmg stage all live in $WORK, outside any synced folder, and only the
+# finished, stapled dmg is copied into build/release, where publish.sh and cask.sh read it.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -16,15 +22,20 @@ TEAM_ID=MVAUZXPK9M
 IDENTITY="Developer ID Application: YUE ZHANG ($TEAM_ID)"
 PROFILE="${NOTARY_PROFILE:-locant-notary}"
 OUT=build/release
-DERIVED=build/DerivedData-release
+WORK="$HOME/Library/Caches/Locant-release"
+DERIVED="$WORK/DerivedData"
+PACK="$WORK/out"
 VERSION=$(sed -n 's/.*MARKETING_VERSION = \(.*\);/\1/p' Locant.xcodeproj/project.pbxproj | head -1)
+APP="$PACK/Locant.app"
+ZIP="$PACK/Locant-$VERSION.zip"
+STAGE="$PACK/dmg"
+BUILT="$PACK/Locant-$VERSION.dmg"
 DMG="$OUT/Locant-$VERSION.dmg"
-ZIP="$OUT/Locant-$VERSION.zip"
 
 NOTARIZE=1
 xcrun notarytool history --keychain-profile "$PROFILE" >/dev/null 2>&1 || NOTARIZE=0
 
-rm -rf "$OUT"; mkdir -p "$OUT"
+rm -rf "$OUT" "$PACK"; mkdir -p "$OUT" "$PACK"
 
 echo "▸ Building Locant $VERSION (Release, hardened runtime, $IDENTITY)"
 xcodebuild -scheme Locant -configuration Release -derivedDataPath "$DERIVED" build \
@@ -37,9 +48,7 @@ xcodebuild -scheme Locant -configuration Release -derivedDataPath "$DERIVED" bui
   ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO \
   -quiet
 
-APP="$DERIVED/Build/Products/Release/Locant.app"
-cp -R "$APP" "$OUT/Locant.app"
-APP="$OUT/Locant.app"
+cp -R "$DERIVED/Build/Products/Release/Locant.app" "$APP"
 
 echo "▸ Verifying signature"
 codesign --verify --deep --strict --verbose=2 "$APP"
@@ -57,26 +66,35 @@ if [ "$NOTARIZE" = 1 ]; then
   xcrun stapler validate "$APP"
 fi
 
-echo "▸ Packaging $DMG"
-STAGE=$(mktemp -d)
+echo "▸ Packaging $BUILT"
+mkdir "$STAGE"
 cp -R "$APP" "$STAGE/Locant.app"
 ln -s /Applications "$STAGE/Applications"
-hdiutil create -volname "Locant" -srcfolder "$STAGE" -ov -format UDZO -quiet "$DMG"
+hdiutil create -volname "Locant" -srcfolder "$STAGE" -ov -format UDZO -quiet "$BUILT"
 rm -rf "$STAGE"
-codesign --sign "$IDENTITY" --timestamp "$DMG"
+codesign --sign "$IDENTITY" --timestamp "$BUILT"
 
 if [ "$NOTARIZE" = 1 ]; then
   echo "▸ Notarizing the dmg"
-  xcrun notarytool submit "$DMG" --keychain-profile "$PROFILE" --wait
-  xcrun stapler staple "$DMG"
-  xcrun stapler validate "$DMG"
+  xcrun notarytool submit "$BUILT" --keychain-profile "$PROFILE" --wait
+  xcrun stapler staple "$BUILT"
+  xcrun stapler validate "$BUILT"
   echo "▸ Gatekeeper check"
-  spctl -a -t open --context context:primary-signature -vv "$DMG"
+  spctl -a -t open --context context:primary-signature -vv "$BUILT"
+  # With assessments disabled spctl prints "override=security disabled", which proves nothing.
+  # (spctl --status exits 1 when it says "assessments disabled", so read its text, not its status.)
+  if [[ "$(spctl --status 2>&1 || true)" == *disabled* ]]; then
+    echo "  Gatekeeper assessments are disabled on this Mac; the stapler validate above is the evidence."
+  fi
 else
   echo "▸ Skipped notarization: no keychain profile '$PROFILE'. This dmg is not for publishing."
   echo "  Create the profile once, then rerun:"
   echo "    xcrun notarytool store-credentials $PROFILE --apple-id <you@icloud.com> --team-id $TEAM_ID"
 fi
+
+echo "▸ Copying the dmg to $DMG"
+cp "$BUILT" "$DMG"
+cmp -s "$BUILT" "$DMG" || { echo "$DMG differs from $BUILT"; exit 1; }
 
 echo "▸ Done: $DMG"
 shasum -a 256 "$DMG"
