@@ -39,6 +39,32 @@ jobs:
       - uses: actions/checkout@v4
       - name: The capture schema is valid JSON
         run: python3 -m json.tool schema/capture.schema.json > /dev/null
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: The sidecar fixtures match the capture schema
+        # LocantTests/Fixtures/sidecar-*.json are captures as the app writes them, one with only the keys
+        # the schema requires. The schema is the only interface (docs/CLAUDE.md), so a fixture it rejects
+        # is a drift in one or the other; the same fixtures are decoded by LocantTests/MCPServerTests.swift.
+        run: |
+          python3 -m pip install --quiet jsonschema rfc3339-validator
+          python3 - <<'EOF'
+          import glob, json, sys
+          from jsonschema import Draft202012Validator
+          schema = json.load(open("schema/capture.schema.json"))
+          Draft202012Validator.check_schema(schema)
+          validator = Draft202012Validator(schema, format_checker=Draft202012Validator.FORMAT_CHECKER)
+          files = sorted(glob.glob("LocantTests/Fixtures/sidecar-*.json"))
+          assert files, "no sidecar fixtures under LocantTests/Fixtures"
+          failed = 0
+          for path in files:
+              errors = sorted(validator.iter_errors(json.load(open(path))), key=lambda e: e.json_path)
+              for e in errors:
+                  print(f"{path}: {e.json_path}: {e.message}")
+              failed += bool(errors)
+              print(("FAIL  " if errors else "ok    ") + path)
+          sys.exit(1 if failed else 0)
+          EOF
       - name: The Locant skill's frontmatter
         # The static half of scripts/check-skill.sh; the skill's own command needs the app.
         run: |
