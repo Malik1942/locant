@@ -1,0 +1,91 @@
+{
+  "schemaVersion" : 1,
+  "id" : "20261102-093512-q7xk",
+  "createdAt" : "2026-11-02T09:35:12-08:00",
+  "mode" : "fix",
+  "image" : {
+    "path" : "/Users/malik/Pictures/Locant/locant-simulator-20261102-093512-q7xk.png",
+    "widthPt" : 450,
+    "heightPt" : 130.3,
+    "scale" : 2,
+    "crop" : { "x" : 3, "y" : 853.7, "w" : 450, "h" : 130.3 }
+  },
+  "source" : {
+    "app" : { "bundleId" : "com.apple.iphonesimulator", "name" : "Simulator" },
+    "window" : { "title" : "iPhone 17 Pro" },
+    "url" : null,
+    "simulator" : { "device" : "iPhone 17 Pro", "appBundleId" : "com.malikzhang.oryne" },
+    "projectRoot" : "/Users/malik/Documents/Oryne",
+    "gitCommit" : "3e144dd9c0b1a2f3e4d5c6b7a8f9e0d1c2b3a4f5"
+  },
+  "element" : {
+    "role" : "button",
+    "rawRole" : "AXButton",
+    "label" : "Capture",
+    "identifier" : "captureButton",
+    "identifierSource" : "declared",
+    "value" : null,
+    "frame" : { "x" : 43, "y" : 893.7, "w" : 370, "h" : 50.3 },
+    "path" : [
+      { "role" : "window", "identifier" : null },
+      { "role" : "group", "identifier" : null },
+      { "role" : "button", "identifier" : "captureButton" }
+    ]
+  },
+  "note" : "give this the pill's corner radius",
+  "ocr" : null,
+  "iterations" : [
+    {
+      "capturedAt" : "2026-11-02T09:41:03-08:00",
+      "imagePath" : "/Users/malik/Pictures/Locant/locant-simulator-20261102-093512-q7xk-after-1.png",
+      "gitBefore" : "3e144dd9c0b1a2f3e4d5c6b7a8f9e0d1c2b3a4f5",
+      "gitAfter" : "7e572dd1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7",
+      "diffStat" : " Oryne/Views/CaptureButton.swift | 2 +-\n 1 file changed, 1 insertion(+), 1 deletion(-)",
+      "files" : [ "Oryne/Views/CaptureButton.swift" ],
+      "frame" : { "x" : 43, "y" : 893.7, "w" : 370, "h" : 50.3 }
+    }
+  ],
+  "resolved" : false,
+  "targets" : [
+    {
+      "element" : {
+        "role" : "button",
+        "rawRole" : "AXButton",
+        "label" : "Capture",
+        "identifier" : "captureButton",
+        "identifierSource" : "declared",
+        "value" : null,
+        "frame" : { "x" : 43, "y" : 893.7, "w" : 370, "h" : 50.3 },
+        "path" : [
+          { "role" : "window", "identifier" : null },
+          { "role" : "group", "identifier" : null },
+          { "role" : "button", "identifier" : "captureButton" }
+        ]
+      },
+      "app" : { "bundleId" : "com.apple.iphonesimulator", "name" : "Simulator" },
+      "window" : { "title" : "iPhone 17 Pro" }
+    },
+    {
+      "element" : {
+        "role" : "button",
+        "rawRole" : "AXButton",
+        "label" : "Try it",
+        "identifier" : null,
+        "identifierSource" : "unknown",
+        "value" : null,
+        "frame" : { "x" : 1012, "y" : 388, "w" : 96, "h" : 36 },
+        "path" : [
+          { "role" : "window", "identifier" : null },
+          { "role" : "webArea", "identifier" : null },
+          { "role" : "group", "identifier" : null, "dom" : "#hero" },
+          { "role" : "button", "identifier" : null, "dom" : ".pill" }
+        ],
+        "dom" : { "id" : null, "classes" : [ "pill", "pill-primary" ] }
+      },
+      "app" : { "bundleId" : "com.apple.Safari", "name" : "Safari" },
+      "window" : { "title" : "Oryne" },
+      "url" : "https://oryne.malikzhang.com/",
+      "imagePath" : "/Users/malik/Pictures/Locant/locant-simulator-20261102-093512-q7xk-2.png"
+    }
+  ]
+}

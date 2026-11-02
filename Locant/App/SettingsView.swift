@@ -430,6 +430,13 @@ struct HotkeyRecorder: View {
             }
         }
         .fixedSize()
+        // A recording ends with its window: another tab, the window closed, hidden, or no longer in
+        // front. Left running, it would keep the real hotkeys paused and its monitor would eat every
+        // key typed into a Locant window, the overlay's note field included.
+        .onDisappear { if recording { stop() } }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { _ in
+            if recording { stop() }
+        }
     }
 
     /// What a key pressed while recording does.

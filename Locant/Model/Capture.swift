@@ -2,7 +2,8 @@ import CoreGraphics
 import Foundation
 
 /// Mirrors `schema/capture.schema.json` v1. Keys the schema requires are always
-/// written, so optionals that are nil encode as explicit `null`.
+/// written, so optionals that are nil encode as explicit `null`; keys it leaves
+/// optional may be absent when read, whatever their default here.
 struct Capture: Codable, Sendable, Equatable {
     var schemaVersion: Int = 1
     var id: String
@@ -42,6 +43,29 @@ struct Capture: Codable, Sendable, Equatable {
         try c.encodeIfPresent(elements, forKey: .elements)
         try c.encodeIfPresent(nearby, forKey: .nearby)
         try c.encodeIfPresent(targets, forKey: .targets)
+    }
+}
+
+extension Capture {
+    /// The schema's `required` list decides what must be there, not the defaults above: a sidecar without
+    /// `iterations` is valid, and the synthesized decoder refused it, so `list_captures` never showed it.
+    /// In an extension so the memberwise initializer stays.
+    init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try c.decode(Int.self, forKey: .schemaVersion)
+        id = try c.decode(String.self, forKey: .id)
+        createdAt = try c.decode(String.self, forKey: .createdAt)
+        mode = try c.decode(CaptureMode.self, forKey: .mode)
+        image = try c.decode(ImageInfo.self, forKey: .image)
+        source = try c.decode(SourceInfo.self, forKey: .source)
+        element = try c.decode(ResolvedElement?.self, forKey: .element)
+        note = try c.decode(String.self, forKey: .note)
+        resolved = try c.decode(Bool.self, forKey: .resolved)
+        ocr = try c.decodeIfPresent(String.self, forKey: .ocr)
+        iterations = try c.decodeIfPresent([Iteration].self, forKey: .iterations) ?? []
+        elements = try c.decodeIfPresent([RegionElement].self, forKey: .elements)
+        nearby = try c.decodeIfPresent([RegionElement].self, forKey: .nearby)
+        targets = try c.decodeIfPresent([CaptureTarget].self, forKey: .targets)
     }
 }
 

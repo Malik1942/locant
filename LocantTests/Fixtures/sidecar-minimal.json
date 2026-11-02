@@ -1,0 +1,35 @@
+{
+  "schemaVersion" : 1,
+  "id" : "20261102-093000-r3qd",
+  "createdAt" : "2026-11-02T09:30:00-08:00",
+  "mode" : "reference",
+  "image" : {
+    "path" : "/Users/malik/Pictures/Locant/locant-calculator-20261102-093000-r3qd.png",
+    "widthPt" : 128,
+    "heightPt" : 128,
+    "scale" : 2
+  },
+  "source" : {
+    "app" : { "bundleId" : "com.apple.calculator", "name" : "Calculator" },
+    "window" : { "title" : "Calculator" },
+    "url" : null,
+    "simulator" : null
+  },
+  "element" : {
+    "role" : "button",
+    "rawRole" : "AXButton",
+    "label" : "8",
+    "identifier" : "Eight",
+    "identifierSource" : "declared",
+    "value" : null,
+    "frame" : { "x" : 1154, "y" : 516, "w" : 48, "h" : 48 },
+    "path" : [
+      { "role" : "application", "identifier" : null },
+      { "role" : "window", "identifier" : "main" },
+      { "role" : "group", "identifier" : "CalculatorKeypadView" },
+      { "role" : "button", "identifier" : "Eight" }
+    ]
+  },
+  "note" : "make this key bigger",
+  "resolved" : false
+}

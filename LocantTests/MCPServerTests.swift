@@ -212,4 +212,59 @@ final class MCPServerTests: XCTestCase {
         try "not a capture".write(to: sub.appending(path: "locant-notes.json"), atomically: true, encoding: .utf8)
         XCTAssertEqual(server.index.entries().map(\.capture.id), ["20260914-100000-aaaa", "20260913-090000-zzzz"])
     }
+
+    // MARK: Sidecars as the schema allows them (the same fixtures CI validates against schema/capture.schema.json)
+
+    private func fixture(_ name: String) throws -> Data {
+        try Data(contentsOf: try XCTUnwrap(Bundle(for: Self.self).url(forResource: name, withExtension: "json"), "fixture \(name)"))
+    }
+
+    // 11: a sidecar with only the keys the schema requires is read. `iterations` and the rest are optional there,
+    // whatever the model defaults to; the synthesized decoder wanted them, so such a sidecar reached no tool.
+    func testASidecarWithOnlyTheRequiredKeysIsRead() throws {
+        let data = try fixture("sidecar-minimal")
+        let keys = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any]).keys.sorted()
+        XCTAssertEqual(keys, ["createdAt", "element", "id", "image", "mode", "note", "resolved", "schemaVersion", "source"], "the schema's required list, nothing more")
+        let capture = try JSONDecoder().decode(Capture.self, from: data)
+        XCTAssertEqual(capture.id, "20261102-093000-r3qd")
+        XCTAssertEqual(capture.element?.identifier, "Eight")
+        XCTAssertEqual(capture.iterations, [])
+        XCTAssertNil(capture.ocr)
+        XCTAssertNil(capture.image.crop)
+        XCTAssertNil(capture.elements)
+        XCTAssertNil(capture.nearby)
+        XCTAssertNil(capture.targets)
+
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try data.write(to: dir.appending(path: "locant-calculator-20261102-093000-r3qd.json"))
+        XCTAssertEqual(server.index.entries().map(\.capture.id), ["20261102-093000-r3qd"])
+        XCTAssertTrue(text(call("list_captures")).contains("20261102-093000-r3qd · 2026-11-02T09:30:00-08:00 · reference · Calculator · button id=Eight"))
+        let payload = text(call("get_capture", ["id": "20261102-093000-r3qd"]))
+        XCTAssertTrue(payload.hasPrefix("## Locant capture (reference)\nImage: /Users/malik/Pictures/Locant/locant-calculator-20261102-093000-r3qd.png\n"), payload)
+    }
+
+    // 12: the richer sidecars the app writes (a Shift set with an iteration, a drawn frame) decode and round-trip.
+    func testSidecarFixturesRoundTrip() throws {
+        for name in ["sidecar-shift-set", "sidecar-drawn-frame"] {
+            let data = try fixture(name)
+            let capture = try JSONDecoder().decode(Capture.self, from: data)
+            let written = try JSONEncoder().encode(capture)
+            XCTAssertEqual(try JSONDecoder().decode(Capture.self, from: written), capture, name)
+            let readKeys = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any]).keys.sorted()
+            let writtenKeys = try XCTUnwrap(JSONSerialization.jsonObject(with: written) as? [String: Any]).keys.sorted()
+            XCTAssertEqual(writtenKeys, readKeys, "\(name): every key read is written back, none invented")
+        }
+        let set = try JSONDecoder().decode(Capture.self, from: try fixture("sidecar-shift-set"))
+        XCTAssertEqual(set.targets?.count, 2)
+        XCTAssertEqual(set.targets?[1].element.dom?.classes, ["pill", "pill-primary"])
+        XCTAssertEqual(set.targets?[1].element.path.last?.dom, ".pill")
+        XCTAssertEqual(set.targets?[1].imagePath, "/Users/malik/Pictures/Locant/locant-simulator-20261102-093512-q7xk-2.png")
+        XCTAssertEqual(set.iterations.first?.frame, Frame(x: 43, y: 893.7, w: 370, h: 50.3))
+        XCTAssertEqual(set.source.projectRoot, "/Users/malik/Documents/Oryne")
+        let frame = try JSONDecoder().decode(Capture.self, from: try fixture("sidecar-drawn-frame"))
+        XCTAssertEqual(frame.elements?.count, 2)
+        XCTAssertEqual(frame.element?.members?.count, 2)
+        XCTAssertEqual(frame.ocr, "Shortcut\nAction Button")
+        XCTAssertTrue(frame.resolved)
+    }
 }
