@@ -244,12 +244,17 @@
   @media (hover: none) {
     .stage .field { height: 34px; }
     .stage .field input { font-size: 16px; }
-    .stage .field .hint { display: none; }
     .stage .ball::before { content: ""; position: absolute; inset: -10px; border-radius: 50%; }
   }
   .stage .field input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: inherit; font: inherit; }
   .stage .field input::placeholder { color: rgba(235,235,245,.45); }
-  .stage .field .hint { color: rgba(235,235,245,.6); flex: none; }
+  /* NoteFieldButton: a 20 pt disc with one symbol and no words, Return in the accent, Esc in the secondary; 4 pt apart */
+  .stage .field .fb { flex: none; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; cursor: pointer; display: grid; place-items: center;
+    background: rgba(235,235,245,.16); color: rgba(235,235,245,.6); -webkit-appearance: none; appearance: none; }
+  .stage .field .fb.cancel { margin-right: -4px; }
+  .stage .field .fb.commit { background: var(--accent); color: #fff; }
+  .stage .field .fb:active { opacity: .6; }
+  .stage .field .fb svg { width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   .stage .field.shake { animation: shake .3s ease; }
   @keyframes shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
 
@@ -660,7 +665,7 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
       </div>
       <div class="outline"></div>
       <div class="hud tag"></div>
-      <div class="hud field"><input type="text" placeholder="What should change?" aria-label="Note" autocomplete="off"><span class="hint">↩ copy · esc cancel</span></div>
+      <div class="hud field"><input type="text" placeholder="What should change?" aria-label="Note" autocomplete="off"><button class="fb cancel" type="button" aria-label="Cancel" title="Cancel (Esc)"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 3l6 6M9 3l-6 6"/></svg></button><button class="fb commit" type="button" aria-label="Copy" title="Copy (Return)"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M10 2.5V5a1.5 1.5 0 0 1-1.5 1.5H3M5.5 4L3 6.5 5.5 9"/></svg></button></div>
       <div class="hud toast">Copied</div>
       <div class="ghost"><i class="lens"></i><i class="tint"></i><i class="rim"></i></div>
       <button class="ball is-hidden" type="button" aria-label="Locant ball: point at an element"><i class="lens"></i><i class="tint"></i><i class="glow"></i><i class="lift"></i><i class="rim"></i><i class="hand"></i><span class="pulse"></span><span class="tip">Click to point</span></button>
@@ -1165,14 +1170,18 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
     if (touch) tag.style.top = clamp(top > f.y ? f.y - 34 : f.y + f.h + 8, 6, H() - 32) + 'px'; else tag.classList.remove('on');
     input.value = ''; input.focus({ preventScroll: true }); setStep(2, 'Type a note, then press Return.');
   }
+  function commit() {       // Return, or the field's Return button
+    if (!input.value.trim()) { field.classList.remove('shake'); void field.offsetWidth; field.classList.add('shake'); input.focus({ preventScroll: true }); return; }
+    capture(input.value.trim());
+  }
   input.addEventListener('keydown', function (e) {
     if (e.isComposing || e.keyCode === 229) return;   // Return that confirms an input-method composition
     if (e.key === 'Escape') { e.preventDefault(); cancel(); }
-    else if (e.key === 'Enter') {
-      e.preventDefault();
-      if (!input.value.trim()) { field.classList.remove('shake'); void field.offsetWidth; field.classList.add('shake'); return; }
-      capture(input.value.trim());
-    }
+    else if (e.key === 'Enter') { e.preventDefault(); commit(); }
+  });
+  field.querySelectorAll('.fb').forEach(function (b) {
+    b.addEventListener('pointerdown', function (e) { e.preventDefault(); });   // the input keeps the focus
+    b.addEventListener('click', b.classList.contains('commit') ? commit : cancel);
   });
   function end() {           // back to the ball, which picks its state from where the cursor is
     document.removeEventListener('keydown', keys); field.classList.remove('on'); hide(); stage.classList.remove('pointing', 'cross', 'picking'); input.blur();

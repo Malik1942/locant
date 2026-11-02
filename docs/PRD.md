@@ -4,6 +4,22 @@
 **Owner:** Malik Zhang
 **Platform:** macOS 15+, Apple silicon and Intel, Swift 6 + SwiftUI/AppKit; the MCP server is inside the app (`Locant --mcp`), no TypeScript
 
+## What shipped differently
+
+The body below is the plan of September 12, 2026, kept as written. Locant 1.1.0 (October 27, 2026) departs from it in these places; the spec named with each has the decision in full.
+
+- **MCP server** (7.2 P1.1, 9.3). No TypeScript package and no `npx locant-mcp`. Since 0.7.1 (Sep 15, 2026, `specs/v0.7.1.md`) the server is the app itself, `Locant --mcp`, over stdio, and Settings › Agents writes the one config entry. The tools are `latest_capture`, `get_capture`, `list_captures`, and `resolve_capture`.
+- **Note field** (6.3, P0.7). Esc has cancelled the whole capture since v0.1 (`specs/v0.1.md` R6), so the hint said cancel, not skip. The hint itself went in 1.1.0: the field grows with the note, up to eight lines, and a Return button and an × at its right do what the keys do.
+- **Floating ball default** (P1.11, 10). On by default since v0.3 (Sep 13, 2026, `specs/v0.3.md`), the first version with the preference; the open question is closed. Since 1.0.0 it first appears on the right edge an eighth of the way down, not at the lower right (`specs/ball-findable.md`).
+- **Ring hold** (P1.11). 0.5 s since v0.5 (Sep 14, 2026, `specs/v0.5.md`), AppKit's own long-press threshold; 300 ms was under a hesitant click.
+- **Clipboard-only Snap and Cut** (7.3 table, P1.5, P1.11). ⌘, not ⌥, since 0.9.0 (Sep 30, 2026, `specs/v0.9-snap.md` R78). ⌥ steps the outline to the parent everywhere, in Snap and Cut too.
+- **Drag for Point** (P1.9). A plain drag draws the frame. ⇧ adds elements to a set instead (0.8.0, Sep 17, 2026, `specs/v0.8.md`).
+- **Settings** (6.2 `settings.window`, 6.3, P1.13). Four tabs since 0.6 (Sep 14, 2026, `specs/v0.6.md` R51: General, Hotkeys, Captures, My Apps), five with Agents since 0.7.1. Since 1.0.0 (Oct 19, 2026, `specs/settings-cleanup.md`) every row is a title and a control with no footnotes, in a window fixed at 480 pt wide.
+- **URL scheme and Raycast** (P1.12, P1.13, 11). Never built; deferred in `specs/v0.3-actions.md` and again in `specs/v0.7.1.md`. The entry points are the hotkeys, the ball, and the menu bar.
+- **Pin last capture** (P1.10, Menu bar, 11). Built in v0.3 and removed in v0.5 (`specs/v0.5.md` R44). The retention sweep still keeps files carrying the `app.locant.pinned` attribute, and captures an agent marked `resolved`.
+- **Text selection layer** (P1.6, 6.3). Never built. Text reads the element, window, or drawn frame you choose and puts the recognized text on the clipboard; there is no layer of selectable lines.
+- **Cut instance picker** (P1.8, 6.3). Never built. Cut keeps the subject under the click, or every subject in a drawn frame; there is no picker and no flood-fill fallback.
+
 ---
 
 ## One-line description

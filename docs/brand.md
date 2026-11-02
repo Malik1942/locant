@@ -68,13 +68,15 @@ tests them.
 | Asset | Path | Notes |
 |---|---|---|
 | Icon, light and dark, 1024 and 512 | `design/icon/renders/` | rendered by `ictool` from the shipped package |
-| Site icon copies | `site/assets/icon-light.png`, `icon-dark.png` | 512, the page picks one per theme |
+| Site icon copies | `site/assets/icon-light.png`, `icon-dark.png` | 512, the page picks one per theme; the README shows the light one |
 | Favicons | `site/assets/favicon-32.png`, `favicon-64.png`, `apple-touch-icon.png` | same package, rendered at size |
-| Settings screenshot | `site/assets/settings-dark.png` | window capture with shadow, dark appearance |
-| Overlay frames | `site/assets/overlay-{hover,option,drag,note}.jpg` | real captures over Calculator on the Tahoe Day wallpaper, 3:2 |
-| Ball states | `site/assets/ball-{docked,awake,ready,ring}.png` | real captures over the same wallpaper, square |
-| Product glyphs | `site/assets/glyph-{snap,text,color,cut,hand}.png` | keyed out of the ring capture, tinted with the accent |
-| Demo video | `site/assets/demo.mp4` (to record) | 10 to 15 s: double-tap Control, click, note, paste into Claude Code |
+| Share image | `site/assets/og.jpg` | 1200×630, the page's `og:image` |
+| The loop, recorded | `site/assets/hero.mp4`, `hero-mobile.mp4`, `hero-poster.jpg`; `hero.gif` for the README | real captures of one capture from the ball to the paste in the agent, in Dark appearance |
+| Try-it demo | `site/assets/desktop.jpg`, `scene-calculator.png`, `scene-iphone.jpg`, `scene-web.jpg` | the Tahoe Day wallpaper and three real windows; the overlay, label, note field, and ball are drawn over them in CSS from the app's tokens |
+| Glyphs | `site/assets/glyph-{snap,text,color,cut}.png`, `ball-hand.png` | the ring's four symbols and the hand on the ball, used as masks and tinted on the page |
+| Overlay frame | `site/assets/overlay-note.jpg` | real capture of the note field over Calculator on the Tahoe Day wallpaper, 3:2, 1260×840; the README's Use section |
+| Settings screenshots | `site/assets/settings-light.png`, `settings-dark.png` | window capture with shadow, General tab, 1184×1154; the README shows the light one |
+| Measured outcome | `site/assets/measured-outcome.png` | the chart of the Locant-against-screenshot runs; not shown anywhere since the launch rework of Oct 15, 2026 |
 
 ## Not yet decided
 

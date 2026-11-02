@@ -50,8 +50,8 @@ Window-level tools give your agent the window. Locant gives it the element.
 2. Launch it. There is no Dock icon; look for the pointing hand in the menu bar.
 3. Allow the two permissions it asks for, in this order:
    - **Accessibility** reads what is under your cursor and listens for the hotkey. Without it nothing works.
-   - **Screen Recording** captures the pixels of the element. macOS applies a fresh grant after a relaunch,
-     and Locant offers to do that itself.
+   - **Screen Recording** captures the pixels of the element. macOS applies the grant only after Locant
+     reopens, and offers Quit & Reopen when you turn it on; take it before the first capture.
 
    There is no third prompt. Nothing leaves the machine: no telemetry, no accounts. The one request Locant
    makes is a daily check for a newer release on GitHub; turn it off in Settings › General.
@@ -73,7 +73,7 @@ Three seconds, start to paste.
    cancels; nothing is written and the clipboard is untouched.
 
 <p align="center">
-  <img src="site/assets/overlay-note.jpg" width="720" alt="The equals key outlined in blue on the overlay, with a note field below reading make this key bigger and the hint ↩ copy · esc cancel.">
+  <img src="site/assets/overlay-note.jpg" width="720" alt="The equals key outlined in blue on the overlay, with a note field below reading make this key bigger, a Return button and an × at its right.">
 </p>
 
 Paste into your agent. Each capture also lands in `~/Pictures/Locant/` as a PNG and a JSON sidecar that
@@ -230,8 +230,8 @@ Statuses say "untested" until someone tests them. A report of what your agent di
 over MCP, is a welcome issue.
 
 Ran it on a Mac that is not mine? The [tester form](https://github.com/Malik1942/locant/issues/new?template=tester.yml)
-takes two minutes, and [`docs/rc-checklist.md`](docs/rc-checklist.md) lists what to try. A Mac on
-macOS 15, an Intel Mac, a non-English system, or a second display is what 0.9 is waiting on.
+takes two minutes, and [`docs/rc-checklist.md`](docs/rc-checklist.md) lists what to try. Reports from a
+Mac on macOS 15, an Intel Mac, a non-English system, or a second display are the ones still missing.
 
 ## Known limitations
 

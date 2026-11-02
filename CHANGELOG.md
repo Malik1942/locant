@@ -12,6 +12,8 @@ Every release is a signed, notarized `Locant.dmg` on [GitHub Releases](https://g
 - **A reference capture no longer tells the agent to edit the app you pointed at.** Where an element has no identifier, the payload still says so; the advice to add `.accessibilityIdentifier(…)` or an `id` so the next capture is exact now appears only for a fix, where the code on screen is yours.
 - **A sidecar without `iterations` is read.** The schema never required that key, but the MCP server refused a capture that lacked it and left it out of `list_captures` and `get_capture` without a word. Every key the schema marks optional may now be missing from a sidecar. CI checks three sidecar fixtures against the schema on every push.
 - **Connect touches only the one server, and never a file it should not.** A symlinked `~/.cursor/mcp.json` or `~/.codex/config.toml` (a dotfiles checkout, say) used to be replaced by a plain file; now the file the link names is edited in place, and a copy of it as it was, `<name>.locant-backup`, is kept beside it before each rewrite. Claude Code is connected only through its `claude` command, now also found where your login shell finds it (nvm, fnm, volta); when there is none, the row shows the `claude mcp add` command to paste instead of writing `~/.claude.json` behind Claude Code's back. In Codex's file, `[mcp_servers."locant"]`, a header with a comment after it, and `locant = { … }` under `[mcp_servers]` are recognised, so Connect replaces them instead of appending a second table Codex refused to parse; a form Locant cannot rewrite says so, and a table without a `command` no longer reads as connected. A copy of Locant running from the dmg or from where macOS opens a downloaded app is refused with "Move Locant to Applications first", since that path dies with the eject. And a capture an agent resolves, or that gains an iteration, keeps its Finder tags and its pin.
+- **A drawn frame reads only the window it was drawn on.** A window of the same app that was minimized still reports the frame it had on screen, so its links and headings could fall inside a frame drawn over another page and mark empty parts of it. The frame now reads the window it was drawn on, and never a minimized one.
+- The first-launch sentence for Screen Recording says macOS offers Quit & Reopen. It used to read as if Locant would relaunch itself, which it never did.
 
 ## 1.1.0 (2026-10-27)
 
@@ -47,7 +49,7 @@ Locant 1.0. Point at a button on your Mac, in an iPhone app in the Simulator, or
 - **Option always moves the outline.** Containers that share one rectangle are one step: in the Simulator, Device Hub, and web pages, several presses used to leave the outline where it was.
 - **Snap and Cut's top rung is the window** in apps whose content fills the whole window, such as Device Hub, and reads `window · Device Hub` instead of `group`.
 
-## 0.9.0 (release candidate)
+## 0.9.0 (2026-09-30)
 
 The version for feedback from Macs that are not the author's. No change to the capture flow, the payload, the schema, or the MCP server.
 
