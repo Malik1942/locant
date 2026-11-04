@@ -42,6 +42,12 @@ enum AutoVerify {
         capture.iterations.last?.imagePath ?? capture.image.path
     }
 
+    /// The toast over a kept iteration: "After #n · summary". specs/first-run.md R143: the `first` one
+    /// Locant ever keeps says instead what happened and where to see it, since nobody asked for it.
+    static func iterationToast(index: Int, summary: String, first: Bool) -> String {
+        first ? "Your app changed; Locant captured it again · Show before & after in the menu bar" : "After #\(index) · \(summary)"
+    }
+
     /// The sidecar of the newest Point capture, or nil when the folder holds none. A set's extra
     /// crops ride in its own entry (v0.8 R58), so what marks a Point capture is the sidecar, not
     /// the number of files: Snap and Cut write an image and nothing else.

@@ -9,8 +9,9 @@ struct HelpView: View {
     @Environment(AppState.self) private var state
     @Environment(\.openSettings) private var openSettings
     var close: () -> Void = {}
-    /// R98: the page's own height, measured; the Form scrolls on a display shorter than that.
-    static let contentHeight: CGFloat = 871
+    /// R98: the page's own height, measured again with Before & after (specs/first-run.md R143); the Form
+    /// scrolls on a display shorter than that.
+    static let contentHeight: CGFloat = 923
 
     static func preferredHeight(for screen: NSScreen?) -> CGFloat {
         min(contentHeight, (screen?.visibleFrame.height ?? 900) - 60)
@@ -54,6 +55,8 @@ struct HelpView: View {
                     Row(symbol: "terminal", title: "Let your agent fetch captures", detail: "Connect Claude Code, Cursor, or Codex.") {
                         Button("Agents…") { goToSettings(.agents) }
                     }
+                    // specs/first-run.md R143: what Recapture does, before its first toast says so.
+                    Row(symbol: "arrow.triangle.2.circlepath.camera", title: "Before & after", detail: "Run your app after the agent's edit; Locant captures it again.", key: nil)
                 }
             }
             .formStyle(.grouped)

@@ -217,4 +217,14 @@ final class AutoVerifyTests: XCTestCase {
         XCTAssertTrue(AutoVerify.wants(set, activated: "com.inspireocean.app", now: now),
                       "with an image of its own, only the first element is refound")
     }
+
+    // specs/first-run.md R143: the first iteration Locant ever keeps says what happened; the rest are counted.
+    func testTheFirstIterationEverSaysWhatHappened() {
+        let summary = "1 file changed, 2 insertions(+)"
+        XCTAssertEqual(AutoVerify.iterationToast(index: 1, summary: summary, first: true),
+                       "Your app changed; Locant captured it again · Show before & after in the menu bar")
+        XCTAssertEqual(AutoVerify.iterationToast(index: 1, summary: summary, first: false), "After #1 · 1 file changed, 2 insertions(+)",
+                       "another capture's first iteration, once the hint has been shown")
+        XCTAssertEqual(AutoVerify.iterationToast(index: 2, summary: summary, first: false), "After #2 · 1 file changed, 2 insertions(+)")
+    }
 }

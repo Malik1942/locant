@@ -547,7 +547,11 @@ final class AppState {
             )
             _ = try IterationStore.append(iteration, to: sidecar)
             let summary = GitFacts.summaryLine(of: change.diffStat) ?? (root == nil ? "no project folder" : "no changes")
-            toast.show(HudText.plain("After #\(index) · \(summary)"), near: frame)
+            // specs/first-run.md R143: the first one ever says what happened, and stays long enough to read.
+            let first = preferences.hintCount("iteration") == 0
+            if first { preferences.markHintShown("iteration") }
+            toast.show(HudText.plain(AutoVerify.iterationToast(index: index, summary: summary, first: first)), near: frame,
+                       life: first ? DesignTokens.hintLife : DesignTokens.toastLife)
         } catch {
             // Silent (R52): the element was found but the capture or the write failed; try on the next activation.
         }
