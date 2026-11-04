@@ -30,7 +30,8 @@ final class DiagnosticsTests: XCTestCase {
             captureCount: 42,
             agents: [.init(name: "Claude Code", connected: true), .init(name: "Cursor", connected: false)],
             checksForUpdates: true,
-            lastUpdateCheck: Date(timeIntervalSince1970: 1_790_000_000) // 2026-09-21 UTC
+            lastUpdateCheck: Date(timeIntervalSince1970: 1_790_000_000), // 2026-09-21 UTC
+            lastFailure: .init(what: "Snap", reason: "ScreenCaptureFailure.noDisplay", at: Date(timeIntervalSince1970: 1_790_003_600)) // 2026-09-21 15:13 UTC
         )
     }
 
@@ -53,6 +54,7 @@ final class DiagnosticsTests: XCTestCase {
         Iterations: on
         Retention: 30 days
         Captures: ~/Pictures/Locant · One folder · 42 captures
+        Last failure: Snap · ScreenCaptureFailure.noDisplay · 2026-09-21 15:13
         Agents: Claude Code connected · Cursor not connected
         Updates: checked daily · last checked 2026-09-21
 
@@ -72,6 +74,7 @@ final class DiagnosticsTests: XCTestCase {
         v.agents = []
         v.lastUpdateCheck = nil
         v.checksForUpdates = false
+        v.lastFailure = nil
         v.retentionDays = 0
         v.translated = true
         v.architecture = "x86_64"
@@ -85,6 +88,7 @@ final class DiagnosticsTests: XCTestCase {
         XCTAssertTrue(text.contains("· unknown count\n"))
         XCTAssertTrue(text.contains("Agents: none\n"))
         XCTAssertTrue(text.contains("Updates: check off · never checked\n"))
+        XCTAssertTrue(text.contains("Last failure: none since launch\n"), "specs/first-run.md R144")
         XCTAssertFalse(text.contains("nil"))
         XCTAssertFalse(text.contains("Optional"))
     }

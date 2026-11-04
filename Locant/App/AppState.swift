@@ -1,5 +1,6 @@
 import AppKit
 import Observation
+import os
 
 /// The five Settings tabs, in toolbar order.
 enum SettingsTab: Hashable, Sendable {
@@ -25,6 +26,16 @@ final class AppState {
             case .snap: .snap
             case .text: .text
             case .cut: .cut
+            }
+        }
+
+        /// specs/first-run.md R144: as the log and Diagnostics name it.
+        var title: String {
+            switch self {
+            case .point: "Point"
+            case .snap: "Snap"
+            case .text: "Text"
+            case .cut: "Cut"
             }
         }
     }
@@ -123,6 +134,11 @@ final class AppState {
     /// when the last one ends, whichever order they end in.
     @ObservationIgnored private var pausedRecorders = 0
     @ObservationIgnored private var trustTask: Task<Void, Never>?
+    /// specs/first-run.md R144: each failure's reason, public, in the unified log under the bundle id. Read with
+    /// `log show --predicate 'subsystem == "com.malikzhang.deixis"'`.
+    @ObservationIgnored private let log = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.malikzhang.deixis", category: "capture")
+    /// R144: the newest failure that showed a toast or an alert, for Diagnostics. In memory only.
+    @ObservationIgnored private var lastFailure: Diagnostics.Failure?
 
     var captureDirectory: URL { preferences.captureFolderURL }
 
@@ -554,6 +570,8 @@ final class AppState {
                        life: first ? DesignTokens.hintLife : DesignTokens.toastLife)
         } catch {
             // Silent (R52): the element was found but the capture or the write failed; try on the next activation.
+            // specs/first-run.md R144: the reason still goes to the log, and not to Diagnostics.
+            log.notice("Recapture failed: \(CaptureError.capturing(error).reason, privacy: .public)")
         }
     }
 
@@ -575,7 +593,7 @@ final class AppState {
     func beginColorPick() {
         guard phase == .idle, colorSession == nil, NSApp.modalWindow == nil else { return }
         guard ScreenCapture.hasPermission() else {
-            fail(.noScreenRecordingPermission, nearRect: nil)
+            fail(.noScreenRecordingPermission, nearRect: nil, during: "Color")
             return
         }
         phase = .writing
@@ -1417,10 +1435,15 @@ final class AppState {
         }
     }
 
-    private func fail(_ error: CaptureError, nearRect anchor: CGRect?, clipboardOnly: Bool = false) {
+    /// `what` names the failure for the log when it is not the session's action (Color's).
+    private func fail(_ error: CaptureError, nearRect anchor: CGRect?, clipboardOnly: Bool = false, during what: String? = nil) {
         // R113: what to begin again after a restart, read before reset clears it.
         let failedAction = action
         let sourcePID = context?.frontPID
+        // specs/first-run.md R144: why it failed goes to the log and to Diagnostics; the toast stays short.
+        let failure = Diagnostics.Failure(what: what ?? failedAction.title, reason: error.reason, at: Date())
+        log.error("\(failure.what, privacy: .public) failed: \(failure.reason, privacy: .public)")
+        lastFailure = failure
         reset()
         let rect = anchor ?? Self.mainScreenCenterCG()
         if case .captureServiceStuck = error {
@@ -1545,7 +1568,8 @@ final class AppState {
                 Diagnostics.AgentLine(name: $0.title, connected: AgentConnector.status($0) != .notConnected)
             },
             checksForUpdates: preferences.checksForUpdates,
-            lastUpdateCheck: preferences.lastUpdateCheck
+            lastUpdateCheck: preferences.lastUpdateCheck,
+            lastFailure: lastFailure
         )
         return Diagnostics.render(values)
     }
