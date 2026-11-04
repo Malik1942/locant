@@ -14,7 +14,7 @@ This spec changes these earlier requirements. In `specs/ball-findable.md` R102, 
 
 **R142. One story for Point's keys.** Point has two hotkeys: the capture hotkey (double-tap Control, ⌃⌃, by default) and Point's action hotkey (⌃⌥1). Settings › Hotkeys shows both on Point's row (R93). Every place that names Point's keys names both, the capture hotkey first, and none of them hides one:
 - **The menu bar menu.** The first of Point's keys that can be a key equivalent (a chord with a one-character key) becomes the item's key equivalent, grey and right-aligned like ⌘,. Every other key, a double-tap included, stays in the title. By default the item reads "Point (⌃⌃)" with ⌃⌥1 beside it. Before, it read "Point" with ⌃⌥1, and showed ⌃⌃ only when that was Point's only key (R97).
-- **Help.** "Open the overlay" spells out the capture hotkey: "Double-tap Control, or click the ball." For a chord it reads, for example, "Press ⌘⇧D, or click the ball." The key column reads "⌃⌃ or ⌃⌥1". Before, it read "Press the hotkey or click the ball." beside ⌃⌃ (R98).
+- **Help.** "Open the overlay" spells out the capture hotkey: "Double-tap Control, or click the ball." For a chord it reads, for example, "Press ⇧⌘D, or click the ball." The key column reads "⌃⌃ or ⌃⌥1". Before, it read "Press the hotkey or click the ball." beside ⌃⌃ (R98).
 - **The README.** The first step of Use names both keys. The Hotkeys row says the same, in the same order.
 
 When Point's action hotkey is cleared, it drops out everywhere, and a newly recorded key takes its place. The helpers are pure: `Hotkey.pointKeys(capture:action:)`, `Hotkey.pointMenuItem(_:)`, `Hotkey.names(_:)`, `Hotkey.spoken`, and `Hotkey.keyEquivalent`. The menu builds its `KeyboardShortcut` from `keyEquivalent`.
@@ -51,9 +51,9 @@ The toast's words are unchanged. `Logger` comes from `os`, which `ScreenCapture.
 - `HotkeyTests` (R142):
   - By default, Point's keys are ⌃⌃ then ⌃⌥1, the menu item is "Point (⌃⌃)" with ⌃⌥1 as its key equivalent, and Help's column reads "⌃⌃ or ⌃⌥1".
   - With Point's action hotkey cleared, the item is "Point (⌃⌃)" with no key equivalent.
-  - With the capture hotkey a chord (⌘⇧D), the item is "Point (⌃⌥1)" with ⌘⇧D as its key equivalent.
+  - With the capture hotkey a chord (⇧⌘D), the item is "Point (⌃⌥1)" with ⇧⌘D as its key equivalent.
   - A chord on a function key has no key equivalent and stays in the title.
-  - `spoken` reads "Double-tap Control" and "Press ⌘⇧D".
+  - `spoken` reads "Double-tap Control" and "Press ⇧⌘D".
 - `AutoVerifyTests` (R143): the first iteration's toast is R143's sentence, and a later one reads "After #2 · …".
 - `CaptureErrorTests` (R144):
   - Each permission and the stuck service give their words.
