@@ -62,11 +62,12 @@ private struct StatusMenu: View {
 
     var body: some View {
         // Hotkeys show as the menu's own key equivalents, grey and right-aligned like ⌘, and ⌘Q.
-        // A double-tap has no key equivalent, so it stays in the title only when it is all Point has.
-        Button(pointTitle) {
+        // A double-tap has no key equivalent, so it stays in Point's title (specs/first-run.md R142).
+        let point = pointItem
+        Button(point.title) {
             state.beginCapture()
         }
-        .keyboardShortcut(pointShortcut)
+        .keyboardShortcut(point.keyEquivalent?.keyboardShortcut)
         Button("Show before & after") { state.showBeforeAfter() }
         Divider()
         Button("Snap") { state.beginAction(.snap) }
@@ -93,15 +94,9 @@ private struct StatusMenu: View {
         .keyboardShortcut("q")
     }
 
-    /// The capture hotkey when it is a chord, else Point's action hotkey (⌃⌥1 by default).
-    private var pointShortcut: KeyboardShortcut? {
-        state.preferences.hotkey.keyboardShortcut ?? state.preferences.actionHotkeys["point"]?.keyboardShortcut
-    }
-
-    /// "Point", or "Point (⌃⌃)" when the only hotkey is a double-tap.
-    private var pointTitle: String {
-        guard pointShortcut == nil else { return "Point" }
-        return "Point (\(state.preferences.hotkey.symbol))"
+    /// R142: every key that starts Point, "Point (⌃⌃)" beside ⌃⌥1 by default.
+    private var pointItem: (title: String, keyEquivalent: Hotkey?) {
+        Hotkey.pointMenuItem(Hotkey.pointKeys(capture: state.preferences.hotkey, action: state.preferences.actionHotkeys["point"]))
     }
 
     private func shortcut(_ action: String) -> KeyboardShortcut? {
@@ -110,18 +105,17 @@ private struct StatusMenu: View {
 }
 
 private extension Hotkey {
-    /// The chord as a menu key equivalent. A double-tap, or a key without a single character
-    /// (an arrow, a function key), has none.
+    /// The chord as a menu key equivalent (`Hotkey.keyEquivalent`). A double-tap, or a key without a
+    /// single character (an arrow, a function key), has none.
     var keyboardShortcut: KeyboardShortcut? {
-        guard case .chord(_, let modifiers, let key) = self, key.count == 1, let character = key.lowercased().first else {
-            return nil
-        }
+        guard let equivalent = keyEquivalent else { return nil }
+        let modifiers = equivalent.modifiers
         var eventModifiers: EventModifiers = []
         if modifiers.contains(.control) { eventModifiers.insert(.control) }
         if modifiers.contains(.option) { eventModifiers.insert(.option) }
         if modifiers.contains(.shift) { eventModifiers.insert(.shift) }
         if modifiers.contains(.command) { eventModifiers.insert(.command) }
-        return KeyboardShortcut(KeyEquivalent(character), modifiers: eventModifiers)
+        return KeyboardShortcut(KeyEquivalent(equivalent.character), modifiers: eventModifiers)
     }
 }
 

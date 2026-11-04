@@ -96,6 +96,43 @@ enum Hotkey: Codable, Equatable, Sendable {
         case .chord(_, let modifiers, let key): modifiers.symbols + key
         }
     }
+
+    /// As a sentence says it: "Double-tap Control", "Press ⇧⌘D".
+    var spoken: String {
+        switch self {
+        case .doubleTap(let modifier): modifier.title
+        case .chord: "Press \(symbol)"
+        }
+    }
+
+    /// The chord as a menu key equivalent, its character in lowercase. A double-tap, or a key without
+    /// a single character (an arrow, a function key), has none.
+    var keyEquivalent: (character: Character, modifiers: KeyModifiers)? {
+        guard case .chord(_, let modifiers, let key) = self, key.count == 1, let character = key.lowercased().first else {
+            return nil
+        }
+        return (character, modifiers)
+    }
+
+    /// specs/first-run.md R142: Point's keys in the order every place names them, the capture hotkey
+    /// and then Point's action hotkey when it has one (⌃⌃ and ⌃⌥1 by default).
+    static func pointKeys(capture: Hotkey, action: Hotkey?) -> [Hotkey] {
+        guard let action, action != capture else { return [capture] }
+        return [capture, action]
+    }
+
+    /// R142: keys as a line names them, "⌃⌃ or ⌃⌥1".
+    static func names(_ keys: [Hotkey]) -> String {
+        keys.map(\.symbol).joined(separator: " or ")
+    }
+
+    /// R142: Point's menu item. The first key that can be a key equivalent is shown as one, grey and
+    /// right-aligned; the others stay in the title, as a double-tap must: "Point (⌃⌃)" beside ⌃⌥1.
+    static func pointMenuItem(_ keys: [Hotkey]) -> (title: String, keyEquivalent: Hotkey?) {
+        let equivalent = keys.first { $0.keyEquivalent != nil }
+        let others = keys.filter { $0 != equivalent }
+        return (others.isEmpty ? "Point" : "Point (\(names(others)))", equivalent)
+    }
 }
 
 @Observable

@@ -36,7 +36,9 @@ struct HelpView: View {
                     .padding(.vertical, 4)
                 }
                 Section("Point") {
-                    Row(symbol: "keyboard", title: "Open the overlay", detail: "Press the hotkey or click the ball.", key: preferences.hotkey.symbol)
+                    // specs/first-run.md R142: both of Point's keys, in the order the menu and the README give them.
+                    Row(symbol: "keyboard", title: "Open the overlay", detail: "\(preferences.hotkey.spoken), or click the ball.",
+                        key: Hotkey.names(Hotkey.pointKeys(capture: preferences.hotkey, action: preferences.actionHotkeys["point"])))
                     Row(symbol: "cursorarrow.rays", title: "Pick the element", detail: "Click it, or drag a frame. ⌥ steps to the parent.", key: "↩")
                     Row(symbol: "text.cursor", title: "Say what should change", detail: "Type a note, press Return, and paste into your agent.", key: "↩")
                     Row(symbol: "plus.square.on.square", title: "Select more than one", detail: "⇧-click to add elements, from any app.", key: "⇧ click")
