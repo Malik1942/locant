@@ -34,7 +34,7 @@ The text is pure: `AutoVerify.iterationToast(index:summary:first:)`.
   - Cancellation reads `cancelled`.
   - Any other error is named by its domain and code, then its underlying error's ("NSCocoaErrorDomain 513 (NSPOSIXErrorDomain 13)").
   - An error's description and user info are never used, since they can name a file or a window.
-- **Diagnostics.** Settings › General › Diagnostics gains one line after Captures: "Last failure:" with the newest failure since launch, its reason, and the time. With none, it reads "none since launch". It is kept in memory only.
+- **Diagnostics.** Settings › General › Diagnostics gains one line after Captures: "Last failure:" with the newest failure since launch that showed a toast or an alert, its reason, and the time. With none, it reads "none since launch". Recapture's failures stay out of it, so they never hide the one you saw. It is kept in memory only.
 
 The toast's words are unchanged. `Logger` comes from `os`, which `ScreenCapture.swift` already imports, so no framework is added. Nothing leaves the Mac.
 
