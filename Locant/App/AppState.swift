@@ -79,6 +79,8 @@ final class AppState {
     /// started and stopped with it.
     @ObservationIgnored private let textReader = TextLineReader()
     @ObservationIgnored private var lockedElement: ResolvedElement?
+    /// Prototype: the page's own answer about the locked web element, asked at the click (`WebSourceLocator`).
+    @ObservationIgnored private var componentTask: Task<ComponentInfo?, Never>?
     @ObservationIgnored private var lockedElements: [RegionElement]?
     @ObservationIgnored private var lockedNearby: [RegionElement]?
     /// v0.8 R58: the elements added with Shift so far, the context of the first, and the set locked
@@ -1106,6 +1108,11 @@ final class AppState {
             guard phase == .resolving, cropTask == crop else { return }
             // v0.8: the page address of a web node; the localhost rule in mode inference reads it.
             if let url = snapshot?.url { context?.source.url = url }
+            // Prototype: ask the page for the component and source lines while the note is typed.
+            if let element, element.dom != nil, let url = snapshot?.url, let bundleId = context?.source.app.bundleId,
+               WebSourceLocator.supports(bundleId: bundleId) {
+                componentTask = Task.detached { await WebSourceLocator.locate(element: element, bundleId: bundleId, url: url) }
+            }
 
             overlay.setHighlight(element?.frame.cgRect, readout: .describing(element), around: point)
             showNoteField(anchoredTo: element?.frame.cgRect, around: point)
@@ -1280,7 +1287,8 @@ final class AppState {
     private func commit(note: String) {
         guard phase == .noting, let context, let cropTask else { return }
         phase = .writing
-        let element = lockedElement
+        var element = lockedElement
+        let componentTask = componentTask
         let elements = lockedElements
         let nearby = lockedNearby
         var targets = lockedTargets
@@ -1291,6 +1299,10 @@ final class AppState {
         Task {
             do {
                 let image = try await cropTask.value
+                if let componentTask, element != nil,
+                   let info = await WebSourceLocator.answer(of: componentTask, within: WebSourceLocator.commitWait) {
+                    element?.component = info
+                }
                 // v0.3 R17: fix or reference, and the project root, from signals; touches the disk.
                 // v0.4 R33: remember HEAD so Verify can diff against it later.
                 let (decision, head) = await Task.detached { () -> (ModeDecision, String?) in
@@ -1376,6 +1388,7 @@ final class AppState {
         pinnedContext = nil
         lockedTargets = nil
         lockedElement = nil
+        componentTask = nil
         lockedElements = nil
         lockedNearby = nil
         lastHoverSnapshot = nil
