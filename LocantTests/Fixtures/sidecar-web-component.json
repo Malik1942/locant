@@ -1,0 +1,50 @@
+{
+  "schemaVersion" : 1,
+  "id" : "20261104-101500-c9wk",
+  "createdAt" : "2026-11-04T10:15:00-08:00",
+  "mode" : "fix",
+  "image" : {
+    "path" : "/Users/malik/Pictures/Locant/locant-chrome-20261104-101500-c9wk.png",
+    "widthPt" : 340,
+    "heightPt" : 100,
+    "scale" : 2,
+    "crop" : { "x" : 600, "y" : 480, "w" : 340, "h" : 100 }
+  },
+  "source" : {
+    "app" : { "bundleId" : "com.google.Chrome", "name" : "Google Chrome" },
+    "window" : { "title" : "Tearsheet" },
+    "url" : "http://localhost:5176/",
+    "simulator" : null
+  },
+  "element" : {
+    "role" : "group",
+    "rawRole" : "AXGroup",
+    "label" : null,
+    "identifier" : null,
+    "identifierSource" : "unknown",
+    "value" : null,
+    "frame" : { "x" : 620, "y" : 520, "w" : 279, "h" : 20 },
+    "path" : [
+      { "role" : "group", "identifier" : null, "dom" : "#root" },
+      { "role" : "list", "identifier" : null, "dom" : ".grid" },
+      { "role" : "group", "identifier" : null, "dom" : ".relative" },
+      { "role" : "group", "identifier" : null, "dom" : "#caption-g2" }
+    ],
+    "dom" : { "id" : "caption-g2", "classes" : [ "card-caption" ] },
+    "component" : {
+      "framework" : "react",
+      "name" : "Card",
+      "ancestors" : [ "Grid", "Library", "Routes", "Page", "App" ],
+      "props" : [
+        { "name" : "brick", "value" : "{id, photo, saved_at, title, measurements, …}" },
+        { "name" : "onOpen", "value" : "[function]" }
+      ],
+      "source" : { "file" : "/Users/malik/Documents/mhackathon/bricks-build/src/Library.tsx", "line" : 150, "column" : 7 },
+      "renderedAt" : { "file" : "/Users/malik/Documents/mhackathon/bricks-build/src/Library.tsx", "line" : 93, "column" : 24 }
+    }
+  },
+  "note" : "why only saved and a date here?",
+  "ocr" : null,
+  "iterations" : [ ],
+  "resolved" : false
+}

@@ -192,9 +192,12 @@ struct ResolvedElement: Codable, Sendable, Equatable {
     var members: [ElementMember]? = nil
     /// v0.8: present for elements of a web page or an Electron app, the DOM's own handles.
     var dom: DOMInfo? = nil
+    /// Prototype: the component that rendered a web node and where its code is, read inside the page
+    /// (React development builds in Chrome). Nil when the page was not asked or had nothing to say.
+    var component: ComponentInfo? = nil
 
     private enum CodingKeys: String, CodingKey {
-        case role, rawRole, label, identifier, identifierSource, value, frame, path, members, dom
+        case role, rawRole, label, identifier, identifierSource, value, frame, path, members, dom, component
     }
 
     func encode(to encoder: any Encoder) throws {
@@ -209,6 +212,7 @@ struct ResolvedElement: Codable, Sendable, Equatable {
         try c.encode(path, forKey: .path)
         try c.encodeIfPresent(members, forKey: .members)
         try c.encodeIfPresent(dom, forKey: .dom)
+        try c.encodeIfPresent(component, forKey: .component)
     }
 }
 
@@ -353,4 +357,54 @@ struct CaptureContext: Sendable, Equatable {
     var teamID: String? = nil
     /// The simulated app's running copy, in the device's container (specs/simulator-project-root.md R105).
     var simulatedBundlePath: String? = nil
+}
+
+/// Prototype: what a page's own framework says about a web node, read by running a script in the page
+/// (`WebSourceLocator`). `source` is where this element's JSX is; `renderedAt` is where `name` is used.
+struct ComponentInfo: Codable, Sendable, Equatable {
+    var framework: String
+    /// The nearest component that rendered the element.
+    var name: String?
+    /// The components above `name`, nearest first.
+    var ancestors: [String]
+    var props: [ComponentProp]
+    var source: SourceLocation?
+    var renderedAt: SourceLocation?
+
+    private enum CodingKeys: String, CodingKey { case framework, name, ancestors, props, source, renderedAt }
+
+    func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(framework, forKey: .framework)
+        try c.encode(name, forKey: .name)
+        try c.encode(ancestors, forKey: .ancestors)
+        try c.encode(props, forKey: .props)
+        try c.encode(source, forKey: .source)
+        try c.encode(renderedAt, forKey: .renderedAt)
+    }
+}
+
+/// One prop of a component, its value shortened: strings quoted and cut, objects as their keys.
+struct ComponentProp: Codable, Sendable, Equatable {
+    var name: String
+    var value: String
+}
+
+/// A place in a source file. `file` is an absolute path on this Mac when Locant found the file,
+/// else the path the dev server serves it under (`/src/Library.tsx`).
+struct SourceLocation: Codable, Sendable, Equatable {
+    var file: String
+    var line: Int
+    var column: Int?
+
+    private enum CodingKeys: String, CodingKey { case file, line, column }
+
+    func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(file, forKey: .file)
+        try c.encode(line, forKey: .line)
+        try c.encode(column, forKey: .column)
+    }
+
+    var text: String { column.map { "\(file):\(line):\($0)" } ?? "\(file):\(line)" }
 }
