@@ -92,6 +92,8 @@ final class FloatingBall {
     private var dockTask: Task<Void, Never>?
     /// After a drop docks the disc, the cursor is still on it; stay docked until it has left.
     private var holdDock = false
+    /// specs/first-run.md R141: false from a first launch until the cursor wakes the ball or presses it.
+    private var found = true
     /// The saved origin was off every connected display and had to be pulled onto one.
     private let restoredOffScreen: Bool
     /// specs/frozen-screen.md R122: the tap kept while awake, and whether it took the press under way.
@@ -161,8 +163,8 @@ final class FloatingBall {
     }
 
     /// specs/ball-findable.md R102: whole, 24 pt in from the right edge, its center an eighth of the
-    /// way down, below the menu bar's icons and notification banners. The idle tuck then takes it
-    /// into the right edge at that height.
+    /// way down, below the menu bar's icons and notification banners. Once found (specs/first-run.md
+    /// R141), the idle tuck takes it into the right edge at that height.
     static func firstLaunchOrigin(visibleFrame frame: CGRect) -> CGPoint {
         origin(forCenter: CGPoint(
             x: frame.maxX - Tokens.firstLaunchInset - Tokens.diameter / 2,
@@ -171,6 +173,7 @@ final class FloatingBall {
     }
 
     func show(firstLaunch: Bool) {
+        found = !firstLaunch
         if restoredOffScreen { onMoved?(freeOrigin) }
         panel.alphaValue = 0
         view.apply(.rest, animated: false)
@@ -288,6 +291,7 @@ final class FloatingBall {
         if newState != .docked { tucked = nil }
         switch newState {
         case .awake, .ready:
+            found = true
             dockTask?.cancel()
             let safe = ringSafeOrigin(freeOrigin)
             if wasDocked || safe != shownOrigin { move(to: safe, spring: .wake) }
@@ -366,9 +370,17 @@ final class FloatingBall {
         refreshDock()
         dockTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(Tokens.dockDelay))
-            guard !Task.isCancelled, self.autoHide, self.state == .rest, !self.view.isDragging else { return }
+            guard !Task.isCancelled,
+                  Self.tucksWhenIdle(autoHide: self.autoHide, state: self.state, dragging: self.view.isDragging, found: self.found)
+            else { return }
             self.tuck(nearest: self.discCenter)
         }
+    }
+
+    /// R87: after the idle wait the ball tucks only with Auto-hide on, at rest, and not mid-drag; on a
+    /// first launch, only once it has been found (specs/first-run.md R141).
+    static func tucksWhenIdle(autoHide: Bool, state: State, dragging: Bool, found: Bool) -> Bool {
+        autoHide && found && state == .rest && !dragging
     }
 
     /// R85: the tucks and the ring's room on the screen the ball is on.
@@ -441,6 +453,7 @@ final class FloatingBall {
 
     /// R27: mouse down starts the hold; `Ring.Tokens.holdDelay` without a drag opens the ring.
     func pressBegan() {
+        found = true
         refreshDock()
         holdTask?.cancel()
         holdTask = Task { @MainActor in
