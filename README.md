@@ -63,7 +63,7 @@ Window-level tools give your agent the window. Locant gives it the element.
 
 Three seconds, start to paste.
 
-1. **⌃⌃** (double-tap Control within 350 ms), or click the ball. The screen freezes under the overlay.
+1. **⌃⌃** (double-tap Control within 350 ms) or **⌃⌥1**, or click the ball. The screen freezes under the overlay.
    Hover to see the highlight and the label `role · identifier`. The label tells you before you click
    whether the element has a declared identifier, only a label, or no accessibility tree at all.
 2. **Click** the element, or press **Return** while it is highlighted. Drag instead to capture a frame
@@ -177,7 +177,8 @@ the hotkey.
 **And**
 
 - **Before & After.** After the agent's edit, run your app again. Locant finds the same element,
-  captures it when it looks different, and keeps every iteration with the git diff beneath.
+  captures it when it looks different, and keeps every iteration with the git diff beneath. On by
+  default, only for apps you build; Settings › Captures › Recapture when your app changes turns it off.
 - **The floating ball**, a glass disc at the edge of the screen that stays out of the way until you
   reach for it. Turn it off in Settings; the hotkey works either way.
 - **Retention.** Images older than 30 days go to the Trash. Change the period, or keep everything.
@@ -201,11 +202,11 @@ the hotkey.
 | **Payload** | One pasteboard item carrying both the PNG and the Markdown. The Markdown is derived from the JSON sidecar, never the other way around; the schema is the only contract with the outside. A failed capture never touches the clipboard. |
 | **Iterations** | After a Point capture in an app you build, each launch or activation of that app within a day is a chance to capture the element again. Locant refinds it by identifier, then by role and label, then by the nearest same-role frame. When the pixels differ beyond a tolerance, it records the git facts (commit at capture time versus HEAD, or the working tree when nothing was committed) and appends an iteration to the sidecar. **Show before & after** in the menu bar opens the newest: slide, side by side, or flip, with every iteration in a strip. Switch: Settings › Captures › Recapture when your app changes. |
 | **Lifecycle** | Images older than the retention period (7, 30, 90 days, or forever) move to the Trash on launch and daily, with their sidecars. Captures an agent marked `resolved` in the sidecar stay, and so do pinned ones (extended attribute `app.locant.pinned`). Actions that make text or a value keep nothing. |
-| **The ball** | A 48 pt glass disc. Rests translucent, tucks into the nearest edge after two seconds without use (left, right, or the bottom beside the Dock), wakes where it rests as the cursor approaches, starts Point on click. Hold half a second for the ring: Snap ↑, Text →, Color ↓, Cut ←; release at center cancels. Drag it anywhere, or flick it at an edge and it tucks where it was heading. |
-| **Hotkeys** | Point is ⌃⌃ by default; the actions are ⌃⌥ and their number in the menu (⌃⌥1 Point through ⌃⌥5 Cut). Re-record or clear any of them in Settings › Hotkeys, which refuses a clash inside Locant and warns when a chord is also a macOS shortcut. A matched chord is swallowed before the frontmost app sees it. |
+| **The ball** | A 48 pt glass disc. Rests translucent, tucks into the nearest edge after two seconds without use (left, right, or the bottom beside the Dock; on a first launch, not until you have found it), wakes where it rests as the cursor approaches, starts Point on click. Hold half a second for the ring: Snap ↑, Text →, Color ↓, Cut ←; release at center cancels. Drag it anywhere, or flick it at an edge and it tucks where it was heading. |
+| **Hotkeys** | Point is ⌃⌃ (double-tap Control) or ⌃⌥1, and the menu shows both; Snap, Text, Color, and Cut are ⌃⌥2 through ⌃⌥5, their place in the menu. Re-record or clear any of them in Settings › Hotkeys, which refuses a clash inside Locant and warns when a chord is also a macOS shortcut. A matched chord is swallowed before the frontmost app sees it. |
 | **Feedback** | A light trackpad tap when the outline moves to a new element, when the ring opens and between its segments, and when a capture lands; a short, quiet note when a capture reaches the clipboard and a lower one when nothing did, fired with a tap of its own. The sounds follow the system's switch for interface sounds. Settings › General has a switch for each. |
 | **Updates** | Once a day, 10 s after launch, Locant asks the GitHub releases API for the newest version and offers Download, Later, or Skip This Version. The request carries the version number and nothing else. Settings › General has the switch and Check Now. There is no in-place update: you drag the new copy over the old one. |
-| **Diagnostics** | Settings › General › Diagnostics puts one block on the clipboard for an issue: version, macOS, chip, displays, the two grants, hotkeys, and settings. Your user name is replaced by `~`; nothing from any capture; nothing is sent. |
+| **Diagnostics** | Settings › General › Diagnostics puts one block on the clipboard for an issue: version, macOS, chip, displays, the two grants, hotkeys, settings, and the last failure's reason. Your user name is replaced by `~`; nothing from any capture; nothing is sent. |
 | **Nothing to notice** | No Dock icon. Idle memory under 30 MB. Locant never appears in its own captures. |
 
 </details>
@@ -380,6 +381,7 @@ published as a GitHub release asset by `scripts/publish.sh`.
 | A permission switch is on but Locant still cannot capture, or the hotkey is dead after an update | macOS ties each grant to the app's signature, so a differently signed copy looks like a different app. In System Settings › Privacy & Security, remove Locant from Accessibility and Screen Recording and add `/Applications/Locant.app` again, or run `tccutil reset Accessibility com.malikzhang.deixis` and `tccutil reset ScreenCapture com.malikzhang.deixis`. |
 | The first hover over VS Code, Slack, Chrome, or Claude is slow | Electron builds its accessibility tree on first contact. Wait about half a second; later hovers are instant. |
 | The payload says `element: null` | The app exposes no accessibility tree there (Figma, games, canvases). If the view is yours, give it `.accessibilityElement()` and `.accessibilityIdentifier("…")`; Locant points at it next time. |
+| A capture says "Capture failed" | Settings › General › Diagnostics › Copy: its Last failure line names what failed and why. Every failure is also in the system log, with no file names: `log show --last 1h --predicate 'subsystem == "com.malikzhang.deixis"'`. Paste either into an issue. |
 | A hotkey also fires a macOS shortcut | Settings › Hotkeys shows the clash. Re-record the hotkey; the defaults (⌃⌃, ⌃⌥1 to 5) are chosen because nothing else uses them. |
 | No pointing hand in the menu bar | On a notched MacBook the icon hides under the notch when the bar is full. The hotkey and the ball still work. |
 | The Simulator element is missed right after launch | The simulated app's tree is built lazily. Locant retries for 600 ms; hover again. |

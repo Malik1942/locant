@@ -196,4 +196,55 @@ final class HotkeyTests: XCTestCase {
     func testRecorderKeyWithNoNameIsIgnored() {
         XCTAssertEqual(press(0, [.command], ""), .ignore)
     }
+
+    // MARK: Point's keys (specs/first-run.md R142)
+
+    private let controlTwice = Hotkey.doubleTap(.control)
+    private let pointChord = Hotkey.chord(keyCode: 18, modifiers: [.control, .option], key: "1")
+    private let commandShiftD = Hotkey.chord(keyCode: 2, modifiers: [.command, .shift], key: "D")
+
+    func testPointKeysAreTheCaptureHotkeyThenPointsOwn() {
+        XCTAssertEqual(Preferences.defaultActionHotkey("point"), pointChord)
+        XCTAssertEqual(Hotkey.pointKeys(capture: controlTwice, action: pointChord), [controlTwice, pointChord])
+        XCTAssertEqual(Hotkey.pointKeys(capture: controlTwice, action: nil), [controlTwice], "a cleared action drops out")
+        XCTAssertEqual(Hotkey.names([controlTwice, pointChord]), "⌃⌃ or ⌃⌥1")
+    }
+
+    func testTheMenuKeepsTheDoubleTapInTheTitleBesideTheChord() {
+        let item = Hotkey.pointMenuItem([controlTwice, pointChord])
+        XCTAssertEqual(item.title, "Point (⌃⌃)")
+        XCTAssertEqual(item.keyEquivalent, pointChord)
+    }
+
+    func testADoubleTapAloneHasNoKeyEquivalent() {
+        let item = Hotkey.pointMenuItem([controlTwice])
+        XCTAssertEqual(item.title, "Point (⌃⌃)")
+        XCTAssertNil(item.keyEquivalent)
+    }
+
+    func testOfTwoChordsTheCaptureHotkeyIsTheKeyEquivalent() {
+        let item = Hotkey.pointMenuItem([commandShiftD, pointChord])
+        XCTAssertEqual(item.title, "Point (⌃⌥1)")
+        XCTAssertEqual(item.keyEquivalent, commandShiftD)
+        XCTAssertEqual(Hotkey.pointMenuItem([commandShiftD]).title, "Point", "a chord alone needs no title")
+    }
+
+    func testAFunctionKeyStaysInTheTitle() {
+        let f5 = Hotkey.chord(keyCode: 96, modifiers: [], key: "F5")
+        XCTAssertNil(f5.keyEquivalent)
+        let item = Hotkey.pointMenuItem([f5, pointChord])
+        XCTAssertEqual(item.title, "Point (F5)")
+        XCTAssertEqual(item.keyEquivalent, pointChord)
+    }
+
+    func testAKeyEquivalentIsTheCharacterInLowercaseWithTheModifiers() {
+        XCTAssertEqual(commandShiftD.keyEquivalent?.character, "d")
+        XCTAssertEqual(commandShiftD.keyEquivalent?.modifiers, [.command, .shift])
+        XCTAssertNil(controlTwice.keyEquivalent)
+    }
+
+    func testSpokenSaysTheHotkeyInWords() {
+        XCTAssertEqual(controlTwice.spoken, "Double-tap Control")
+        XCTAssertEqual(commandShiftD.spoken, "Press ⇧⌘D")
+    }
 }
