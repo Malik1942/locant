@@ -24,4 +24,27 @@ enum CaptureError: Error, Sendable {
         if let failure = error as? ScreenCaptureFailure, failure == .serviceStuck { return .captureServiceStuck }
         return .captureFailed(error)
     }
+
+    /// specs/first-run.md R144: why, for the log and Diagnostics. Never an error's description or user
+    /// info, which can name a file or a window.
+    var reason: String {
+        switch self {
+        case .noAccessibilityPermission: "no Accessibility permission"
+        case .noScreenRecordingPermission: "no Screen Recording permission"
+        case .noElementUnderCursor: "no element under the cursor"
+        case .captureFailed(let error): Self.reason(of: error)
+        case .captureServiceStuck: "screen capture stopped responding"
+        }
+    }
+
+    /// An error of Locant's own by its type and case, cancellation as such, and any other error by its
+    /// domain and code, then its underlying error's: "NSCocoaErrorDomain 513 (NSPOSIXErrorDomain 13)".
+    private static func reason(of error: any Error) -> String {
+        if error is CancellationError { return "cancelled" }
+        let mirror = Mirror(reflecting: error)
+        if mirror.displayStyle == .enum, mirror.children.isEmpty { return "\(type(of: error)).\(error)" }
+        let error = error as NSError
+        guard let underlying = error.userInfo[NSUnderlyingErrorKey] as? NSError else { return "\(error.domain) \(error.code)" }
+        return "\(error.domain) \(error.code) (\(underlying.domain) \(underlying.code))"
+    }
 }

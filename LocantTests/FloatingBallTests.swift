@@ -95,4 +95,18 @@ final class FloatingBallTests: XCTestCase {
         XCTAssertFalse(FloatingBall.discContains(CGPoint(x: center.x + radius + 3, y: center.y), panelFrame: panel))
         XCTAssertFalse(FloatingBall.discContains(CGPoint(x: panel.minX + 1, y: panel.minY + 1), panelFrame: panel), "the corner of the clear margin")
     }
+
+    // specs/first-run.md R141: on a first launch the ball stays out, whole, until the cursor or a press finds it.
+    func testAFirstLaunchBallTucksOnlyOnceFound() {
+        XCTAssertFalse(FloatingBall.tucksWhenIdle(autoHide: true, state: .rest, dragging: false, found: false))
+        XCTAssertTrue(FloatingBall.tucksWhenIdle(autoHide: true, state: .rest, dragging: false, found: true))
+    }
+
+    func testOnlyARestingBallWithAutoHideTucks() {
+        for state: FloatingBall.State in [.awake, .ready, .docked] {
+            XCTAssertFalse(FloatingBall.tucksWhenIdle(autoHide: true, state: state, dragging: false, found: true), "\(state)")
+        }
+        XCTAssertFalse(FloatingBall.tucksWhenIdle(autoHide: true, state: .rest, dragging: true, found: true), "mid-drag")
+        XCTAssertFalse(FloatingBall.tucksWhenIdle(autoHide: false, state: .rest, dragging: false, found: true), "Auto-hide off")
+    }
 }

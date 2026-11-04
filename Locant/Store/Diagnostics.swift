@@ -20,6 +20,14 @@ enum Diagnostics {
         var connected: Bool
     }
 
+    /// specs/first-run.md R144: the newest failure that showed a toast or an alert since launch, kept in
+    /// memory: what failed ("Snap"), `CaptureError.reason`, and when.
+    struct Failure: Equatable, Sendable {
+        var what: String
+        var reason: String
+        var at: Date
+    }
+
     struct Values: Equatable, Sendable {
         var version: String?
         var build: String?
@@ -46,6 +54,7 @@ enum Diagnostics {
         var agents: [AgentLine]
         var checksForUpdates: Bool
         var lastUpdateCheck: Date?
+        var lastFailure: Failure?
     }
 
     /// The block, one fact per line, in the order the spec lists them.
@@ -72,6 +81,8 @@ enum Diagnostics {
         lines.append("Retention: \(v.retentionDays == 0 ? "forever" : "\(v.retentionDays) days")")
         let count = v.captureCount.map { "\($0) capture\($0 == 1 ? "" : "s")" } ?? "unknown count"
         lines.append("Captures: \(shorten(v.captureFolder, home: v.homeDirectory)) · \(v.organization) · \(count)")
+        let failure = v.lastFailure.map { "\($0.what) · \($0.reason) · \(dateText($0.at, timeZone: timeZone, format: "yyyy-MM-dd HH:mm"))" }
+        lines.append("Last failure: \(failure ?? "none since launch")")
         if v.agents.isEmpty {
             lines.append("Agents: none")
         } else {
@@ -101,11 +112,11 @@ enum Diagnostics {
 
     private static func onOff(_ on: Bool) -> String { on ? "on" : "off" }
 
-    private static func dateText(_ date: Date, timeZone: TimeZone) -> String {
+    private static func dateText(_ date: Date, timeZone: TimeZone, format: String = "yyyy-MM-dd") -> String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = timeZone
-        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.dateFormat = format
         return formatter.string(from: date)
     }
 }

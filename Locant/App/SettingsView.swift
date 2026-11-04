@@ -344,6 +344,8 @@ struct CaptureSettings: View {
             Section {
                 Toggle("Adjust selection before capturing", isOn: $preferences.adjustSelection)
                 Toggle("Recapture when your app changes", isOn: $preferences.collectsIterations)
+                    // specs/first-run.md R143: the one switch that acts by itself says how on hover; no line under it (R91).
+                    .help("After you point at an app you build, Locant captures that element again whenever the app comes forward in the next day, and keeps the image if it changed.")
             }
             Section {
                 Picker("Color format", selection: $preferences.colorFormat) {

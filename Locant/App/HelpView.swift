@@ -9,8 +9,9 @@ struct HelpView: View {
     @Environment(AppState.self) private var state
     @Environment(\.openSettings) private var openSettings
     var close: () -> Void = {}
-    /// R98: the page's own height, measured; the Form scrolls on a display shorter than that.
-    static let contentHeight: CGFloat = 871
+    /// R98: the page's own height, measured again with Before & after (specs/first-run.md R143); the Form
+    /// scrolls on a display shorter than that.
+    static let contentHeight: CGFloat = 923
 
     static func preferredHeight(for screen: NSScreen?) -> CGFloat {
         min(contentHeight, (screen?.visibleFrame.height ?? 900) - 60)
@@ -36,7 +37,9 @@ struct HelpView: View {
                     .padding(.vertical, 4)
                 }
                 Section("Point") {
-                    Row(symbol: "keyboard", title: "Open the overlay", detail: "Press the hotkey or click the ball.", key: preferences.hotkey.symbol)
+                    // specs/first-run.md R142: both of Point's keys, in the order the menu and the README give them.
+                    Row(symbol: "keyboard", title: "Open the overlay", detail: "\(preferences.hotkey.spoken), or click the ball.",
+                        key: Hotkey.names(Hotkey.pointKeys(capture: preferences.hotkey, action: preferences.actionHotkeys["point"])))
                     Row(symbol: "cursorarrow.rays", title: "Pick the element", detail: "Click it, or drag a frame. ⌥ steps to the parent.", key: "↩")
                     Row(symbol: "text.cursor", title: "Say what should change", detail: "Type a note, press Return, and paste into your agent.", key: "↩")
                     Row(symbol: "plus.square.on.square", title: "Select more than one", detail: "⇧-click to add elements, from any app.", key: "⇧ click")
@@ -52,6 +55,8 @@ struct HelpView: View {
                     Row(symbol: "terminal", title: "Let your agent fetch captures", detail: "Connect Claude Code, Cursor, or Codex.") {
                         Button("Agents…") { goToSettings(.agents) }
                     }
+                    // specs/first-run.md R143: what Recapture does, before its first toast says so.
+                    Row(symbol: "arrow.triangle.2.circlepath.camera", title: "Before & after", detail: "Run your app after the agent's edit; Locant captures it again.", key: nil)
                 }
             }
             .formStyle(.grouped)
