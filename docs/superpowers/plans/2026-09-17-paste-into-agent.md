@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - The spec is `specs/v0.8.1-paste.md` R63. If this plan and the spec disagree, the spec wins; say so and continue.
-- House rules are `docs/CLAUDE.md`: pure functions get tests; accessibility calls run on the `AccessibilityReader` actor; no third-party packages; no private API; never overwrite the clipboard on a failed capture.
+- House rules are `CLAUDE.md`: pure functions get tests; accessibility calls run on the `AccessibilityReader` actor; no third-party packages; no private API; never overwrite the clipboard on a failed capture.
 - Both new preferences default to `false`: `pastesIntoAgent`, `sendsWithNote`.
 - Agent apps are matched by exact bundle id, never by name: `com.anthropic.claudefordesktop`, `com.todesktop.230313mzl4w4u92`, `com.openai.codex`.
 - No new permission. Posting keys rides on the Accessibility grant Locant already requires.
