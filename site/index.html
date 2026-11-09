@@ -511,6 +511,12 @@
   }
 </style>
 
+<!-- Vercel Web Analytics. Static page, so the script tag instead of the npm package. -->
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
+
 <nav class="nav" aria-label="Site">
   <div class="in">
     <a class="brand" href="#top"><span class="mark" aria-hidden="true"></span>Locant</a>
@@ -770,6 +776,7 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
         <h3>Quiet</h3><p>No Dock icon. Nothing pulses, bounces, or waits for you to notice it.</p>
       </div>
     </div>
+    <p class="fine" style="margin-top: 24px">This website counts visits with Vercel Web Analytics, without cookies. The app counts&nbsp;nothing.</p>
   </section>
 
   <section class="col end">
