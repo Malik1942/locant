@@ -2,7 +2,7 @@
 
 Every release is a signed, notarized `Locant.dmg` on [GitHub Releases](https://github.com/Malik1942/locant/releases). Drag the new copy over the old one; the permissions carry over.
 
-## 1.2.0 (2026-11-04)
+## 1.2.0 (2026-11-09)
 
 - **The ball waits for you on a first launch.** It tucked into the edge two seconds after it appeared, while the help page that had just opened said to click it. Now it stays out, whole, on the right edge until your cursor comes near it or you press it; from then on it tucks after two seconds, as before. A ball you have already moved is unchanged.
 - **The menu shows ⌃⌃.** Point's item read "Point" beside ⌃⌥1, while the help page and the README taught ⌃⌃. Now it reads "Point (⌃⌃)" beside ⌃⌥1, the help page names both keys and says "Double-tap Control" in words, and the README gives both in the same order.
