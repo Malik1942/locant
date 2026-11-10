@@ -71,7 +71,7 @@ tests them.
 | Site icon copies | `site/assets/icon-light.png`, `icon-dark.png` | 512, the page picks one per theme; the README shows the light one |
 | Favicons | `site/assets/favicon-32.png`, `favicon-64.png`, `apple-touch-icon.png` | same package, rendered at size |
 | Share image | `site/assets/og.jpg` | 1200×630, the page's `og:image` |
-| The loop, recorded | `site/assets/hero.mp4`, `hero-mobile.mp4`, `hero-poster.jpg`; `hero.gif` for the README | real captures of one capture from the ball to the paste in the agent, in Dark appearance |
+| The film, recorded | `site/assets/hero.mp4`, `hero-mobile.mp4`, `hero-poster.jpg`; `hero.gif` (the older loop) for the README | real takes: Point on an iPhone app in the Simulator and on a website, the paste in Cursor, and each change the agent made; captions are dark cards with a blue LOCANT label |
 | Try-it demo | `site/assets/desktop.jpg`, `scene-calculator.png`, `scene-iphone.jpg`, `scene-web.jpg` | the Tahoe Day wallpaper and three real windows; the overlay, label, note field, and ball are drawn over them in CSS from the app's tokens |
 | Glyphs | `site/assets/glyph-{snap,text,color,cut}.png`, `ball-hand.png` | the ring's four symbols and the hand on the ball, used as masks and tinted on the page |
 | Overlay frame | `site/assets/overlay-note.jpg` | real capture of the note field over Calculator on the Tahoe Day wallpaper, 3:2, 1260×840; the README's Use section |
