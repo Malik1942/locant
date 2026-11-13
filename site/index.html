@@ -170,7 +170,7 @@
   .fine { font-size: 14px; color: var(--muted); }
   .fine span + span::before { content: "·"; margin-inline: 8px; }
 
-  /* the hero loop: the real flow, recorded, seventeen seconds */
+  /* the hero film: two real changes, recorded (an iPhone app, then a website), about forty seconds */
   .demo { display: block; width: 100%; max-width: 100%; height: auto; border-radius: 18px; box-shadow: var(--shadow); margin-top: 36px; }
 
   /* sections */
@@ -485,7 +485,7 @@
   @media (max-width: 900px) { .actions { grid-template-columns: 1fr 1fr; } }   /* tablets: two by two */
   @media (max-width: 720px) {
     .hero { padding-block: 56px 36px; }
-    /* phones get the loop cut at 4:5 (hero-mobile.mp4): the same take, framed on each shot's subject */
+    /* phones get the film cut at 4:5 (hero-mobile.mp4): the same takes, framed on each shot's subject */
     .demo { aspect-ratio: 4 / 5; object-fit: cover; border-radius: 14px; }
     footer .links { margin-left: 0; flex-basis: 100%; }
     .app-icon { width: 96px; height: 96px; border-radius: 21.5px; }
@@ -541,9 +541,9 @@
   </header>
 
   <figure class="wide" style="margin-block: 0;">
-    <video class="demo" autoplay muted playsinline preload="metadata" poster="assets/hero-poster.jpg" width="2560" height="1440" aria-label="Locant in use: point at a button in an iPhone app, type a note, and paste it into Cursor. The agent starts from the element you pointed at."><source media="(max-width: 720px)" src="assets/hero-mobile.mp4" type="video/mp4"><source src="assets/hero.mp4" type="video/mp4"></video>
+    <video class="demo" autoplay muted playsinline preload="metadata" poster="assets/hero-poster.jpg" width="2560" height="1440" aria-label="Locant in use: point at a list in an iPhone app, type a note, and paste it into Cursor; the agent turns the list into pills. Then the same on a website: point at two words, and the agent makes them glow."><source media="(max-width: 720px)" src="assets/hero-mobile.mp4" type="video/mp4"><source src="assets/hero.mp4" type="video/mp4"></video>
     <script>
-      // Plays once and rests on the agent's reply; hovering (or tapping, on a phone) plays it again.
+      // Plays once and rests on the finished website change; hovering (or tapping, on a phone) plays it again.
       (function () {
         var v = document.querySelector('video.demo');
         function replay() { if (v.ended || v.paused) { v.currentTime = 0; v.play(); } }
@@ -776,6 +776,7 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
         <h3>Quiet</h3><p>No Dock icon. Nothing pulses, bounces, or waits for you to notice it.</p>
       </div>
     </div>
+    <p class="fine" style="margin-top: 24px">This website counts visits with Vercel Web Analytics, without cookies. The app counts&nbsp;nothing.</p>
   </section>
 
   <section class="col end">
@@ -790,7 +791,7 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
       <p>The number in a chemical name that says exactly where a group is attached, as the&nbsp;2 in 2‑methylbutane.</p>
     </div>
     <div class="row">
-      <span class="ver">Locant 1.1.0</span>
+      <span class="ver">Locant 1.2.0</span>
       <nav class="links" aria-label="Footer">
         <a href="https://github.com/Malik1942/locant">GitHub</a>
         <a href="https://github.com/Malik1942/locant/issues/new/choose">Report an issue</a>
