@@ -400,7 +400,7 @@
               "description": "Where the component named by name is used."
             }
           },
-          "description": "Prototype. Present only for a web node whose page answered a script Locant ran in it (React development builds in Chrome): the component that rendered the element and where its code is."
+          "description": "Present only for a web node on a local page that answered a script Locant ran in it (a React development build in Chrome, Edge, Brave or Dia): the component that rendered the element and where its code is."
         }
       }
     },

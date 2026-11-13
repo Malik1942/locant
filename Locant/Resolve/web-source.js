@@ -1,15 +1,13 @@
-// Locant web source lookup (prototype). Runs inside the page through the browser's own
-// "execute javascript" Apple Event. It finds the DOM node Locant resolved through accessibility,
-// then reads what React's development build keeps on it: the component that rendered it, that
-// component's props, where the element's JSX is, and where the component is used. Source lines
-// come from the dev server's source maps. It returns one JSON string and never changes the page.
-// The caller replaces the placeholder on the last line with {"id","classes","frame":{x,y,w,h}} in screen points.
+// Locant web source lookup. Runs inside the page through the browser's own Apple Event for page
+// JavaScript. It finds the DOM node Locant resolved through accessibility, then reads what React's
+// development build keeps on it: the component that rendered it, that component's props, and the
+// stacks React recorded where the element's JSX and the component's JSX ran. It fetches nothing and
+// changes nothing; Locant maps the stack frames to source lines itself (SourceMap.swift).
+// The caller replaces the placeholder on the last line with
+// {"id","classes","frame":{x,y,w,h},"area":{x,y,w,h}}: the element and the page's viewport, in screen points.
 (function (args) {
   'use strict';
-  // Assigned before any return: the helpers below are hoisted, their data is not.
-  var mapCache = {};
-  var B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-  var out = { v: 1 };
+  var out = { v: 2 };
   try {
     var node = findNode(args);
     if (!node) { out.error = 'node not found'; return JSON.stringify(out); }
@@ -19,7 +17,7 @@
     out.framework = 'react';
     var fiber = hit.fiber;
     if (hit.depth > 0) out.fiberDepth = hit.depth;
-    var source = fiberSource(fiber);
+    var source = where(fiber);
     if (source) out.source = source;
     var owner = fiber._debugOwner || null;
     if (!owner) {
@@ -31,11 +29,15 @@
       return JSON.stringify(out);
     }
     var chain = [], o = owner, guard = 0;
-    while (o && guard < 12) { var name = componentName(o); if (name) chain.push(name); o = o._debugOwner; guard++; }
+    while (o && guard < 12) { var name = ownerName(o); if (name) chain.push(name); o = o._debugOwner || o.owner; guard++; }
     out.components = chain;
-    out.props = propsPreview(owner.memoizedProps);
-    var rendered = fiberSource(owner);
+    // A server component's record is not a fiber: it has a name and an owner. Its props are what the
+    // server sent, promises with React's own fields, so they are left out.
+    out.props = isFiber(owner) ? propsPreview(owner.memoizedProps) : [];
+    var rendered = where(owner);
     if (rendered) out.renderedAt = rendered;
+    // webpack evaluates each module from a string inside a chunk; Locant finds the module's map there.
+    if (usesWebpackInternal(source) || usesWebpackInternal(rendered)) out.scripts = scriptURLs();
   } catch (e) {
     out.error = String(e && e.message || e);
   }
@@ -48,7 +50,7 @@
       var byId = document.getElementById(a.id);
       if (byId) return byId;
     }
-    var point = clientCenter(a.frame);
+    var point = clientCenter(a);
     var classes = (a.classes || []).filter(Boolean);
     if (point) {
       var el = document.elementFromPoint(point.x, point.y);
@@ -59,7 +61,7 @@
         }
       } else if (el) {
         // No handles: the point lands on the deepest node, so climb to the one whose size is the frame's.
-        return bestBySize(el, a.frame);
+        return bestBySize(el, a);
       }
     }
     if (classes.length) {
@@ -68,7 +70,7 @@
       if (all.length === 1) return all[0];
       if (all.length > 1 && a.frame) {
         // Several share the classes: take the one whose size and place match best.
-        var best = null, bestScore = Infinity, zoom = pageZoom();
+        var best = null, bestScore = Infinity, zoom = pageZoom(a);
         for (var k = 0; k < all.length; k++) {
           var r = all[k].getBoundingClientRect();
           var p = point || { x: 0, y: 0 };
@@ -82,11 +84,11 @@
     return null;
   }
 
-  function bestBySize(el, frame) {
-    var zoom = pageZoom(), best = el, bestScore = Infinity;
+  function bestBySize(el, a) {
+    var zoom = pageZoom(a), best = el, bestScore = Infinity;
     for (var cur = el, i = 0; cur && cur !== document.body && i < 8; cur = cur.parentElement, i++) {
       var r = cur.getBoundingClientRect();
-      var score = Math.abs(r.width * zoom - frame.w) + Math.abs(r.height * zoom - frame.h);
+      var score = Math.abs(r.width * zoom - a.frame.w) + Math.abs(r.height * zoom - a.frame.h);
       if (score < bestScore) { bestScore = score; best = cur; }
     }
     return best;
@@ -98,19 +100,26 @@
     return true;
   }
 
-  // outerWidth is in screen points, innerWidth in CSS pixels: their ratio is the page zoom.
-  function pageZoom() {
-    var z = window.outerWidth && window.innerWidth ? window.outerWidth / window.innerWidth : 1;
+  // Screen points per CSS pixel. The viewport's own width in points over its width in CSS pixels;
+  // without the viewport, the window's (wrong beside a sidebar, and Brave randomises the window's numbers).
+  function pageZoom(a) {
+    var z = a.area && a.area.w && window.innerWidth ? a.area.w / window.innerWidth
+      : window.outerWidth && window.innerWidth ? window.outerWidth / window.innerWidth : 1;
     return z > 0.25 && z < 5 ? z : 1;
   }
 
-  // A screen-point frame to the client point at its centre. The toolbar sits above the viewport,
-  // so the viewport's top is the window's bottom minus the viewport's height in points.
-  function clientCenter(frame) {
+  // A screen-point frame to the client point at its centre. Accessibility gives the viewport's place
+  // on screen; without it, the toolbar is taken to sit above a viewport centred in the window.
+  function clientCenter(a) {
+    var frame = a.frame;
     if (!frame) return null;
-    var zoom = pageZoom();
-    var left = window.screenX + (window.outerWidth - window.innerWidth * zoom) / 2;
-    var top = window.screenY + window.outerHeight - window.innerHeight * zoom;
+    var zoom = pageZoom(a), left, top;
+    if (a.area) {
+      left = a.area.x; top = a.area.y;
+    } else {
+      left = window.screenX + (window.outerWidth - window.innerWidth * zoom) / 2;
+      top = window.screenY + window.outerHeight - window.innerHeight * zoom;
+    }
     var x = (frame.x + frame.w / 2 - left) / zoom, y = (frame.y + frame.h / 2 - top) / zoom;
     if (x < 0 || y < 0 || x > window.innerWidth || y > window.innerHeight) return null;
     return { x: x, y: y };
@@ -137,6 +146,8 @@
     return null;
   }
 
+  function isFiber(o) { return !!o && typeof o.tag === 'number'; }
+
   function componentName(fiber) {
     var t = fiber && fiber.type;
     if (!t || typeof t === 'string') return null;
@@ -147,6 +158,11 @@
       if (inner) return inner.displayName || inner.name || null;
     }
     return null;
+  }
+
+  function ownerName(o) {
+    if (isFiber(o)) return componentName(o);
+    return typeof o.name === 'string' && o.name ? o.name : null;
   }
 
   function propsPreview(props) {
@@ -170,115 +186,51 @@
     return typeof v;
   }
 
-  // Where a fiber's JSX was written. React 18 with the JSX source transform keeps _debugSource;
-  // React 19 keeps _debugStack, an Error made when the JSX ran, whose frames the source map maps.
-  function fiberSource(fiber) {
-    var ds = fiber._debugSource;
-    if (ds && ds.fileName) return { file: ds.fileName, line: ds.lineNumber, column: ds.columnNumber || null, via: 'debugSource' };
-    var stack = fiber._debugStack;
+  // Where a fiber's or a server component's JSX was written. React 18 with the JSX source transform
+  // keeps _debugSource, a file and line as written. React 19 keeps a stack made when the JSX ran, in
+  // the built code's lines: its first frames go back as they are.
+  function where(o) {
+    var ds = o._debugSource;
+    if (ds && ds.fileName) return { file: ds.fileName, line: ds.lineNumber, column: ds.columnNumber || null };
+    var stack = o._debugStack || o.debugStack;
     var text = stack && (stack.stack || String(stack));
     if (!text) return null;
-    var frame = userFrame(text);
-    if (!frame) return null;
-    var mapped = mapFrame(frame);
-    if (mapped) { mapped.via = 'sourcemap'; return mapped; }
-    return { file: stripQuery(frame.url), line: frame.line, column: frame.column, via: 'generated' };
+    var frames = parseStack(text);
+    return frames.length ? { stack: frames } : null;
   }
 
-  // The first frame outside React and node_modules: the JSX call in the user's own module.
-  function userFrame(text) {
-    var lines = text.split('\n');
-    for (var i = 0; i < lines.length; i++) {
-      var m = /(https?:\/\/[^\s()]+):(\d+):(\d+)/.exec(lines[i]);
+  // "    at Row (http://…/Rows.tsx:28:88)" in Chromium, "Row@http://…/Rows.tsx:28:88" in WebKit.
+  // A webpack address has brackets of its own, so the place is cut at the first " (" and the last ")".
+  function parseStack(text) {
+    var lines = text.split('\n'), frames = [];
+    for (var i = 0; i < lines.length && frames.length < 8; i++) {
+      var line = lines[i].replace(/^\s+/, ''), fn = '', place = line;
+      if (line.indexOf('at ') === 0) {
+        place = line.slice(3);
+        var open = place.indexOf(' (');
+        if (open >= 0 && place.charAt(place.length - 1) === ')') { fn = place.slice(0, open); place = place.slice(open + 2, -1); }
+      } else if (line.indexOf('@') >= 0) {
+        fn = line.slice(0, line.indexOf('@')); place = line.slice(line.indexOf('@') + 1);
+      } else continue;
+      var m = /^(.+):(\d+):(\d+)$/.exec(place);
       if (!m) continue;
-      if (/\/node_modules\/|react-dom|react_jsx|jsx-dev-runtime|jsx-runtime|\/@react-refresh/.test(m[1])) continue;
-      return { url: m[1], line: +m[2], column: +m[3] };
+      frames.push({ fn: fn, url: m[1], line: +m[2], column: +m[3] });
     }
-    return null;
+    return frames;
   }
 
-  function stripQuery(url) { return url.replace(/[?#].*$/, ''); }
-
-  // MARK: source maps
-
-  function fetchText(url) {
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', url, false); // synchronous: the Apple Event waits for a plain return value
-    xhr.send(null);
-    return xhr.status >= 200 && xhr.status < 300 ? xhr.responseText : null;
+  function usesWebpackInternal(w) {
+    if (!w || !w.stack) return false;
+    for (var i = 0; i < w.stack.length; i++) if (w.stack[i].url.indexOf('webpack-internal:') === 0) return true;
+    return false;
   }
 
-  function loadMap(url) {
-    if (url in mapCache) return mapCache[url];
-    var map = null;
-    try {
-      var code = fetchText(url);
-      var m = code && /\/\/[#@] sourceMappingURL=(\S+)\s*$/.exec(code);
-      if (m) {
-        var ref = m[1];
-        var inline = /^data:application\/json;(?:charset=[^;,]+;)?base64,(.*)$/.exec(ref);
-        var json = inline ? decodeBase64(inline[1]) : fetchText(new URL(ref, url).href);
-        if (json) { map = JSON.parse(json); map.__url = inline ? url : new URL(ref, url).href; }
-      }
-    } catch (e) { map = null; }
-    mapCache[url] = map;
-    return map;
-  }
-
-  function decodeBase64(b64) {
-    var bin = atob(b64), bytes = new Uint8Array(bin.length);
-    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    return new TextDecoder().decode(bytes);
-  }
-
-  function vlq(seg) {
-    var out = [], shift = 0, value = 0;
-    for (var i = 0; i < seg.length; i++) {
-      var d = B64.indexOf(seg[i]), more = d & 32;
-      value += (d & 31) << shift;
-      if (more) { shift += 5; continue; }
-      out.push(value & 1 ? -(value >> 1) : value >> 1);
-      shift = 0; value = 0;
+  function scriptURLs() {
+    var urls = [], scripts = document.scripts;
+    for (var i = 0; i < scripts.length && urls.length < 80; i++) {
+      var src = scripts[i].src;
+      if (src && src.indexOf(location.origin + '/') === 0) urls.push(src);
     }
-    return out;
-  }
-
-  // One-based generated line and column to one-based original file, line and column.
-  function mapFrame(frame) {
-    var map = loadMap(frame.url);
-    if (!map || !map.mappings) return null;
-    var lines = map.mappings.split(';');
-    var src = 0, oLine = 0, oCol = 0, best = null;
-    for (var li = 0; li < lines.length && li < frame.line; li++) {
-      var gCol = 0;
-      if (!lines[li]) continue;
-      var segs = lines[li].split(',');
-      for (var s = 0; s < segs.length; s++) {
-        if (!segs[s]) continue;
-        var f = vlq(segs[s]);
-        gCol += f[0];
-        if (f.length > 3) { src += f[1]; oLine += f[2]; oCol += f[3]; }
-        if (li === frame.line - 1 && f.length > 3 && gCol <= frame.column - 1) {
-          best = { source: src, line: oLine + 1, column: oCol + 1 };
-        }
-      }
-    }
-    if (!best) return null;
-    var name = (map.sources || [])[best.source];
-    if (name == null) return null;
-    return { file: sourcePath(name, map), line: best.line, column: best.column };
-  }
-
-  // A source map's source as the dev server serves it: "/src/Library.tsx" for Vite's "Library.tsx"
-  // next to "/src/Library.tsx?t=…". Absolute file paths and webpack:// names pass through.
-  function sourcePath(name, map) {
-    if (/^\//.test(name)) return name;
-    if (/^[a-z]+:\/\//i.test(name) && !/^https?:/i.test(name)) return name;
-    try {
-      var base = map.__url;
-      var root = map.sourceRoot ? new URL(map.sourceRoot.replace(/\/?$/, '/'), base).href : base;
-      var u = new URL(name, root);
-      return u.origin === location.origin ? u.pathname : u.href;
-    } catch (e) { return name; }
+    return urls;
   }
 })(__LOCANT_ARGS__)

@@ -347,6 +347,8 @@ struct CaptureSettings: View {
                     // specs/first-run.md R143: the one switch that acts by itself says how on hover; no line under it (R91).
                     .help("After you point at an app you build, Locant captures that element again whenever the app comes forward in the next day, and keeps the image if it changed.")
             }
+            // specs/web-source.md R155: the browsers that can say which component and source line drew a web element.
+            WebPagesSection()
             Section {
                 Picker("Color format", selection: $preferences.colorFormat) {
                     ForEach(ColorFormat.allCases, id: \.self) { Text($0.title).tag($0) }
@@ -371,6 +373,146 @@ struct CaptureSettings: View {
         panel.prompt = "Choose"
         if panel.runModal() == .OK, let url = panel.url {
             preferences.captureFolder = url.path(percentEncoded: false)
+        }
+    }
+}
+
+/// specs/web-source.md R155: one row per installed browser Locant can ask about a page, each a status
+/// and at most one button. The group shows only when such a browser is installed.
+private struct WebPagesSection: View {
+    @State private var statuses: [String: WebSourceLocator.Status] = [:]
+    @State private var busy: Set<String> = []
+    /// Found once, when the tab is built: a view with nothing in it would never run the task below.
+    @State private var browsers = WebSourceLocator.browsers.filter { $0.installedBundleId != nil }
+
+    var body: some View {
+        if !browsers.isEmpty {
+            Section("Web pages") {
+                ForEach(browsers) { browser in
+                    WebBrowserRow(browser: browser, status: statuses[browser.name], busy: busy.contains(browser.name)) { act(on: browser) }
+                }
+            }
+            .task {
+                while !Task.isCancelled {
+                    await refresh()
+                    try? await Task.sleep(for: .seconds(2))
+                }
+            }
+        }
+    }
+
+    /// A browser that is ready is not asked again while Settings stays open; only macOS is, about the permission.
+    private func refresh() async {
+        for browser in browsers where !busy.contains(browser.name) {
+            if statuses[browser.name] == .ready, let bundleId = browser.installedBundleId,
+               await Task.detached(operation: { WebSourceLocator.permission(bundleId: bundleId, ask: false) }).value == .granted { continue }
+            statuses[browser.name] = await WebSourceLocator.status(of: browser)
+        }
+    }
+
+    private func act(on browser: WebBrowser) {
+        guard let status = statuses[browser.name] else { return }
+        switch status {
+        case .notAsked:
+            busy.insert(browser.name)
+            Task {
+                _ = await WebSourceLocator.requestPermission(for: browser)
+                statuses[browser.name] = await WebSourceLocator.status(of: browser)
+                busy.remove(browser.name)
+            }
+        case .denied:
+            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation") {
+                NSWorkspace.shared.open(url)
+            }
+        case .notRunning, .doorClosed:
+            busy.insert(browser.name)
+            Task {
+                if await WebSourceLocator.open(browser) {
+                    // The browser takes a moment to answer Apple Events after it opens.
+                    try? await Task.sleep(for: .seconds(3))
+                }
+                statuses[browser.name] = await WebSourceLocator.status(of: browser)
+                busy.remove(browser.name)
+            }
+        case .ready:
+            break
+        }
+    }
+}
+
+private struct WebBrowserRow: View {
+    let browser: WebBrowser
+    let status: WebSourceLocator.Status?
+    let busy: Bool
+    let act: () -> Void
+
+    private var opensWithFlag: Bool {
+        if case .launchFlag = browser.door { true } else { false }
+    }
+
+    private var doorPath: String {
+        switch browser.door {
+        case .menu(let path), .launchFlag(let path): path
+        }
+    }
+
+    var body: some View {
+        LabeledContent(browser.name) {
+            HStack(spacing: 8) {
+                if busy {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("Working…")
+                        .foregroundStyle(.secondary)
+                } else if let status {
+                    switch status {
+                    case .notRunning:
+                        if opensWithFlag {
+                            Button("Open \(browser.name)", action: act)
+                        } else {
+                            Text("Not open")
+                                .foregroundStyle(.secondary)
+                        }
+                    case .notAsked:
+                        Button("Allow…", action: act)
+                    case .denied:
+                        warning
+                        Button("Grant…", action: act)
+                    case .doorClosed:
+                        warning
+                        if opensWithFlag {
+                            Button("Reopen \(browser.name)", action: act)
+                        } else {
+                            Text(doorPath)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .truncationMode(.head)
+                        }
+                    case .ready:
+                        Image(systemName: "checkmark.circle.fill")
+                            .symbolRenderingMode(.monochrome)
+                            .foregroundStyle(AgentRow.connectedGreen)
+                        Text("Ready")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .id(busy)
+        }
+        .help(help)
+    }
+
+    private var warning: some View {
+        Image(systemName: "exclamationmark.circle.fill")
+            .symbolRenderingMode(.monochrome)
+            .foregroundStyle(.orange)
+    }
+
+    private var help: String {
+        switch status {
+        case .doorClosed: browser.instruction + ", so Locant can read the component and source line of what you point at on a local page."
+        case .notAsked, .denied: "Lets Locant ask \(browser.name) which component and source line drew what you point at on a local page."
+        default: "On a local page in \(browser.name), a capture names the React component and its source line."
         }
     }
 }
@@ -745,7 +887,7 @@ private struct AgentRow: View {
     /// lightens its green by design, and on a 13 pt tick that read as pale and washed out
     /// (Malik, Sep 14 2026), so the light value is pinned in both appearances. Measured in the dark
     /// grouped Form: `.green` renders P3 #68CE67, this renders #63CA56, same lightness, more chroma.
-    private static let connectedGreen = Color(red: 0x28 / 255.0, green: 0xCD / 255.0, blue: 0x41 / 255.0)
+    fileprivate static let connectedGreen = Color(red: 0x28 / 255.0, green: 0xCD / 255.0, blue: 0x41 / 255.0)
 
     let agent: Agent
     let status: AgentStatus?

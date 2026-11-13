@@ -112,7 +112,7 @@ enum MarkdownBuilder {
             lines.append(Self.textLineNote)
             lines.append(Self.textLineAdvice)
         } else if element.component?.source != nil {
-            // Prototype: the page named the line; no grep advice needed.
+            // specs/web-source.md R150: the page named the line; no grep advice needed.
         } else if element.identifier == nil, element.dom == nil {
             lines.append(missingHandleLine("No identifier.", mode: mode,
                                            fix: "Grep the label text; add .accessibilityIdentifier(\"…\") to this view so the next capture is exact."))
@@ -129,7 +129,7 @@ enum MarkdownBuilder {
         return lines
     }
 
-    /// Prototype: what the page's framework said about the element, in the order Claude's Browser picker
+    /// specs/web-source.md R150: what the page's framework said about the element, in the order Claude's Browser picker
     /// shows it. Source is the element's own JSX; Rendered at is where its component is used.
     static func componentLines(_ c: ComponentInfo) -> [String] {
         var lines: [String] = []

@@ -192,8 +192,8 @@ struct ResolvedElement: Codable, Sendable, Equatable {
     var members: [ElementMember]? = nil
     /// v0.8: present for elements of a web page or an Electron app, the DOM's own handles.
     var dom: DOMInfo? = nil
-    /// Prototype: the component that rendered a web node and where its code is, read inside the page
-    /// (React development builds in Chrome). Nil when the page was not asked or had nothing to say.
+    /// specs/web-source.md: the component that rendered a web node and where its code is, read inside a
+    /// local page (React development builds). Nil when the page was not asked or had nothing to say.
     var component: ComponentInfo? = nil
 
     private enum CodingKeys: String, CodingKey {
@@ -359,7 +359,7 @@ struct CaptureContext: Sendable, Equatable {
     var simulatedBundlePath: String? = nil
 }
 
-/// Prototype: what a page's own framework says about a web node, read by running a script in the page
+/// specs/web-source.md: what a page's own framework says about a web node, read by running a script in the page
 /// (`WebSourceLocator`). `source` is where this element's JSX is; `renderedAt` is where `name` is used.
 struct ComponentInfo: Codable, Sendable, Equatable {
     var framework: String

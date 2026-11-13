@@ -90,8 +90,10 @@ final class AppState {
     /// started and stopped with it.
     @ObservationIgnored private let textReader = TextLineReader()
     @ObservationIgnored private var lockedElement: ResolvedElement?
-    /// Prototype: the page's own answer about the locked web element, asked at the click (`WebSourceLocator`).
-    @ObservationIgnored private var componentTask: Task<ComponentInfo?, Never>?
+    /// specs/web-source.md R146: the page's own answer about the locked web element, asked at the click.
+    @ObservationIgnored private var componentTask: Task<WebSourceLocator.Outcome, Never>?
+    /// R156: the last lookup and how it ended, for Diagnostics.
+    @ObservationIgnored private var lastWebSource: Diagnostics.WebSource?
     @ObservationIgnored private var lockedElements: [RegionElement]?
     @ObservationIgnored private var lockedNearby: [RegionElement]?
     /// v0.8 R58: the elements added with Shift so far, the context of the first, and the set locked
@@ -750,6 +752,31 @@ final class AppState {
         toast.show(HudText.plain("⇧ click adds another element · from any app"), atBottomOf: NSEvent.mouseLocation, life: DesignTokens.hintLife)
     }
 
+    /// specs/web-source.md R154: a capture of a local page in a browser that is not set up says so,
+    /// twice per browser at most, after the capture's own toast has had its time.
+    private func showWebSourceHintIfNeeded(for browser: WebBrowser) async {
+        let key = "webSource." + browser.name
+        guard preferences.hintCount(key) < Self.webSourceHintShowings else { return }
+        try? await Task.sleep(for: .seconds(DesignTokens.toastLife))
+        guard phase == .idle else { return }
+        preferences.markHintShown(key)
+        toast.show(HudText.plain(Self.webSourceHint), atBottomOf: NSEvent.mouseLocation, life: DesignTokens.hintLife)
+    }
+
+    static let webSourceHintShowings = 2
+    static let webSourceHint = "Locant can name the component and source line here · Settings › Captures › Web pages"
+
+    /// One line for Diagnostics: what the page gave, or why it gave nothing.
+    static func webSourceResult(_ outcome: WebSourceLocator.Outcome?, browser: WebBrowser) -> String {
+        switch outcome {
+        case .found(let info):
+            let lines = [info.source, info.renderedAt].compactMap { $0 }.count
+            return "\(info.name ?? "a component") · \(lines) source line\(lines == 1 ? "" : "s")"
+        case .failed(let failure): return failure.reason(for: browser)
+        case nil: return "no answer in time"
+        }
+    }
+
     /// The first three opens of a mode: the gestures, at the bottom of the display under the cursor.
     private func showHintIfNeeded(key: String, text: String) {
         guard preferences.hintCount(key) < Self.hintShowings else { return }
@@ -1130,10 +1157,13 @@ final class AppState {
             guard phase == .resolving, cropTask == crop else { return }
             // v0.8: the page address of a web node; the localhost rule in mode inference reads it.
             if let url = snapshot?.url { context?.source.url = url }
-            // Prototype: ask the page for the component and source lines while the note is typed.
+            // specs/web-source.md R146, R151: ask a local page for the component and source lines while the note is typed.
             if let element, element.dom != nil, let url = snapshot?.url, let bundleId = context?.source.app.bundleId,
-               WebSourceLocator.supports(bundleId: bundleId) {
-                componentTask = Task.detached { await WebSourceLocator.locate(element: element, bundleId: bundleId, url: url) }
+               WebSourceLocator.asks(bundleId: bundleId, url: url) {
+                let pid = window?.ownerPID
+                componentTask = Task.detached {
+                    await WebSourceLocator.locate(element: element, bundleId: bundleId, url: url, point: point, pid: pid)
+                }
             }
 
             overlay.setHighlight(element?.frame.cgRect, readout: .describing(element), around: point)
@@ -1321,9 +1351,12 @@ final class AppState {
         Task {
             do {
                 let image = try await cropTask.value
-                if let componentTask, element != nil,
-                   let info = await WebSourceLocator.answer(of: componentTask, within: WebSourceLocator.commitWait) {
-                    element?.component = info
+                var webSetup: WebBrowser?
+                if let componentTask, element != nil, let browser = WebSourceLocator.browser(bundleId: context.source.app.bundleId) {
+                    let outcome = await WebSourceLocator.answer(of: componentTask, within: WebSourceLocator.commitWait)
+                    if case .found(let info) = outcome { element?.component = info }
+                    if case .failed(let failure) = outcome, failure.needsSetup { webSetup = browser }
+                    lastWebSource = Diagnostics.WebSource(browser: browser.name, result: Self.webSourceResult(outcome, browser: browser), at: Date())
                 }
                 // v0.3 R17: fix or reference, and the project root, from signals; touches the disk.
                 // v0.4 R33: remember HEAD so Verify can diff against it later.
@@ -1381,6 +1414,7 @@ final class AppState {
                 } else {
                     showAgentHintIfNeeded()
                 }
+                if let webSetup { await showWebSourceHintIfNeeded(for: webSetup) }
             } catch {
                 fail(.capturing(error), nearRect: anchor)
             }
@@ -1582,7 +1616,8 @@ final class AppState {
             },
             checksForUpdates: preferences.checksForUpdates,
             lastUpdateCheck: preferences.lastUpdateCheck,
-            lastFailure: lastFailure
+            lastFailure: lastFailure,
+            lastWebSource: lastWebSource
         )
         return Diagnostics.render(values)
     }

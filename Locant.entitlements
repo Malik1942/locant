@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- Prototype: ask Chrome to run the web-source script (WebSourceLocator). The hardened runtime blocks Apple Events without it. -->
+	<!-- Ask a browser to run the web-source script in a local page (WebSourceLocator, specs/web-source.md). The hardened runtime blocks Apple Events without it. -->
 	<key>com.apple.security.automation.apple-events</key>
 	<true/>
 </dict>
