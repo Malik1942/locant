@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "id": "20261023-022759-bkzx",
+  "createdAt": "2026-10-23T02:27:59-07:00",
+  "mode": "fix",
+  "image": {
+    "path": "/Users/malik/Pictures/Locant/locant-devicehub-20261023-022759-bkzx.png",
+    "widthPt": 236,
+    "heightPt": 111,
+    "scale": 2,
+    "crop": {
+      "x": 1999,
+      "y": -1185,
+      "w": 236,
+      "h": 111
+    }
+  },
+  "source": {
+    "app": {
+      "bundleId": "com.apple.dt.Devices",
+      "name": "Device Hub"
+    },
+    "window": {
+      "title": "iPhone 17 – iOS 26.5"
+    },
+    "url": null,
+    "simulator": {
+      "device": "iPhone 17",
+      "appBundleId": "com.inspireocean.app"
+    },
+    "projectRoot": "/Users/malik/Code/Oryne",
+    "gitCommit": "636403cf00000000000000000000000000000000"
+  },
+  "element": {
+    "role": "button",
+    "rawRole": "AXButton",
+    "label": "Recent",
+    "identifier": null,
+    "identifierSource": "unknown",
+    "value": null,
+    "frame": {
+      "x": 2039.1,
+      "y": -1144.2,
+      "w": 77.8,
+      "h": 29.9
+    },
+    "path": [
+      {
+        "role": "group",
+        "identifier": null
+      },
+      {
+        "role": "splitGroup",
+        "identifier": "com.apple.dt.DeviceKit.DeviceManagementWindow-AppWindow-1, SidebarNavigationSplitView"
+      },
+      {
+        "role": "group",
+        "identifier": null
+      },
+      {
+        "role": "button",
+        "identifier": null
+      }
+    ],
+    "sourceHint": {
+      "kind": "likeliest",
+      "strings": [
+        "Recent"
+      ],
+      "places": [
+        {
+          "file": "Oryne/Features/Library/LibraryView.swift",
+          "lines": [
+            543
+          ]
+        },
+        {
+          "file": "OceanWidgets/RecentWidget.swift",
+          "lines": [
+            12,
+            40
+          ]
+        }
+      ],
+      "fileCount": 2,
+      "alsoThere": [
+        "Currents"
+      ]
+    }
+  },
+  "note": "change the 2 button switch form and design",
+  "ocr": "Q Search the Ocean\nRecent\nCurrents",
+  "iterations": [],
+  "resolved": false
+}

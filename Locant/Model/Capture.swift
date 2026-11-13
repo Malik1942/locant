@@ -192,9 +192,11 @@ struct ResolvedElement: Codable, Sendable, Equatable {
     var members: [ElementMember]? = nil
     /// v0.8: present for elements of a web page or an Electron app, the DOM's own handles.
     var dom: DOMInfo? = nil
+    /// specs/source-hints.md R151: where the element's strings sit in the project's source, when Locant looked.
+    var sourceHint: SourceHint? = nil
 
     private enum CodingKeys: String, CodingKey {
-        case role, rawRole, label, identifier, identifierSource, value, frame, path, members, dom
+        case role, rawRole, label, identifier, identifierSource, value, frame, path, members, dom, sourceHint
     }
 
     func encode(to encoder: any Encoder) throws {
@@ -209,6 +211,7 @@ struct ResolvedElement: Codable, Sendable, Equatable {
         try c.encode(path, forKey: .path)
         try c.encodeIfPresent(members, forKey: .members)
         try c.encodeIfPresent(dom, forKey: .dom)
+        try c.encodeIfPresent(sourceHint, forKey: .sourceHint)
     }
 }
 

@@ -92,6 +92,8 @@ final class AppState {
     @ObservationIgnored private var lockedElement: ResolvedElement?
     @ObservationIgnored private var lockedElements: [RegionElement]?
     @ObservationIgnored private var lockedNearby: [RegionElement]?
+    /// specs/source-hints.md R152: the labels around the locked element, nearest first.
+    @ObservationIgnored private var lockedNeighborLabels: [String] = []
     /// v0.8 R58: the elements added with Shift so far, the context of the first, and the set locked
     /// at the final click with the crops for elements after the first.
     @ObservationIgnored private var pinned: [CaptureTarget] = []
@@ -1118,6 +1120,9 @@ final class AppState {
             let element = await withWalkedMembers(clicked, pid: window?.ownerPID ?? context?.frontPID ?? 0)
             guard phase == .resolving, cropTask == crop else { return }
             lockedElement = element
+            lockedNeighborLabels = element.flatMap { locked in
+                snapshot.map { SourceHints.neighborLabels(of: locked.frame, among: $0.siblings ?? $0.children ?? []) }
+            } ?? []
             if element == nil, let snapshot = lastHoverSnapshot {
                 // v0.2 R15: what sits around a point that has no element.
                 let neighborhood = snapshot.children ?? snapshot.siblings ?? []
@@ -1305,6 +1310,7 @@ final class AppState {
         let element = lockedElement
         let elements = lockedElements
         let nearby = lockedNearby
+        let neighborLabels = lockedNeighborLabels
         var targets = lockedTargets
         let extraCrops = extraCropTasks
         let anchor = (targets?.last?.element ?? element)?.frame.cgRect ?? SelectionOverlay.fallbackRect(around: clickPoint)
@@ -1351,6 +1357,13 @@ final class AppState {
                     || (targets?.contains { $0.element.identifier != nil || $0.element.dom?.id != nil } ?? false)
                 if !hasIdentifier, let lines = try? await TextRecognizer.lines(inPNG: image.png), !lines.isEmpty {
                     capture.ocr = lines.joined(separator: "\n")
+                }
+                // specs/source-hints.md R151: in a fix capture, look the element's strings up in the project.
+                if decision.mode == .fix, let root = decision.projectRoot {
+                    let subject = capture
+                    capture = await Task.detached {
+                        SourceHints.annotate(subject, root: URL(filePath: root), neighbors: neighborLabels)
+                    }.value
                 }
                 let written = try store.write(png: image.png, capture: capture)
                 let markdown = MarkdownBuilder.build(written)
@@ -1400,6 +1413,7 @@ final class AppState {
         lockedElement = nil
         lockedElements = nil
         lockedNearby = nil
+        lockedNeighborLabels = []
         lastHoverSnapshot = nil
         lastHoverElement = nil
         levels = []

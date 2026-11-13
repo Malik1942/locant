@@ -101,10 +101,12 @@ enum ElementResolver {
     }
 
     /// Section 4: `possiblySymbolName` when role is image and the identifier looks like an SF Symbol name.
+    /// specs/source-hints.md R155: and on any role when the name is one of the system's symbols, since a
+    /// button drawn with `Image(systemName:)` publishes the symbol's name as its identifier.
     static func identifierSource(role: String, identifier: String?) -> IdentifierSource {
         guard let identifier, !identifier.isEmpty else { return .unknown }
-        if role == "image", looksLikeSymbolName(identifier) { return .possiblySymbolName }
-        return .declared
+        guard looksLikeSymbolName(identifier) else { return .declared }
+        return role == "image" || SymbolCatalog.contains(identifier) ? .possiblySymbolName : .declared
     }
 
     /// `^[a-z0-9]+(\.[a-z0-9]+)*$` without a regex, so it stays trivially Sendable.

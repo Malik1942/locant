@@ -326,6 +326,75 @@
             }
           },
           "description": "Present only for a node of a web page or an Electron app (v0.8): the DOM's own handles, as WebKit and Chromium publish them through accessibility. An agent greps for the id first, then the classes."
+        },
+        "sourceHint": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "strings",
+            "places",
+            "fileCount"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "only",
+                "likeliest",
+                "several",
+                "beside",
+                "none"
+              ],
+              "description": "only: the element's strings are string literals in exactly one file. likeliest: in several files, and the first place's file also holds other text from the capture. several: in several files, and nothing in the capture tells them apart. beside: the element's own strings are in no file, but fixed text in or beside it is. none: Locant looked and nothing matched."
+            },
+            "strings": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "The strings that were found: the element's identifier or label (or the parts of a merged label) for only, likeliest and several; the neighbors' text for beside. For none, the strings looked for."
+            },
+            "places": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "file",
+                  "lines"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "description": "Path relative to source.projectRoot."
+                  },
+                  "lines": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "description": "Up to three 1-based lines where the string sits."
+                  }
+                }
+              },
+              "description": "Best first, at most six."
+            },
+            "fileCount": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "How many files matched in all; more than places holds when the list was cut."
+            },
+            "alsoThere": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "likeliest only: the other text from the capture found in the first place's file."
+            }
+          },
+          "description": "Present only in a fix capture with a projectRoot, for an element that is not a web node, when Locant finished searching the project's source at capture time (specs/source-hints.md). Where the element's own strings sit as string literals, so an agent can open the file and line before it greps. A hint, not proof: a string built at run time or read from data is not found."
         }
       }
     },
