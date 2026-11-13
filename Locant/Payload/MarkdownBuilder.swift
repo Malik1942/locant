@@ -7,7 +7,7 @@ enum MarkdownBuilder {
         let extras = [elementsBlock(capture), nearbyBlock(capture), textBlock(capture)].compactMap { $0 }
         // v0.8 R58: a set selected with Shift is numbered; "this" and "that" match how notes are worded.
         let elementBlocks = capture.targets.map { targets in targets.enumerated().map { targetBlock($1, index: $0, capture: capture) } }
-            ?? [elementBlock(capture.element, mode: capture.mode)]
+            ?? [elementBlock(capture.element, mode: capture.mode, mirrored: capture.source.simulator != nil)]
         // specs/v0.7.1.md R55: the image path leads in both modes, so a terminal agent that receives only the text
         // can open the PNG; the note closes the payload. v0.1 had a reference capture lead with the note; amended
         // 2026-11-02, since the MCP server, the README, and the skill all promise the path first.
@@ -56,19 +56,22 @@ enum MarkdownBuilder {
         }
         if let url = target.url, url != capture.source.url { lines.append("URL: \(url)") }
         if let path = target.imagePath { lines.append("Image: \(path)") }
-        lines.append(contentsOf: elementLines(target.element, mode: capture.mode))
+        let mirrored = capture.source.simulator != nil && target.app.bundleId == capture.source.app.bundleId
+        lines.append(contentsOf: elementLines(target.element, mode: capture.mode, mirrored: mirrored))
         return lines.joined(separator: "\n")
     }
 
-    private static func elementBlock(_ element: ResolvedElement?, mode: CaptureMode) -> String {
+    private static func elementBlock(_ element: ResolvedElement?, mode: CaptureMode, mirrored: Bool) -> String {
         guard let element else {
             return "### Target element\nNo element information available (app exposes no accessibility tree). Use the image.\nIf this view is yours, give it .accessibilityElement() and .accessibilityIdentifier(\"…\") so Locant can point at it next time."
         }
-        return (["### Target element"] + elementLines(element, mode: mode)).joined(separator: "\n")
+        return (["### Target element"] + elementLines(element, mode: mode, mirrored: mirrored)).joined(separator: "\n")
     }
 
-    /// The lines under an element heading: the head line, advice, value, frame, and path.
-    private static func elementLines(_ element: ResolvedElement, mode: CaptureMode) -> [String] {
+    /// The lines under an element heading: the head line, advice, value, frame, and path. `mirrored`: the
+    /// element is inside a simulated device, so the window around it belongs to the Simulator or Device Hub.
+    private static func elementLines(_ element: ResolvedElement, mode: CaptureMode, mirrored: Bool) -> [String] {
+        let path = pathLine(element.path, mirrored: mirrored)
         if element.role == ElementResolver.clusterRole {
             let members = element.members ?? []
             // specs/capture-shapes.md R129: a shape's frame is the edges seen on screen; a cluster's, an estimate.
@@ -83,8 +86,9 @@ enum MarkdownBuilder {
                 "Members: " + members.map(memberText).joined(separator: " · "),
             ]
             let f = element.frame
+            if let hint = element.sourceHint { lines.insert(sourceLine(hint, element: element), at: 2) }
             lines.append("Frame: x=\(number(f.x)) y=\(number(f.y)) w=\(number(f.w)) h=\(number(f.h))")
-            lines.append("Path: " + element.path.map(pathText).joined(separator: " > "))
+            if let path { lines.append(path) }
             return lines
         }
         var head = element.role
@@ -106,7 +110,12 @@ enum MarkdownBuilder {
         let hasHandle = element.identifier != nil || element.dom?.id != nil || !(element.dom?.classes.isEmpty ?? true)
         if !hasHandle { head += " · no identifier" }
         var lines = [head]
-        if element.rawRole == ElementResolver.textRawRole {
+        // specs/source-hints.md R160: where Locant found the element in the project takes the place of the
+        // advice to grep for it.
+        if let hint = element.sourceHint {
+            if element.rawRole == ElementResolver.textRawRole { lines.append(Self.textLineNote) }
+            lines.append(sourceLine(hint, element: element))
+        } else if element.rawRole == ElementResolver.textRawRole {
             // specs/capture-shapes.md R135: a line Locant read inside an element that merges its lines. It is no view
             // of its own, so no identifier can be added to it.
             lines.append(Self.textLineNote)
@@ -125,8 +134,51 @@ enum MarkdownBuilder {
         if let value = element.value { lines.append("Value: \(valueText(value))") }
         let f = element.frame
         lines.append("Frame: x=\(number(f.x)) y=\(number(f.y)) w=\(number(f.w)) h=\(number(f.h))")
-        lines.append("Path: " + element.path.map(pathText).joined(separator: " > "))
+        if let path { lines.append(path) }
         return lines
+    }
+
+    /// specs/source-hints.md R162: in a simulated device the first steps of the path are the Simulator's or
+    /// Device Hub's own window, which says nothing about the app. They are left out, and so is a path that
+    /// then names nothing. A path with no such step is shown whole.
+    static func pathLine(_ path: [PathEntry], mirrored: Bool) -> String? {
+        guard mirrored, let host = path.lastIndex(where: { $0.identifier?.hasPrefix("com.apple.") ?? false }) else {
+            return "Path: " + path.map(pathText).joined(separator: " > ")
+        }
+        let own = path[(host + 1)...]
+        // The last step is the element itself, whose identifier is on its head line already.
+        guard own.dropLast().contains(where: { $0.identifier != nil || $0.dom != nil }) else { return nil }
+        return "Path: " + own.map(pathText).joined(separator: " > ")
+    }
+
+    /// specs/source-hints.md R160.
+    static func sourceLine(_ hint: SourceHint, element: ResolvedElement) -> String {
+        func quoted(_ strings: [String]) -> String { strings.prefix(2).map { "\"\($0)\"" }.joined(separator: " and ") }
+        let many = hint.strings.count > 1
+        let named = (many ? "the strings " : "the string ") + quoted(hint.strings)
+        let isIn = quoted(hint.strings) + (many ? " are strings in" : " is a string in")
+        func place(_ p: SourcePlace) -> String { p.lines.isEmpty ? p.file : p.file + ":" + p.lines.map(String.init).joined(separator: ", :") }
+        let listed = hint.places.map(place)
+        let more = hint.fileCount > hint.places.count ? " and \(hint.fileCount - hint.places.count) more" : ""
+        switch hint.kind {
+        case .only:
+            return "In source: \(listed.first ?? "") (the only file in the project with \(named))."
+        case .likeliest:
+            let also = hint.alsoThere ?? []
+            let why = also.isEmpty ? "it has more of this element's strings than the others"
+                : "it also has \(quoted(also)) from this capture"
+            let others = listed.dropFirst().joined(separator: ", ")
+            return "In source: \(isIn) \(hint.fileCount) files. Likeliest: \(listed.first ?? "") (\(why)). Others: \(others)\(more)."
+        case .several:
+            return "In source: \(isIn) \(hint.fileCount) files, and nothing in this capture says which: \(listed.joined(separator: ", "))\(more). Use the image and the note to choose."
+        case .beside:
+            let own = element.label != nil || element.identifier != nil
+            let lead = own ? "In source: no string in the project matches this element's own text, so that text is probably data or the system's. Fixed text in or beside it: "
+                : "In source: fixed text in or beside it: "
+            return lead + "\(quoted(hint.strings)) at \(listed.joined(separator: ", "))."
+        case .none:
+            return "In source: no \(quoted(hint.strings)) string in the project. The text may be data, or the app on screen was built from other code than this folder holds now."
+        }
     }
 
     /// specs/web-source.md R150: what the page's framework said about the element, in the order Claude's Browser picker

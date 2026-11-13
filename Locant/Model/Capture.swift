@@ -195,9 +195,11 @@ struct ResolvedElement: Codable, Sendable, Equatable {
     /// specs/web-source.md: the component that rendered a web node and where its code is, read inside a
     /// local page (React development builds). Nil when the page was not asked or had nothing to say.
     var component: ComponentInfo? = nil
+    /// specs/source-hints.md R157: where the element's strings sit in the project's source, when Locant looked.
+    var sourceHint: SourceHint? = nil
 
     private enum CodingKeys: String, CodingKey {
-        case role, rawRole, label, identifier, identifierSource, value, frame, path, members, dom, component
+        case role, rawRole, label, identifier, identifierSource, value, frame, path, members, dom, component, sourceHint
     }
 
     func encode(to encoder: any Encoder) throws {
@@ -213,6 +215,7 @@ struct ResolvedElement: Codable, Sendable, Equatable {
         try c.encodeIfPresent(members, forKey: .members)
         try c.encodeIfPresent(dom, forKey: .dom)
         try c.encodeIfPresent(component, forKey: .component)
+        try c.encodeIfPresent(sourceHint, forKey: .sourceHint)
     }
 }
 
