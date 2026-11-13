@@ -326,6 +326,81 @@
             }
           },
           "description": "Present only for a node of a web page or an Electron app (v0.8): the DOM's own handles, as WebKit and Chromium publish them through accessibility. An agent greps for the id first, then the classes."
+        },
+        "component": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "framework",
+            "name",
+            "ancestors",
+            "props",
+            "source",
+            "renderedAt"
+          ],
+          "properties": {
+            "framework": {
+              "type": "string",
+              "description": "The page framework that answered, e.g. react."
+            },
+            "name": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "The nearest component that rendered the element."
+            },
+            "ancestors": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "The components above name, nearest first."
+            },
+            "props": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "value"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "string"
+                  }
+                }
+              },
+              "description": "The component's props, values shortened."
+            },
+            "source": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/sourceLocation"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Where this element's JSX is."
+            },
+            "renderedAt": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/sourceLocation"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Where the component named by name is used."
+            }
+          },
+          "description": "Present only for a web node on a local page that answered a script Locant ran in it (a React development build in Chrome, Edge, Brave or Dia): the component that rendered the element and where its code is."
         }
       }
     },
@@ -564,6 +639,32 @@
         },
         "frame": {
           "$ref": "#/$defs/frame"
+        }
+      }
+    },
+    "sourceLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "line",
+        "column"
+      ],
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "An absolute path on this Mac when Locant found the file, else the path the dev server serves it under."
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "column": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
         }
       }
     }

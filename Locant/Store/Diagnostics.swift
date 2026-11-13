@@ -55,6 +55,15 @@ enum Diagnostics {
         var checksForUpdates: Bool
         var lastUpdateCheck: Date?
         var lastFailure: Failure?
+        /// specs/web-source.md R156.
+        var lastWebSource: WebSource? = nil
+    }
+
+    /// The last time a page was asked for a component, and what came of it.
+    struct WebSource: Equatable, Sendable {
+        var browser: String
+        var result: String
+        var at: Date
     }
 
     /// The block, one fact per line, in the order the spec lists them.
@@ -83,6 +92,8 @@ enum Diagnostics {
         lines.append("Captures: \(shorten(v.captureFolder, home: v.homeDirectory)) · \(v.organization) · \(count)")
         let failure = v.lastFailure.map { "\($0.what) · \($0.reason) · \(dateText($0.at, timeZone: timeZone, format: "yyyy-MM-dd HH:mm"))" }
         lines.append("Last failure: \(failure ?? "none since launch")")
+        let web = v.lastWebSource.map { "\($0.browser) · \($0.result) · \(dateText($0.at, timeZone: timeZone, format: "yyyy-MM-dd HH:mm"))" }
+        lines.append("Web source: \(web ?? "not asked since launch")")
         if v.agents.isEmpty {
             lines.append("Agents: none")
         } else {

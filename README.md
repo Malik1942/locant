@@ -153,6 +153,11 @@ Mac.
 - **Web pages and Electron apps too.** A web node carries its DOM id and class list
   (`button "Checkout" · #checkout-button · .btn.btn-primary`), the path shows each ancestor's id or
   first class, and the page URL is recorded; a `localhost` page counts as yours.
+- **The component and its source line, on a local React page.** In Chrome, Edge, Brave, or Dia, a
+  capture of a page your dev server serves also names the component that drew the element, its props,
+  and two places in your code: `Source: …/src/Library.tsx:150:7` for the element's own JSX and
+  `Rendered at: …/src/Library.tsx:93:24` for where the component is used. Each browser has to be allowed
+  once, in Settings › Captures › Web pages.
 - **A ladder when there is no element.** Identifier, then label, then a drawn frame with every element
   inside it listed, then recognized text and the nearest labeled neighbors, then the image alone. The
   payload says which rung it reached.
@@ -183,7 +188,8 @@ the hotkey.
   reach for it. Turn it off in Settings; the hotkey works either way.
 - **Retention.** Images older than 30 days go to the Trash. Change the period, or keep everything.
 - **Hotkeys you record**, a key with modifiers or a double-tap of one modifier, for Point and each action.
-- **A daily update check**, and nothing else on the network.
+- **A daily update check**, and nothing else on the network beyond your own Mac: for the source line of
+  a local web page, Locant reads that page's source maps from the dev server it came from.
 
 <p align="center">
   <img src="site/assets/settings-light.png" width="592" alt="The Locant Settings window, General tab: the floating ball, sounds and haptic feedback, updates, and Locant Help.">
@@ -249,6 +255,12 @@ Mac on macOS 15, an Intel Mac, a non-English system, or a second display are the
 - Web pages and Electron apps: the DOM id and class list come through, and the page URL; a `localhost`
   page is fix mode. Tested in Chromium browsers and Electron; Safari exposes the same attributes but
   has not been exercised.
+- The component and source lines of a web element need a React development build on a local page
+  (`localhost`, `127.0.0.1`, `*.local`), read in Chrome, Edge, Brave, or Dia: Vite, and Next.js with
+  Turbopack or webpack. Chrome, Edge, and Brave need View › Developer › Allow JavaScript from Apple
+  Events; Dia has no such switch and must be opened from Settings › Captures › Web pages each time it
+  starts. Safari and Arc are not supported yet, Firefox and Claude's own Browser pane offer no way to
+  ask, and an element a server component rendered gets the component's name without a line.
 - A menu or a window that opened from the menu bar is captured as it was when Point opened, even when
   it closes at the click. A standard menu (an app's File menu, most status menus) closes as the overlay
   opens, so it is taken as one window, without its items.
@@ -261,7 +273,7 @@ Locant's event tap matches its hotkeys and passes every other key through untouc
 logged. One key it also watches: when you press ⌘V in the message box of Cursor, Codex, or Grok Bot
 while the clipboard still holds a capture, your keystroke pastes the text and Locant posts one paste
 of its own for the image, because those apps keep only half of a capture pasted whole.
-`defaults write com.malikzhang.deixis completesPaste -bool NO` turns that off. It never talks to the network except the release check, and stores nothing but its settings
+`defaults write com.malikzhang.deixis completesPaste -bool NO` turns that off. It never talks to the network except the release check and, for a local page's source lines, your own dev server, and stores nothing but its settings
 and the captures you make.
 
 <details>

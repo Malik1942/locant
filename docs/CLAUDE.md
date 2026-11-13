@@ -20,7 +20,7 @@ Read `docs/PRD.md` for background only. The task you are working on is always th
 - Accessibility calls run on a background actor. The main actor touches AppKit only.
 - Locant must never appear in its own captures. Every ScreenCaptureKit call goes through a filter that excludes our windows.
 - Never overwrite the clipboard on a failed capture.
-- No network calls except the release check (specs/v0.6.md R45). No telemetry. No analytics.
+- No network calls except the release check (specs/v0.6.md R45) and, for a local web page's source lines, that page's source maps from the dev server on this Mac (specs/web-source.md R152). No telemetry. No analytics.
 
 ## Data contract
 - `schema/capture.schema.json` is the only interface between the app and anything else. Field names are platform-neutral (`role`, `label`, `identifier`, `frame`, `path`), never `AX`-prefixed.
