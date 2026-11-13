@@ -1,6 +1,6 @@
 import Foundation
 
-/// specs/source-hints.md R151–R155: where the pointed-at element's own strings sit in the project's source,
+/// specs/source-hints.md R157–R161: where the pointed-at element's own strings sit in the project's source,
 /// looked up by Locant at capture time so the agent starts at a file and line.
 struct SourceHint: Codable, Sendable, Equatable {
     enum Kind: String, Codable, Sendable {
@@ -79,7 +79,7 @@ enum SourceHints {
 
     // MARK: Query
 
-    /// R152. `neighbors` are labels read around the element (its siblings on screen, the other elements of a
+    /// R158. `neighbors` are labels read around the element (its siblings on screen, the other elements of a
     /// set or a frame); `ocr` is the text read from the image.
     static func query(for element: ResolvedElement, neighbors: [String], ocr: String?) -> Query? {
         guard element.dom == nil else { return nil } // web nodes have their own handles (v0.8)
@@ -133,7 +133,7 @@ enum SourceHints {
 
     // MARK: Search
 
-    /// R153. Nil when the folder could not be read to the end in time: an unfinished search proves nothing.
+    /// R159. Nil when the folder could not be read to the end in time: an unfinished search proves nothing.
     static func find(_ query: Query, in root: URL, now: () -> Date = Date.init,
                      budget: TimeInterval = SourceHints.budget, fileLimit: Int = SourceHints.fileLimit) -> SourceHint? {
         let needles = unique(query.anchors.map(needle(anchor:)) + query.context.map(needle(context:)))
@@ -181,7 +181,7 @@ enum SourceHints {
 
     // MARK: Rank
 
-    /// R154. Pure: the hits of one finished search, turned into what the payload says.
+    /// R160. Pure: the hits of one finished search, turned into what the payload says.
     static func rank(_ query: Query, hits: [Hit]) -> SourceHint? {
         func files(_ needle: String) -> [String: [Int]] {
             Dictionary(hits.filter { $0.needle == needle }.map { ($0.file, $0.lines) }, uniquingKeysWith: { a, _ in a })
@@ -243,7 +243,7 @@ enum SourceHints {
 
     // MARK: Capture
 
-    /// R151: every pointed-at element of a fix capture gets its hint from one walk of the project folder.
+    /// R157: every pointed-at element of a fix capture gets its hint from one walk of the project folder.
     /// The capture comes back unchanged when the walk did not finish.
     static func annotate(_ capture: Capture, root: URL, neighbors: [String], now: () -> Date = Date.init,
                          budget: TimeInterval = SourceHints.budget) -> Capture {
@@ -269,7 +269,7 @@ enum SourceHints {
 
     // MARK: Neighbors
 
-    /// R152: the labels of what sits around an element on screen, nearest first. In Device Hub the device's
+    /// R158: the labels of what sits around an element on screen, nearest first. In Device Hub the device's
     /// screen is one flat list, so these are the screen's own words: the title, the tabs, the button beside.
     static func neighborLabels(of frame: Frame, among nodes: [AttributeSet], limit: Int = 24) -> [String] {
         let (cx, cy) = (frame.x + frame.w / 2, frame.y + frame.h / 2)

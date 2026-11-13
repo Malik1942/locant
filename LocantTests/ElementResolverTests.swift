@@ -102,7 +102,7 @@ final class ElementResolverTests: XCTestCase {
 
         XCTAssertEqual(ElementResolver.identifierSource(role: "image", identifier: "person.crop.circle"), .possiblySymbolName)
         XCTAssertEqual(ElementResolver.identifierSource(role: "image", identifier: "avatarImage"), .declared)
-        // specs/source-hints.md R155: a button drawn with Image(systemName:) publishes the symbol's name.
+        // specs/source-hints.md R161: a button drawn with Image(systemName:) publishes the symbol's name.
         XCTAssertEqual(ElementResolver.identifierSource(role: "button", identifier: "plus"), .possiblySymbolName)
         XCTAssertEqual(ElementResolver.identifierSource(role: "button", identifier: "gearshape"), .possiblySymbolName)
         XCTAssertEqual(ElementResolver.identifierSource(role: "button", identifier: "composer.attach"), .declared)

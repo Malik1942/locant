@@ -101,7 +101,7 @@ enum ElementResolver {
     }
 
     /// Section 4: `possiblySymbolName` when role is image and the identifier looks like an SF Symbol name.
-    /// specs/source-hints.md R155: and on any role when the name is one of the system's symbols, since a
+    /// specs/source-hints.md R161: and on any role when the name is one of the system's symbols, since a
     /// button drawn with `Image(systemName:)` publishes the symbol's name as its identifier.
     static func identifierSource(role: String, identifier: String?) -> IdentifierSource {
         guard let identifier, !identifier.isEmpty else { return .unknown }

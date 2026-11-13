@@ -2,6 +2,10 @@
 
 Every release is a signed, notarized `Locant.dmg` on [GitHub Releases](https://github.com/Malik1942/locant/releases). Drag the new copy over the old one; the permissions carry over.
 
+## 1.3.0 (2026-11-13)
+
+- **A web element names its component and source line.** On a page your dev server serves (`localhost`), a Point capture in Chrome, Edge, Brave, or Dia now adds what Claude's Browser picker shows: `Component: Card in Grid › Library`, the component's props, `Source:` with the file, line and column of the element's own JSX, and `Rendered at:` with where the component is used. It reads React's development build, with Vite and with Next.js (Turbopack or webpack). Allow each browser once in Settings › Captures › Web pages: Chrome, Edge, and Brave also need View › Developer › Allow JavaScript from Apple Events, and Dia, which has no such switch, is opened from that row. The prompt from macOS never appears in the middle of a capture, pages from anywhere but your own Mac are never asked, and the page fetches nothing: Locant reads the source maps from your dev server itself. Safari, Arc, and Firefox are not supported yet.
+
 ## 1.2.0 (2026-11-09)
 
 - **The ball waits for you on a first launch.** It tucked into the edge two seconds after it appeared, while the help page that had just opened said to click it. Now it stays out, whole, on the right edge until your cursor comes near it or you press it; from then on it tucks after two seconds, as before. A ball you have already moved is unchanged.

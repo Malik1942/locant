@@ -1,7 +1,7 @@
 import XCTest
 @testable import Locant
 
-/// specs/source-hints.md R151–R156.
+/// specs/source-hints.md R157–R162.
 final class SourceHintsTests: XCTestCase {
     private var root: URL!
 
@@ -33,7 +33,7 @@ final class SourceHintsTests: XCTestCase {
         return SourceHints.find(query, in: root)
     }
 
-    // R152: what is looked for.
+    // R158: what is looked for.
 
     func testTheQueryHoldsTheIdentifierTheLabelAndItsParts() {
         let query = SourceHints.query(for: element(label: "Resurfacing, Catching a thought", identifier: "tide.card"),
@@ -56,7 +56,7 @@ final class SourceHintsTests: XCTestCase {
                        "a mangled Swift type name is nobody's string")
     }
 
-    // R153–R154: the search and what it concludes.
+    // R159–R160: the search and what it concludes.
 
     func testOneFileIsTheOnlyPlace() throws {
         try write("App/LibraryView.swift", "struct LibraryView {\n  let a = 1\n  Text(\"Recent\")\n}\n")
@@ -147,7 +147,7 @@ final class SourceHintsTests: XCTestCase {
         XCTAssertNotNil(SourceHints.find(query, in: root))
     }
 
-    // R151: a capture, and a set.
+    // R157: a capture, and a set.
 
     func testEveryElementOfASetGetsItsOwnHint() throws {
         try write("App/LibraryView.swift", "OceanSegmentedSwitch(\"Recent\", \"Currents\")\n")
@@ -183,7 +183,7 @@ final class SourceHintsTests: XCTestCase {
         XCTAssertEqual(labels, ["Save", "Title", "Far"])
     }
 
-    // R154, R156: what the payload says.
+    // R160, R162: what the payload says.
 
     func testThePayloadLines() {
         let one = element()

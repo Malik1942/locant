@@ -110,7 +110,7 @@ enum MarkdownBuilder {
         let hasHandle = element.identifier != nil || element.dom?.id != nil || !(element.dom?.classes.isEmpty ?? true)
         if !hasHandle { head += " · no identifier" }
         var lines = [head]
-        // specs/source-hints.md R154: where Locant found the element in the project takes the place of the
+        // specs/source-hints.md R160: where Locant found the element in the project takes the place of the
         // advice to grep for it.
         if let hint = element.sourceHint {
             if element.rawRole == ElementResolver.textRawRole { lines.append(Self.textLineNote) }
@@ -120,6 +120,8 @@ enum MarkdownBuilder {
             // of its own, so no identifier can be added to it.
             lines.append(Self.textLineNote)
             lines.append(Self.textLineAdvice)
+        } else if element.component?.source != nil {
+            // specs/web-source.md R150: the page named the line; no grep advice needed.
         } else if element.identifier == nil, element.dom == nil {
             lines.append(missingHandleLine("No identifier.", mode: mode,
                                            fix: "Grep the label text; add .accessibilityIdentifier(\"…\") to this view so the next capture is exact."))
@@ -128,6 +130,7 @@ enum MarkdownBuilder {
                 ? missingHandleLine("No id attribute.", mode: mode, fix: "Grep the class names or the label text; give the element an id so the next capture is exact.")
                 : missingHandleLine("No id or class.", mode: mode, fix: "Grep the label text; give the element an id so the next capture is exact."))
         }
+        if let component = element.component { lines.append(contentsOf: componentLines(component)) }
         if let value = element.value { lines.append("Value: \(valueText(value))") }
         let f = element.frame
         lines.append("Frame: x=\(number(f.x)) y=\(number(f.y)) w=\(number(f.w)) h=\(number(f.h))")
@@ -135,7 +138,7 @@ enum MarkdownBuilder {
         return lines
     }
 
-    /// specs/source-hints.md R156: in a simulated device the first steps of the path are the Simulator's or
+    /// specs/source-hints.md R162: in a simulated device the first steps of the path are the Simulator's or
     /// Device Hub's own window, which says nothing about the app. They are left out, and so is a path that
     /// then names nothing. A path with no such step is shown whole.
     static func pathLine(_ path: [PathEntry], mirrored: Bool) -> String? {
@@ -148,7 +151,7 @@ enum MarkdownBuilder {
         return "Path: " + own.map(pathText).joined(separator: " > ")
     }
 
-    /// specs/source-hints.md R154.
+    /// specs/source-hints.md R160.
     static func sourceLine(_ hint: SourceHint, element: ResolvedElement) -> String {
         func quoted(_ strings: [String]) -> String { strings.prefix(2).map { "\"\($0)\"" }.joined(separator: " and ") }
         let many = hint.strings.count > 1
@@ -177,6 +180,31 @@ enum MarkdownBuilder {
             return "In source: no \(quoted(hint.strings)) string in the project. The text may be data, or the app on screen was built from other code than this folder holds now."
         }
     }
+
+    /// specs/web-source.md R150: what the page's framework said about the element, in the order Claude's Browser picker
+    /// shows it. Source is the element's own JSX; Rendered at is where its component is used.
+    static func componentLines(_ c: ComponentInfo) -> [String] {
+        var lines: [String] = []
+        let framework = c.framework == "react" ? "React" : c.framework
+        if let name = c.name {
+            var text = "Component: \(name)"
+            if !c.ancestors.isEmpty {
+                text += " in " + c.ancestors.prefix(Self.componentAncestorLimit).joined(separator: " › ")
+                if c.ancestors.count > Self.componentAncestorLimit { text += " › …" }
+            }
+            lines.append(text + " (\(framework), read from the page)")
+        }
+        if !c.props.isEmpty {
+            lines.append("Props: " + c.props.map { "\($0.name) \($0.value)" }.joined(separator: " · "))
+        }
+        if let source = c.source { lines.append("Source: \(source.text) (this element's JSX)") }
+        if let rendered = c.renderedAt {
+            lines.append("Rendered at: \(rendered.text)" + (c.name.map { " (where <\($0)> is used)" } ?? ""))
+        }
+        return lines
+    }
+
+    static let componentAncestorLimit = 4
 
     /// The line under an element with no handle: the fact in both modes. The advice to grep and add a handle
     /// only in fix mode, where the code on screen is the user's own; a reference capture is someone else's app,
