@@ -1,0 +1,155 @@
+{
+  "createdAt": "2026-11-13T17:35:33-08:00",
+  "element": {
+    "dom": {
+      "classes": [],
+      "id": null,
+      "parent": {
+        "classes": [
+          "nav-link",
+          "rounded-sm",
+          "hover:text-foreground",
+          "focus-visible:outline-none",
+          "focus-visible:ring-2",
+          "focus-visible:ring-focus",
+          "transition-colors",
+          "duration-slow",
+          "ease-settle"
+        ],
+        "role": "link"
+      }
+    },
+    "frame": {
+      "h": 20,
+      "w": 63,
+      "x": 1045,
+      "y": 115
+    },
+    "identifier": null,
+    "identifierSource": "unknown",
+    "label": null,
+    "path": [
+      {
+        "dom": ".loaded",
+        "identifier": null,
+        "role": "group"
+      },
+      {
+        "dom": "#root",
+        "identifier": null,
+        "role": "group"
+      },
+      {
+        "dom": ".relative",
+        "identifier": null,
+        "role": "group"
+      },
+      {
+        "dom": ".fixed",
+        "identifier": null,
+        "role": "group"
+      },
+      {
+        "dom": ".relative",
+        "identifier": null,
+        "role": "group"
+      },
+      {
+        "dom": ".nav-link",
+        "identifier": null,
+        "role": "link"
+      },
+      {
+        "identifier": null,
+        "role": "staticText"
+      }
+    ],
+    "rawRole": "AXStaticText",
+    "role": "staticText",
+    "sourceHint": {
+      "alsoThere": [
+        "Connect"
+      ],
+      "fileCount": 7,
+      "kind": "likeliest",
+      "places": [
+        {
+          "file": "/Users/malik/Documents/malik-portfolio/src/components/ui/TextLink.tsx",
+          "lines": [
+            8,
+            19
+          ]
+        },
+        {
+          "file": "/Users/malik/Documents/malik-portfolio/src/components/SiteHeader.tsx",
+          "lines": [
+            21,
+            30
+          ]
+        },
+        {
+          "file": "/Users/malik/Documents/malik-portfolio/src/design-system/reference/content/ComponentDoc.tsx",
+          "lines": [
+            289,
+            337,
+            618
+          ]
+        },
+        {
+          "file": "/Users/malik/Documents/malik-portfolio/src/components/BoulderWall.tsx",
+          "lines": [
+            577
+          ]
+        },
+        {
+          "file": "/Users/malik/Documents/malik-portfolio/src/components/GitHubStrip.tsx",
+          "lines": [
+            34,
+            38
+          ]
+        },
+        {
+          "file": "/Users/malik/Documents/malik-portfolio/src/design-system/reference/content/ComponentSpecimen.tsx",
+          "lines": [
+            100
+          ]
+        }
+      ],
+      "strings": [
+        "nav-link",
+        "duration-slow"
+      ]
+    },
+    "value": "Connect"
+  },
+  "id": "20261113-173533-twwa",
+  "image": {
+    "crop": {
+      "h": 100,
+      "w": 143,
+      "x": 1005,
+      "y": 75
+    },
+    "heightPt": 100,
+    "path": "/Users/malik/Pictures/Locant/locant-electron-20261113-173533-twwa.png",
+    "scale": 2,
+    "widthPt": 143
+  },
+  "iterations": [],
+  "mode": "fix",
+  "note": "this link sits too close to the icons",
+  "ocr": "Connect",
+  "resolved": false,
+  "schemaVersion": 1,
+  "source": {
+    "app": {
+      "bundleId": "com.github.Electron",
+      "name": "Electron"
+    },
+    "simulator": null,
+    "url": "http://localhost:5191/",
+    "window": {
+      "title": "Malik Zhang – Product Designer | Seattle | UW MHCI+D"
+    }
+  }
+}
