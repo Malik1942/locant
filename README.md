@@ -158,6 +158,16 @@ Mac.
   and two places in your code: `Source: …/src/Library.tsx:150:7` for the element's own JSX and
   `Rendered at: …/src/Library.tsx:93:24` for where the component is used. Each browser has to be allowed
   once, in Settings › Captures › Web pages.
+- **Where it is in your code.** In a fix capture Locant reads your project folder while you type the
+  note and looks the element up itself, so the agent starts at a file and a line:
+  `In source: Oryne/Features/Library/LibraryView.swift:543 (the only file in the project with the string "Recent")`.
+  When several files match, the one that also holds other text from the capture is named first; when
+  the text is data, the line points at the fixed text beside it. A translated label is found through its
+  key in your `.xcstrings` or `.strings`. On a local page the browser cannot be asked about (an Electron
+  app you are building, or a browser Locant cannot ask), the DOM id and classes are looked up the same way; a list
+  of utility classes (Tailwind) is found where the whole list is written on one line, and a text node is
+  looked up by the element that holds it. A `Position: 3 of 12 alike on screen` line says where a row
+  sits among the rows like it.
 - **A ladder when there is no element.** Identifier, then label, then a drawn frame with every element
   inside it listed, then recognized text and the nearest labeled neighbors, then the image alone. The
   payload says which rung it reached.
@@ -243,8 +253,9 @@ Mac on macOS 15, an Intel Mac, a non-English system, or a second display are the
 ## Known limitations
 
 - Element quality follows the target app. SwiftUI, AppKit, and the iOS Simulator work well. Electron
-  and Chromium apps (Claude, VS Code, Slack, Chrome) build their tree only when asked; Locant asks on
-  first contact, and the first hover over such an app can take about half a second to sharpen. Figma,
+  and Chromium apps (Claude, VS Code, Slack, Chrome) build their tree only when asked; Locant asks when
+  you start a capture, and the tree takes from half a second to a few seconds to arrive (2 s for a React
+  page in Electron 45). A click that beats it waits for it, up to 4 s, instead of recording nothing. Figma,
   games, and custom-drawn UIs expose little; Locant then records `element: null`, says so in the
   payload, and still gives the agent the image and your note.
 - Hover picks the smallest control and sticks to it. Press Option to step to the parent.
@@ -261,6 +272,12 @@ Mac on macOS 15, an Intel Mac, a non-English system, or a second display are the
   Events; Dia has no such switch and must be opened from Settings › Captures › Web pages each time it
   starts. Safari and Arc are not supported yet, Firefox and Claude's own Browser pane offer no way to
   ask, and an element a server component rendered gets the component's name without a line.
+- The `In source` line is a lead, not proof. It finds strings written in the code: a label built at
+  run time or read from your data is not found, and the line then says so or names the fixed text beside
+  it. A button drawn with an SF Symbol reports the symbol's name where an identifier would be; Locant
+  marks it and still looks it up. The folder is read for at most 0.8 s (8,000 source files); past that
+  there is no line. `Position` counts what is on screen at that moment, so a list that sorts or scrolls
+  moves it.
 - A menu or a window that opened from the menu bar is captured as it was when Point opened, even when
   it closes at the click. A standard menu (an app's File menu, most status menus) closes as the overlay
   opens, so it is taken as one window, without its items.
@@ -396,7 +413,7 @@ published as a GitHub release asset by `scripts/publish.sh`.
 | Symptom | Fix |
 |---|---|
 | A permission switch is on but Locant still cannot capture, or the hotkey is dead after an update | macOS ties each grant to the app's signature, so a differently signed copy looks like a different app. In System Settings › Privacy & Security, remove Locant from Accessibility and Screen Recording and add `/Applications/Locant.app` again, or run `tccutil reset Accessibility com.malikzhang.deixis` and `tccutil reset ScreenCapture com.malikzhang.deixis`. |
-| The first hover over VS Code, Slack, Chrome, or Claude is slow | Electron builds its accessibility tree on first contact. Wait about half a second; later hovers are instant. |
+| The first hover over VS Code, Slack, Chrome, or Claude is slow | Electron builds its accessibility tree when first asked, which takes up to a few seconds. Locant asks as the capture starts, and a click made before the tree arrives waits for it. Later hovers are instant. |
 | The payload says `element: null` | The app exposes no accessibility tree there (Figma, games, canvases). If the view is yours, give it `.accessibilityElement()` and `.accessibilityIdentifier("…")`; Locant points at it next time. |
 | A capture says "Capture failed" | Settings › General › Diagnostics › Copy: its Last failure line names what failed and why. Every failure is also in the system log, with no file names: `log show --last 1h --predicate 'subsystem == "com.malikzhang.deixis"'`. Paste either into an issue. |
 | A hotkey also fires a macOS shortcut | Settings › Hotkeys shows the clash. Re-record the hotkey; the defaults (⌃⌃, ⌃⌥1 to 5) are chosen because nothing else uses them. |

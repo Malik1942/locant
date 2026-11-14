@@ -85,7 +85,32 @@
       "fileCount": 2,
       "alsoThere": [
         "Currents"
+      ],
+      "around": {
+        "strings": [
+          "Search the Ocean",
+          "Library"
+        ],
+        "place": {
+          "file": "Oryne/Features/Library/LibraryHeader.swift",
+          "lines": [
+            12,
+            30
+          ]
+        }
+      },
+      "localized": [
+        {
+          "shown": "最近",
+          "key": "Recent",
+          "table": "Localizable.xcstrings"
+        }
       ]
+    },
+    "row": {
+      "index": 1,
+      "count": 2,
+      "axis": "row"
     }
   },
   "note": "change the 2 button switch form and design",

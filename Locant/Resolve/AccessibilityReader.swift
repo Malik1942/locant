@@ -67,7 +67,8 @@ actor AccessibilityReader {
     ]
 
     /// R3: Electron and Chromium apps expose only window-sized groups until accessibility is enabled
-    /// from outside. Done once per app per session; the tree fills in within about half a second.
+    /// from outside. Done once per app per session. The tree then takes from half a second to a few
+    /// seconds to fill in (2.1 s for a React page in Electron 45, measured Nov 13, 2026).
     private func enableAccessibilityIfNeeded(app: AXUIElement, pid: pid_t) {
         guard !accessibilityEnabledPIDs.contains(pid) else { return }
         accessibilityEnabledPIDs.insert(pid)
@@ -76,11 +77,29 @@ actor AccessibilityReader {
         let attributeNames = (names as? [String]) ?? []
         if attributeNames.contains("AXManualAccessibility") {
             AXUIElementSetAttributeValue(app, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+            treeRequested[pid] = ContinuousClock.now
         }
         if let bundleID = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier,
            Self.chromiumBundleIDs.contains(bundleID) {
             AXUIElementSetAttributeValue(app, "AXEnhancedUserInterface" as CFString, kCFBooleanTrue)
+            treeRequested[pid] = ContinuousClock.now
         }
+    }
+
+    /// specs/source-hints.md R169: when each lazy tree was asked for. Until `treeWarmUp` has passed, an
+    /// empty answer from that app means "not built yet", not "nothing there".
+    private var treeRequested: [pid_t: ContinuousClock.Instant] = [:]
+    static let treeWarmUp: Duration = .seconds(4)
+
+    /// R169: asks the app for its tree now, at the hotkey, so it builds while the cursor travels.
+    func warm(pid: pid_t) {
+        guard pid > 0, !isHung(pid) else { return }
+        enableAccessibilityIfNeeded(app: AXUIElementCreateApplication(pid), pid: pid)
+    }
+
+    /// R169: true while a tree this session asked for may still be filling in.
+    func isWarming(pid: pid_t) -> Bool {
+        treeRequested[pid].map { ContinuousClock.now - $0 < Self.treeWarmUp } ?? false
     }
 
     /// R3: the element under `point`, asked of the app that owns what the user sees there.
@@ -598,7 +617,9 @@ actor AccessibilityReader {
             current = parent
         }
         var snapshot = ElementSnapshot(element: elementAttributes, ancestors: ancestors)
-        if web { snapshot.url = pageURL(above: current, pid: pidOf(element)) }
+        // R170: from the element, not from the last ancestor read: a node near the top of the page has its
+        // web area among those ancestors, and a climb that starts above the web area never meets it.
+        if web { snapshot.url = pageURL(above: element, pid: pidOf(element)) }
         // Flat trees (SwiftUI): read the neighbourhood so HitRefiner can form visual clusters, under any
         // container (specs/capture-shapes.md R128), not only one that spans the window.
         if ElementResolver.isContainer(elementAttributes) {
@@ -858,12 +879,19 @@ actor AccessibilityReader {
 
     /// What clustering needs and nothing more: six reads instead of eight.
     private func lightAttributes(of element: AXUIElement) -> AttributeSet {
-        AttributeSet(
-            role: string(copy(element, kAXRoleAttribute)),
+        let role = string(copy(element, kAXRoleAttribute))
+        let title = string(copy(element, kAXTitleAttribute))
+        let description = string(copy(element, kAXDescriptionAttribute))
+        // specs/source-hints.md R158: on the Mac a text keeps its words in its value, and a row's title is
+        // such a text beside the control. The value is read only for a text with no other name: in Device
+        // Hub a text carries a description, and every read there is slow.
+        let unnamed = role == (kAXStaticTextRole as String) && (title ?? "").isEmpty && (description ?? "").isEmpty
+        return AttributeSet(
+            role: role,
             subrole: string(copy(element, kAXSubroleAttribute)),
-            title: string(copy(element, kAXTitleAttribute)),
-            description: string(copy(element, kAXDescriptionAttribute)),
-            value: nil,
+            title: title,
+            description: description,
+            value: unnamed ? value(copy(element, kAXValueAttribute)) : nil,
             identifier: string(copy(element, kAXIdentifierAttribute)),
             frame: frame(copy(element, Self.frameAttribute)),
             childCount: nil

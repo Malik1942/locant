@@ -245,7 +245,7 @@ final class MCPServerTests: XCTestCase {
 
     // 12: the richer sidecars the app writes (a Shift set with an iteration, a drawn frame) decode and round-trip.
     func testSidecarFixturesRoundTrip() throws {
-        for name in ["sidecar-shift-set", "sidecar-drawn-frame", "sidecar-source-hint"] {
+        for name in ["sidecar-shift-set", "sidecar-drawn-frame", "sidecar-source-hint", "sidecar-web-text", "sidecar-web-classes"] {
             let data = try fixture(name)
             let capture = try JSONDecoder().decode(Capture.self, from: data)
             let written = try JSONEncoder().encode(capture)

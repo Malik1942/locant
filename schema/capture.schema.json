@@ -323,6 +323,35 @@
                 "type": "string"
               },
               "description": "The element's class list in source order. Empty when it has none."
+            },
+            "parent": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "role",
+                "classes"
+              ],
+              "description": "For a node with no id and no class of its own (a text node): the nearest element one or two steps above it that has one, which is what the markup names. Absent otherwise.",
+              "properties": {
+                "role": {
+                  "type": "string",
+                  "description": "The parent's role, as in path."
+                },
+                "id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "The parent's id attribute. null or absent when it has none."
+                },
+                "classes": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "The parent's class list in source order."
+                }
+              }
             }
           },
           "description": "Present only for a node of a web page or an Electron app (v0.8): the DOM's own handles, as WebKit and Chromium publish them through accessibility. An agent greps for the id first, then the classes."
@@ -428,7 +457,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "The strings that were found: the element's identifier or label (or the parts of a merged label) for only, likeliest and several; the neighbors' text for beside. For none, the strings looked for."
+              "description": "The strings that were found: the element's identifier or label (or the parts of a merged label, or the catalog key of a translation) for only, likeliest and several; a web node's id and classes; the neighbors' text for beside. For none, the strings looked for."
             },
             "places": {
               "type": "array",
@@ -442,7 +471,7 @@
                 "properties": {
                   "file": {
                     "type": "string",
-                    "description": "Path relative to source.projectRoot."
+                    "description": "Path relative to source.projectRoot; absolute for a web node, whose capture has no projectRoot."
                   },
                   "lines": {
                     "type": "array",
@@ -467,9 +496,110 @@
                 "type": "string"
               },
               "description": "likeliest only: the other text from the capture found in the first place's file."
+            },
+            "around": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "strings",
+                "place"
+              ],
+              "properties": {
+                "strings": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Up to three of the strings around the element that the file holds."
+                },
+                "place": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "file",
+                    "lines"
+                  ],
+                  "properties": {
+                    "file": {
+                      "type": "string",
+                      "description": "Path relative to source.projectRoot; absolute for a web node, whose capture has no projectRoot."
+                    },
+                    "lines": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "description": "Up to three 1-based lines where the string sits."
+                    }
+                  }
+                }
+              },
+              "description": "A file that holds two or more of the strings around the element and none of its own, and more of them than the first place does: often the view that draws a row whose words are defined elsewhere (a menu filled from an enum)."
+            },
+            "localized": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "shown",
+                  "key",
+                  "table"
+                ],
+                "properties": {
+                  "shown": {
+                    "type": "string",
+                    "description": "The text that was on screen."
+                  },
+                  "key": {
+                    "type": "string",
+                    "description": "The key the code uses for it; one of strings."
+                  },
+                  "table": {
+                    "type": "string",
+                    "description": "The string catalog that maps one to the other, e.g. Localizable.xcstrings."
+                  }
+                }
+              },
+              "description": "The entries of strings that were found through a string catalog (.xcstrings or .strings): the screen showed a translation, the code holds the key."
+            },
+            "together": {
+              "type": "boolean",
+              "description": "true when strings are a web node's classes and every line listed holds all of them at once: a list of utility classes found where it is written out. Absent otherwise."
             }
           },
-          "description": "Present only in a fix capture with a projectRoot, for an element that is not a web node, when Locant finished searching the project's source at capture time (specs/source-hints.md). Where the element's own strings sit as string literals, so an agent can open the file and line before it greps. A hint, not proof: a string built at run time or read from data is not found."
+          "description": "Present only in a fix capture, when Locant finished reading the project's source while the note was typed (specs/source-hints.md): for a native element, the folder at source.projectRoot; for a web node the page did not locate (no component.source), the folder its localhost dev server runs in. Where the element's own strings sit: a native identifier or label as a whole string literal, a web node's id and rare classes as whole words. A hint, not proof: a string built at run time or read from data is not found."
+        },
+        "row": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "index",
+            "count",
+            "axis"
+          ],
+          "properties": {
+            "index": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "1-based: top to bottom in a column, left to right in a row."
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 2,
+              "description": "How many siblings line up with the element, itself included."
+            },
+            "axis": {
+              "type": "string",
+              "enum": [
+                "column",
+                "row"
+              ],
+              "description": "column: the siblings share its left edge and width. row: they share its top edge and height."
+            }
+          },
+          "description": "Present for a single pointed-at element with siblings of the same role that line up with it (specs/source-hints.md R167). Its place among them as drawn on screen when captured; a list that sorts or scrolls moves it, so it is not the item's place in the data."
         }
       }
     },

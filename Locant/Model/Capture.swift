@@ -197,9 +197,11 @@ struct ResolvedElement: Codable, Sendable, Equatable {
     var component: ComponentInfo? = nil
     /// specs/source-hints.md R157: where the element's strings sit in the project's source, when Locant looked.
     var sourceHint: SourceHint? = nil
+    /// specs/source-hints.md R167: the element's place among the siblings that look like it, on screen.
+    var row: RowPosition? = nil
 
     private enum CodingKeys: String, CodingKey {
-        case role, rawRole, label, identifier, identifierSource, value, frame, path, members, dom, component, sourceHint
+        case role, rawRole, label, identifier, identifierSource, value, frame, path, members, dom, component, sourceHint, row
     }
 
     func encode(to encoder: any Encoder) throws {
@@ -216,6 +218,7 @@ struct ResolvedElement: Codable, Sendable, Equatable {
         try c.encodeIfPresent(dom, forKey: .dom)
         try c.encodeIfPresent(component, forKey: .component)
         try c.encodeIfPresent(sourceHint, forKey: .sourceHint)
+        try c.encodeIfPresent(row, forKey: .row)
     }
 }
 
@@ -235,13 +238,23 @@ extension ResolvedElement {
 struct DOMInfo: Codable, Sendable, Equatable {
     var id: String?
     var classes: [String]
+    /// specs/source-hints.md R171: for a node with no id and no class (a text node), the nearest element
+    /// above it that has one. The markup names that element, not the text.
+    var parent: Parent? = nil
 
-    private enum CodingKeys: String, CodingKey { case id, classes }
+    struct Parent: Codable, Sendable, Equatable {
+        var role: String
+        var id: String?
+        var classes: [String]
+    }
+
+    private enum CodingKeys: String, CodingKey { case id, classes, parent }
 
     func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(id, forKey: .id)
         try c.encode(classes, forKey: .classes)
+        try c.encodeIfPresent(parent, forKey: .parent)
     }
 }
 

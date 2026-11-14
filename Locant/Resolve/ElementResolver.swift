@@ -86,9 +86,19 @@ enum ElementResolver {
         path.append(PathEntry(role: role, identifier: identifier, dom: identifier == nil ? snapshot.element.domHandle : nil))
 
         // v0.8: web nodes carry the DOM's handles beside the accessibility identifier.
-        let dom: DOMInfo? = snapshot.element.isWebNode
+        var dom: DOMInfo? = snapshot.element.isWebNode
             ? DOMInfo(id: nonEmpty(snapshot.element.domId), classes: (snapshot.element.domClasses ?? []).filter { !$0.isEmpty })
             : nil
+        // specs/source-hints.md R171: a text node has neither; the element one or two steps up is what the
+        // markup names.
+        if let own = dom, own.id == nil, own.classes.isEmpty {
+            for node in snapshot.ancestors.prefix(2) where node.isWebNode {
+                let id = nonEmpty(node.domId), classes = (node.domClasses ?? []).filter { !$0.isEmpty }
+                guard id != nil || !classes.isEmpty else { continue }
+                dom?.parent = DOMInfo.Parent(role: mapRole(node.role ?? "", subrole: node.subrole), id: id, classes: classes)
+                break
+            }
+        }
 
         return ResolvedElement(
             role: role,

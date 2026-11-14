@@ -98,6 +98,8 @@ final class AppState {
     @ObservationIgnored private var lockedNearby: [RegionElement]?
     /// specs/source-hints.md R158: the labels around the locked element, nearest first.
     @ObservationIgnored private var lockedNeighborLabels: [String] = []
+    /// specs/source-hints.md R163: the project's source, read while the note is typed.
+    @ObservationIgnored private var corpusTask: Task<SourceHints.Corpus?, Never>?
     /// v0.8 R58: the elements added with Shift so far, the context of the first, and the set locked
     /// at the final click with the crops for elements after the first.
     @ObservationIgnored private var pinned: [CaptureTarget] = []
@@ -654,6 +656,8 @@ final class AppState {
             }
             guard phase == .hovering else { return }
             context = collected
+            // specs/source-hints.md R169: an Electron app builds its tree only when asked, and takes seconds.
+            await reader.warm(pid: collected.frontPID)
             windows = WindowList.onScreen()
             if permitted {
                 // R174: what the app shows now, read while it still shows it. Only a frozen screen keeps
@@ -1048,7 +1052,24 @@ final class AppState {
             return (closed.levels.first ?? nil, closed.snapshot)
         }
         let snapshot = await ElementResolver.snapshotWithRetry(at: point, using: provider(at: point))
-        return (snapshot.map { HitRefiner.selectionLevels(for: $0, at: point).first ?? nil } ?? nil, snapshot)
+        let element = snapshot.map { HitRefiner.selectionLevels(for: $0, at: point).first ?? nil } ?? nil
+        // specs/source-hints.md R169: a click that beat a lazy tree waits for it, up to the warm-up, sooner
+        // than record "no element" for an app that is about to have some.
+        if Self.isUnbuilt(element), let pid = Geometry.windowOwner(at: point, windows: windows, excludingPID: ownPID)?.ownerPID {
+            while await reader.isWarming(pid: pid) {
+                try? await Task.sleep(for: .milliseconds(150))
+                guard let again = await ElementResolver.snapshotWithRetry(at: point, using: provider(at: point), retries: 0),
+                      let built = HitRefiner.selectionLevels(for: again, at: point).first ?? nil, !Self.isUnbuilt(built) else { continue }
+                return (built, again)
+            }
+        }
+        return (element, snapshot)
+    }
+
+    /// R169: what a lazy tree answers before it is built: nothing, or the one native container around the page.
+    nonisolated static func isUnbuilt(_ element: ResolvedElement?) -> Bool {
+        guard let element else { return true }
+        return element.dom == nil && ElementResolver.containerRoles.contains(element.role)
     }
 
     /// v0.8 R58: an element as one of a set, with the app and window that own it.
@@ -1183,10 +1204,14 @@ final class AppState {
             // The crop doubles as this session's token: a task from a session that ended stops here.
             let element = await withWalkedMembers(clicked, pid: window?.ownerPID ?? context?.frontPID ?? 0)
             guard phase == .resolving, cropTask == crop else { return }
-            lockedElement = element
-            lockedNeighborLabels = element.flatMap { locked in
-                snapshot.map { SourceHints.neighborLabels(of: locked.frame, among: $0.siblings ?? $0.children ?? []) }
-            } ?? []
+            let around = snapshot.flatMap { $0.siblings ?? $0.children } ?? []
+            // specs/source-hints.md R167: where the element stands among the siblings that look like it.
+            lockedElement = element.map { locked in
+                var placed = locked
+                placed.row = SourceHints.rowPosition(of: locked.frame, rawRole: locked.rawRole, among: snapshot?.siblings ?? [])
+                return placed
+            }
+            lockedNeighborLabels = element.map { SourceHints.neighborLabels(of: $0.frame, among: around) } ?? []
             if element == nil, let snapshot = lastHoverSnapshot {
                 // v0.2 R15: what sits around a point that has no element.
                 let neighborhood = snapshot.children ?? snapshot.siblings ?? []
@@ -1209,7 +1234,23 @@ final class AppState {
 
             overlay.setHighlight(element?.frame.cgRect, readout: .describing(element), around: point)
             showNoteField(anchoredTo: element?.frame.cgRect, around: point)
+            startReadingSource()
             phase = .noting
+        }
+    }
+
+    /// specs/source-hints.md R163: once an element is locked, a fix capture's project folder is read in the
+    /// background, so Enter only has to search what is already in memory. A localhost page has no project
+    /// folder of its own; its dev server's folder stands in (R166).
+    private func startReadingSource() {
+        guard let context else { return }
+        let signals = ModeClassifier.signals(for: context, myApps: preferences.myApps, userTeamIDs: userTeamIDs)
+        let url = context.source.url
+        corpusTask = Task.detached {
+            let decision = ModeInference.infer(signals)
+            guard decision.mode == .fix,
+                  let root = decision.projectRoot ?? url.flatMap(WebSourceLocator.devServerRoot(for:)) else { return nil }
+            return SourceHints.Corpus.load(root: URL(filePath: root))
         }
     }
 
@@ -1245,6 +1286,7 @@ final class AppState {
         overlay.setPinned(frames)
         overlay.setHighlight(last.frame.cgRect, readout: .describing(last), around: point)
         showNoteField(anchoredTo: last.frame.cgRect, around: point)
+        startReadingSource()
         phase = .noting
     }
 
@@ -1300,12 +1342,15 @@ final class AppState {
             guard phase == .resolving, cropTask == crop else { return }
             await recollectContextIfNeeded(window: window, snapshot: hit)
             guard phase == .resolving, cropTask == crop else { return }
+            // A frame drawn on a web page names the page too, as a click on one of its nodes does (v0.8).
+            if let url = hit?.url ?? snapshots.lazy.compactMap(\.url).first { self.context?.source.url = url }
             let elements = RegionResolver.elements(in: rect, among: snapshots)
             lockedElement = RegionResolver.primary(among: snapshots, in: rect)
             lockedElements = elements
 
             overlay.showMarks(elements.map { $0.frame.cgRect })
             showNoteField(anchoredTo: rect, around: clickPoint)
+            startReadingSource()
             phase = .noting
         }
     }
@@ -1389,6 +1434,7 @@ final class AppState {
         let elements = lockedElements
         let nearby = lockedNearby
         let neighborLabels = lockedNeighborLabels
+        let corpusTask = corpusTask
         var targets = lockedTargets
         let extraCrops = extraCropTasks
         let anchor = (targets?.last?.element ?? element)?.frame.cgRect ?? SelectionOverlay.fallbackRect(around: clickPoint)
@@ -1443,11 +1489,13 @@ final class AppState {
                 if !hasIdentifier, let lines = try? await TextRecognizer.lines(inPNG: image.png), !lines.isEmpty {
                     capture.ocr = lines.joined(separator: "\n")
                 }
-                // specs/source-hints.md R157: in a fix capture, look the element's strings up in the project.
-                if decision.mode == .fix, let root = decision.projectRoot {
+                // specs/source-hints.md R157, R163: in a fix capture, look the element's strings up in the
+                // project, which has been read since the click.
+                if decision.mode == .fix, let corpusTask,
+                   let read = await WebSourceLocator.answer(of: corpusTask, within: SourceHints.commitWait), let corpus = read {
                     let subject = capture
                     capture = await Task.detached {
-                        SourceHints.annotate(subject, root: URL(filePath: root), neighbors: neighborLabels)
+                        SourceHints.annotate(subject, corpus: corpus, neighbors: neighborLabels)
                     }.value
                 }
                 let written = try store.write(png: image.png, capture: capture)
@@ -1498,6 +1546,8 @@ final class AppState {
         lockedTargets = nil
         lockedElement = nil
         componentTask = nil
+        corpusTask?.cancel()
+        corpusTask = nil
         lockedElements = nil
         lockedNearby = nil
         lockedNeighborLabels = []

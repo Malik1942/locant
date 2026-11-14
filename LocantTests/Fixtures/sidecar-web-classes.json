@@ -1,0 +1,124 @@
+{
+  "createdAt": "2026-11-13T17:35:41-08:00",
+  "element": {
+    "dom": {
+      "classes": [
+        "hover:text-foreground",
+        "transition-colors",
+        "duration-slow"
+      ],
+      "id": null
+    },
+    "frame": {
+      "h": 16,
+      "w": 16,
+      "x": 1120,
+      "y": 117
+    },
+    "identifier": null,
+    "identifierSource": "unknown",
+    "label": "Email",
+    "path": [
+      {
+        "identifier": null,
+        "role": "webArea"
+      },
+      {
+        "dom": ".loaded",
+        "identifier": null,
+        "role": "group"
+      },
+      {
+        "dom": "#root",
+        "identifier": null,
+        "role": "group"
+      },
+      {
+        "dom": ".relative",
+        "identifier": null,
+        "role": "group"
+      },
+      {
+        "dom": ".fixed",
+        "identifier": null,
+        "role": "group"
+      },
+      {
+        "dom": ".relative",
+        "identifier": null,
+        "role": "group"
+      },
+      {
+        "dom": ".hover:text-foreground",
+        "identifier": null,
+        "role": "link"
+      }
+    ],
+    "rawRole": "AXLink",
+    "role": "link",
+    "row": {
+      "axis": "row",
+      "count": 2,
+      "index": 1
+    },
+    "sourceHint": {
+      "alsoThere": [
+        "Email"
+      ],
+      "fileCount": 2,
+      "kind": "likeliest",
+      "places": [
+        {
+          "file": "/Users/malik/Documents/malik-portfolio/src/components/SiteHeader.tsx",
+          "lines": [
+            21,
+            30
+          ]
+        },
+        {
+          "file": "/Users/malik/Documents/malik-portfolio/src/components/GitHubStrip.tsx",
+          "lines": [
+            34
+          ]
+        }
+      ],
+      "strings": [
+        "hover:text-foreground",
+        "transition-colors",
+        "duration-slow"
+      ],
+      "together": true
+    },
+    "value": ""
+  },
+  "id": "20261113-173541-zasr",
+  "image": {
+    "crop": {
+      "h": 96,
+      "w": 96,
+      "x": 1080,
+      "y": 77
+    },
+    "heightPt": 96,
+    "path": "/Users/malik/Pictures/Locant/locant-electron-20261113-173541-zasr.png",
+    "scale": 2,
+    "widthPt": 96
+  },
+  "iterations": [],
+  "mode": "fix",
+  "note": "make this icon the same weight as the next one",
+  "ocr": "nect",
+  "resolved": false,
+  "schemaVersion": 1,
+  "source": {
+    "app": {
+      "bundleId": "com.github.Electron",
+      "name": "Electron"
+    },
+    "simulator": null,
+    "url": "http://localhost:5191/",
+    "window": {
+      "title": "Malik Zhang – Product Designer | Seattle | UW MHCI+D"
+    }
+  }
+}
