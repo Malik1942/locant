@@ -2,6 +2,10 @@
 
 Every release is a signed, notarized `Locant.dmg` on [GitHub Releases](https://github.com/Malik1942/locant/releases). Drag the new copy over the old one; the permissions carry over.
 
+## Unreleased
+
+- **What shows on hover stays in the picture.** Point, Snap, Text, and Cut freeze the screen, but the overlay came up first and the picture was taken a moment later. By then the overlay had taken the mouse from the app underneath, so a hover menu, a tooltip, or a row's hover buttons had already gone, and the frozen screen showed the page without them. Now the picture is taken first and the overlay opens over it. The dim appears a little later than it did, about a tenth of a second, once the picture has arrived.
+
 ## 1.3.0 (2026-11-13)
 
 - **A web element names its component and source line.** On a page your dev server serves (`localhost`), a Point capture in Chrome, Edge, Brave, or Dia now adds what Claude's Browser picker shows: `Component: Card in Grid › Library`, the component's props, `Source:` with the file, line and column of the element's own JSX, and `Rendered at:` with where the component is used. It reads React's development build, with Vite and with Next.js (Turbopack or webpack). Allow each browser once in Settings › Captures › Web pages: Chrome, Edge, and Brave also need View › Developer › Allow JavaScript from Apple Events, and Dia, which has no such switch, is opened from that row. The prompt from macOS never appears in the middle of a capture, pages from anywhere but your own Mac are never asked, and the page fetches nothing: Locant reads the source maps from your dev server itself. Safari, Arc, and Firefox are not supported yet.

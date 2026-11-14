@@ -639,6 +639,7 @@ final class AppState {
             return
         }
         phase = .hovering
+        let freezing = startFreeze()
         Task {
             guard let collected = await ContextCollector.collect(reader: reader) else {
                 reset()
@@ -647,29 +648,29 @@ final class AppState {
             guard phase == .hovering else { return }
             context = collected
             windows = WindowList.onScreen()
-            overlay.show()
+            let frozen = await freezing.value
+            guard phase == .hovering, self.freezing == freezing else { return } // the session ended meanwhile
+            isFrozen = frozen != nil
+            overlay.show(frozen: frozen)
             sampler.start()
             textReader.start()
             showHintIfNeeded(key: Self.hintKey(for: requested), text: Self.hintText(for: requested))
-            await freezeScreen()
         }
     }
 
-    /// R119: how long the overlay waits for the freeze before it takes key focus over the live screen.
+    /// R119: how long a session waits for the freeze before the overlay opens over the live screen.
     private static let freezeLimit: Duration = .seconds(1)
 
-    /// specs/frozen-screen.md R119: the overlay is up without key focus, so another app's menu is
-    /// still open. Every display is captured with the overlay left out, shown under the dim, and
-    /// only then does the overlay take key focus, which closes a standard menu.
-    private func freezeScreen() async {
+    /// specs/frozen-screen.md R119: every display is captured before anything of Locant's is on
+    /// screen. The overlay takes the mouse from the app under the cursor the moment it comes up,
+    /// and that app then drops whatever it showed on hover; a menu closes once the overlay is key.
+    /// So the session's first act is the capture, and the overlay waits for it.
+    private func startFreeze() -> Task<FrozenScreen?, Never> {
         let permitted = ScreenCapture.hasPermission()
         let limit = Self.freezeLimit
         let freezing = Task.detached { permitted ? await ScreenCapture.freeze(within: limit) : nil }
         self.freezing = freezing
-        let frozen = await freezing.value
-        guard self.freezing == freezing else { return } // the session ended meanwhile
-        isFrozen = frozen != nil
-        overlay.freeze(frozen)
+        return freezing
     }
 
     /// R120: a crop cut from the frozen screen when it holds the crop's display, else taken live.
