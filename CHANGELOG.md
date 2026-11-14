@@ -2,7 +2,7 @@
 
 Every release is a signed, notarized `Locant.dmg` on [GitHub Releases](https://github.com/Malik1942/locant/releases). Drag the new copy over the old one; the permissions carry over.
 
-## Unreleased
+## 1.3.1 (2026-11-13)
 
 - **A capture says where the element is in your code.** In a fix capture, Locant reads your project folder while you type the note and looks the element's identifier and label up as strings in your source. The payload gains a line such as `In source: Oryne/Features/Library/LibraryView.swift:543 (the only file in the project with the string "Recent")`, in place of the advice to grep. When several files hold the string, the one that also holds other text from the capture is named first; when a menu row's words are defined in one file and drawn in another, both are named; when the text is data, the line points at the fixed text beside it; when nothing matches, it says so. Measured on eleven real captures of an iOS app, an agent needed a quarter fewer tool calls to find the code.
 - **A translated label finds its key.** `.xcstrings` and `.strings` files in the project are read, so a button that reads "添加想法" on screen is looked up as `"Add a thought"`, and the line names the catalog.
