@@ -7,7 +7,7 @@ enum MarkdownBuilder {
         let extras = [elementsBlock(capture), nearbyBlock(capture), textBlock(capture)].compactMap { $0 }
         // v0.8 R58: a set selected with Shift is numbered; "this" and "that" match how notes are worded.
         let elementBlocks = capture.targets.map { targets in targets.enumerated().map { targetBlock($1, index: $0, capture: capture) } }
-            ?? [elementBlock(capture.element, mode: capture.mode, mirrored: capture.source.simulator != nil)]
+            ?? [elementBlock(capture.element, mode: capture.mode, mirrored: capture.source.simulator != nil, web: isWeb(capture.source))]
         // specs/v0.7.1.md R55: the image path leads in both modes, so a terminal agent that receives only the text
         // can open the PNG; the note closes the payload. v0.1 had a reference capture lead with the note; amended
         // 2026-11-02, since the MCP server, the README, and the skill all promise the path first.
@@ -61,9 +61,19 @@ enum MarkdownBuilder {
         return lines.joined(separator: "\n")
     }
 
-    private static func elementBlock(_ element: ResolvedElement?, mode: CaptureMode, mirrored: Bool) -> String {
+    /// A page in a browser: its address is known, or the app is one of the browsers Locant can ask.
+    static func isWeb(_ source: SourceInfo) -> Bool {
+        source.url != nil || WebSourceLocator.browser(bundleId: source.app.bundleId) != nil
+    }
+
+    static let noElementLine = "No element information available (app exposes no accessibility tree). Use the image."
+    static let noElementAdvice = "If this view is yours, give it .accessibilityElement() and .accessibilityIdentifier(\"…\") so Locant can point at it next time."
+    /// The same advice for a page: SwiftUI's modifiers mean nothing there.
+    static let noElementWebAdvice = "If this page is yours, give the element an id so Locant can point at it next time."
+
+    private static func elementBlock(_ element: ResolvedElement?, mode: CaptureMode, mirrored: Bool, web: Bool) -> String {
         guard let element else {
-            return "### Target element\nNo element information available (app exposes no accessibility tree). Use the image.\nIf this view is yours, give it .accessibilityElement() and .accessibilityIdentifier(\"…\") so Locant can point at it next time."
+            return "### Target element\n\(noElementLine)\n\(web ? noElementWebAdvice : noElementAdvice)"
         }
         return (["### Target element"] + elementLines(element, mode: mode, mirrored: mirrored)).joined(separator: "\n")
     }
@@ -125,12 +135,15 @@ enum MarkdownBuilder {
         } else if element.identifier == nil, element.dom == nil {
             lines.append(missingHandleLine("No identifier.", mode: mode,
                                            fix: "Grep the label text; add .accessibilityIdentifier(\"…\") to this view so the next capture is exact."))
-        } else if element.identifier == nil, element.dom?.id == nil {
+        } else if element.identifier == nil, element.dom?.id == nil, element.dom?.parent == nil {
             lines.append(hasHandle
                 ? missingHandleLine("No id attribute.", mode: mode, fix: "Grep the class names or the label text; give the element an id so the next capture is exact.")
                 : missingHandleLine("No id or class.", mode: mode, fix: "Grep the label text; give the element an id so the next capture is exact."))
         }
+        // specs/source-hints.md R171: a text node's handles are its parent's.
+        if let parent = element.dom?.parent { lines.append(insideLine(parent, text: element.rawRole == SourceHints.staticTextRole)) }
         if let component = element.component { lines.append(contentsOf: componentLines(component)) }
+        if let row = element.row { lines.append(positionLine(row)) }
         if let value = element.value { lines.append("Value: \(valueText(value))") }
         let f = element.frame
         lines.append("Frame: x=\(number(f.x)) y=\(number(f.y)) w=\(number(f.w)) h=\(number(f.h))")
@@ -151,33 +164,90 @@ enum MarkdownBuilder {
         return "Path: " + own.map(pathText).joined(separator: " > ")
     }
 
-    /// specs/source-hints.md R160.
+    /// specs/source-hints.md R171: the element that holds a text node, which is what the markup names.
+    static func insideLine(_ parent: DOMInfo.Parent, text: Bool = true) -> String {
+        var named = parent.role
+        if let id = parent.id { named += " · #\(id)" }
+        if !parent.classes.isEmpty {
+            named += " · ." + parent.classes.prefix(Self.classLimit).joined(separator: ".")
+            if parent.classes.count > Self.classLimit { named += " (+\(parent.classes.count - Self.classLimit) more)" }
+        }
+        return "Inside: \(named) (\(text ? "a text node" : "this element") has no id or class of its own; these are its parent's)."
+    }
+
+    /// specs/source-hints.md R167. The count is of what is on screen, and a list that sorts or scrolls
+    /// moves it; the line says so, so that an agent does not take it for the item's place in the data.
+    static func positionLine(_ row: RowPosition) -> String {
+        let direction = row.axis == .column ? "top to bottom" : "left to right"
+        return "Position: \(row.index) of \(row.count) alike on screen, \(direction) (as drawn now; not the item's place in the data)."
+    }
+
+    /// specs/source-hints.md R160, with R164's other file and R165's catalog keys after it.
     static func sourceLine(_ hint: SourceHint, element: ResolvedElement) -> String {
+        var line = foundLine(hint, element: element)
+        if let around = hint.around {
+            let at = around.place.lines.isEmpty ? around.place.file : around.place.file + ":" + around.place.lines.map(String.init).joined(separator: ", :")
+            let named = around.strings.prefix(2).map { "\"\($0)\"" }.joined(separator: " and ")
+            line += " Other text from this capture (\(named)) is in \(at), which may be what draws it."
+        }
+        for entry in (hint.localized ?? []).prefix(2) {
+            line += " \"\(entry.key)\" is the key for \"\(entry.shown)\" in \(entry.table)."
+        }
+        return line
+    }
+
+    private static func foundLine(_ hint: SourceHint, element: ResolvedElement) -> String {
         func quoted(_ strings: [String]) -> String { strings.prefix(2).map { "\"\($0)\"" }.joined(separator: " and ") }
         let many = hint.strings.count > 1
-        let named = (many ? "the strings " : "the string ") + quoted(hint.strings)
-        let isIn = quoted(hint.strings) + (many ? " are strings in" : " is a string in")
+        // A native string is a literal in the code; a page's id or class is a word inside one (R166).
+        let web = element.dom != nil
+        let named = web ? quoted(hint.strings) : (many ? "the strings " : "the string ") + quoted(hint.strings)
+        let isIn = quoted(hint.strings) + (web ? (many ? " appear in" : " appears in") : many ? " are strings in" : " is a string in")
+        // A stylesheet says how the class looks; when nothing else holds it, the markup builds the name at run time.
+        let styled = web && !hint.places.isEmpty && hint.places.allSatisfy { $0.file.hasSuffix(".css") || $0.file.hasSuffix(".scss") }
+            ? " Every place is a stylesheet: it styles the class, and the file that draws the element builds the name at run time." : ""
         func place(_ p: SourcePlace) -> String { p.lines.isEmpty ? p.file : p.file + ":" + p.lines.map(String.init).joined(separator: ", :") }
         let listed = hint.places.map(place)
         let more = hint.fileCount > hint.places.count ? " and \(hint.fileCount - hint.places.count) more" : ""
+        if hint.together == true {
+            // R172: a list of utility classes, found where it is written out on one line.
+            let shown = hint.strings.prefix(3).map { "\"\($0)\"" }
+            let rest = hint.strings.count - shown.count
+            let classes = (shown.count > 1 ? shown.dropLast().joined(separator: ", ") + " and " + (shown.last ?? "") : shown.first ?? "")
+                + (rest > 0 ? " and \(rest) more of its classes" : "")
+            switch hint.kind {
+            case .only:
+                return "In source: \(listed.first ?? "") (the only file with \(classes) on one line)."
+            case .likeliest:
+                let others = listed.dropFirst().joined(separator: ", ")
+                return "In source: \(classes) are on one line in \(hint.fileCount) files. Likeliest: \(listed.first ?? "") (it also has \(quoted(hint.alsoThere ?? [])) from this capture). Others: \(others)\(more)."
+            default:
+                return "In source: \(classes) are on one line in \(hint.fileCount) files, and nothing in this capture says which: \(listed.joined(separator: ", "))\(more). Use the image and the note to choose."
+            }
+        }
         switch hint.kind {
         case .only:
-            return "In source: \(listed.first ?? "") (the only file in the project with \(named))."
+            return "In source: \(listed.first ?? "") (the only file in the project with \(named)).\(styled)"
         case .likeliest:
             let also = hint.alsoThere ?? []
             let why = also.isEmpty ? "it has more of this element's strings than the others"
                 : "it also has \(quoted(also)) from this capture"
             let others = listed.dropFirst().joined(separator: ", ")
-            return "In source: \(isIn) \(hint.fileCount) files. Likeliest: \(listed.first ?? "") (\(why)). Others: \(others)\(more)."
+            return "In source: \(isIn) \(hint.fileCount) files. Likeliest: \(listed.first ?? "") (\(why)). Others: \(others)\(more).\(styled)"
         case .several:
-            return "In source: \(isIn) \(hint.fileCount) files, and nothing in this capture says which: \(listed.joined(separator: ", "))\(more). Use the image and the note to choose."
+            return "In source: \(isIn) \(hint.fileCount) files, and nothing in this capture says which: \(listed.joined(separator: ", "))\(more). Use the image and the note to choose.\(styled)"
+        case .beside where element.dom != nil:
+            // R166: a page's node found by its own words, its id and classes having led nowhere.
+            return "In source: no id or rare class to go by; this element's own text \(quoted(hint.strings)) is at \(listed.joined(separator: ", "))."
+        case .none where element.dom != nil:
+            return "In source: no \(quoted(hint.strings)) in the project's files, so a search for \(hint.strings.count > 1 ? "them" : "it") will find nothing. The page may be built from other code than this folder holds now. If the image and the path do not settle where it is drawn, say so rather than guess."
         case .beside:
             let own = element.label != nil || element.identifier != nil
             let lead = own ? "In source: no string in the project matches this element's own text, so that text is probably data or the system's. Fixed text in or beside it: "
                 : "In source: fixed text in or beside it: "
             return lead + "\(quoted(hint.strings)) at \(listed.joined(separator: ", "))."
         case .none:
-            return "In source: no \(quoted(hint.strings)) string in the project. The text may be data, or the app on screen was built from other code than this folder holds now."
+            return "In source: no \(quoted(hint.strings)) string in the project, so a search for that text will find nothing. The text may be data, or the app on screen was built from other code than this folder holds now. If the image and the path do not settle where it is drawn, say so rather than guess."
         }
     }
 
