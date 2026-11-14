@@ -147,32 +147,28 @@ enum ScreenCapture {
         return CroppedImage(png: png, widthPt: visible.width, heightPt: visible.height, scale: Double(scale), crop: visible)
     }
 
-    /// R119: every display, own windows excluded, at once. Each display is read in a task of its own
-    /// that asks for the shareable content itself, since ScreenCaptureKit's objects cannot cross tasks.
+    /// R119: every display, own windows excluded, at once. The displays and windows are listed once
+    /// and each display is then read in a task of its own. Listing them once per display instead
+    /// cost 40 to 60 ms on a Mac with two displays, and nothing of the overlay shows until this returns.
     static func freeze() async throws -> FrozenScreen {
-        var count: UInt32 = 0
-        guard CGGetActiveDisplayList(0, nil, &count) == .success, count > 0 else { throw ScreenCaptureFailure.noDisplay }
-        var ids = [CGDirectDisplayID](repeating: 0, count: Int(count))
-        guard CGGetActiveDisplayList(count, &ids, &count) == .success else { throw ScreenCaptureFailure.noDisplay }
-        let shots = try await withThrowingTaskGroup(of: FrozenScreen.Shot?.self) { group in
-            for id in ids.prefix(Int(count)) {
+        let content = try await shareableContent()
+        let requests = content.displays.map { request(for: $0, in: content) }
+        let shots = try await withThrowingTaskGroup(of: FrozenScreen.Shot.self) { group in
+            for request in requests {
                 group.addTask {
-                    let content = try await shareableContent()
-                    guard let display = content.displays.first(where: { $0.displayID == id }) else { return nil }
-                    let (image, scale) = try await fullImage(of: display, in: content)
-                    return FrozenScreen.Shot(display: display.frame, scale: scale, image: image)
+                    let image = try await SCScreenshotManager.captureImage(contentFilter: request.filter, configuration: request.configuration)
+                    return FrozenScreen.Shot(display: request.frame, scale: request.scale, image: image)
                 }
             }
             var shots: [FrozenScreen.Shot] = []
-            for try await shot in group { if let shot { shots.append(shot) } }
+            for try await shot in group { shots.append(shot) }
             return shots
         }
-        guard !shots.isEmpty else { throw ScreenCaptureFailure.noDisplay }
         return FrozenScreen(shots: shots)
     }
 
     /// R119: the freeze, or nil when it fails or has not answered within `limit`. The overlay waits
-    /// on it before it takes key focus, and must not wait on a capture that never returns.
+    /// on it before it opens, and must not wait on a capture that never returns.
     static func freeze(within limit: Duration) async -> FrozenScreen? {
         let pending = OSAllocatedUnfairLock<CheckedContinuation<FrozenScreen?, Never>?>(initialState: nil)
         return await withCheckedContinuation { continuation in
@@ -193,6 +189,22 @@ enum ScreenCapture {
 
     /// One display at full resolution, every window of Locant's left out, without the cursor.
     private static func fullImage(of display: SCDisplay, in content: SCShareableContent) async throws -> (image: CGImage, scale: CGFloat) {
+        let request = request(for: display, in: content)
+        let image = try await SCScreenshotManager.captureImage(contentFilter: request.filter, configuration: request.configuration)
+        return (image, request.scale)
+    }
+
+    /// What `fullImage` asks ScreenCaptureKit for. ScreenCaptureKit's objects are not Sendable; a
+    /// request is made in one place, handed to the one task that runs it, and not touched again.
+    private struct DisplayRequest: @unchecked Sendable {
+        let filter: SCContentFilter
+        let configuration: SCStreamConfiguration
+        /// The display's frame, global screen points.
+        let frame: CGRect
+        let scale: CGFloat
+    }
+
+    private static func request(for display: SCDisplay, in content: SCShareableContent) -> DisplayRequest {
         let ownPID = ProcessInfo.processInfo.processIdentifier
         let ownWindows = content.windows.filter { $0.owningApplication?.processID == ownPID }
         let filter = SCContentFilter(display: display, excludingWindows: ownWindows)
@@ -203,8 +215,7 @@ enum ScreenCapture {
         configuration.showsCursor = false
         configuration.scalesToFit = false
         configuration.captureResolution = .best
-        let image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: configuration)
-        return (image, scale)
+        return DisplayRequest(filter: filter, configuration: configuration, frame: display.frame, scale: scale)
     }
 }
 

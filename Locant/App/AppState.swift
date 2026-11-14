@@ -134,6 +134,8 @@ final class AppState {
     @ObservationIgnored private var freezing: Task<FrozenScreen?, Never>?
     /// R121: the overlay shows the frozen screen, so a window that closed since still shows there.
     @ObservationIgnored private var isFrozen = false
+    /// R174: names the session whose tree the reader holds, so a session that ended drops only its own.
+    @ObservationIgnored private var recordingSession = 0
     /// specs/capture-recovery.md R112: a restart is under way; a stuck failure meanwhile only shows the toast.
     @ObservationIgnored private var restartingCapture = false
     @ObservationIgnored private var openedSettingsPanes: Set<String> = []
@@ -641,6 +643,12 @@ final class AppState {
             return
         }
         phase = .hovering
+        let started = ContinuousClock.now
+        let permitted = ScreenCapture.hasPermission()
+        let freezing = startFreeze(permitted: permitted)
+        recordingSession += 1
+        let session = recordingSession
+        let pointer = Geometry.cgPoint(fromAppKit: NSEvent.mouseLocation, primaryHeight: SelectionOverlay.currentPrimaryHeight())
         Task {
             guard let collected = await ContextCollector.collect(reader: reader) else {
                 reset()
@@ -651,29 +659,46 @@ final class AppState {
             // specs/source-hints.md R169: an Electron app builds its tree only when asked, and takes seconds.
             await reader.warm(pid: collected.frontPID)
             windows = WindowList.onScreen()
-            overlay.show()
+            if permitted {
+                // R174: what the app shows now, read while it still shows it. Only a frozen screen keeps
+                // showing what the app has dropped, so without the capture there is nothing to answer for.
+                await reader.record(session: session, around: pointer, candidates: windowCandidates(at: pointer),
+                                    fallbackPID: collected.frontPID, until: started + Self.recordingLimit)
+                guard phase == .hovering else { return }
+            }
+            let frozen = await freezing.value
+            guard phase == .hovering, self.freezing == freezing else { return } // the session ended meanwhile
+            isFrozen = frozen != nil
+            overlay.show(frozen: frozen)
             sampler.start()
             textReader.start()
             showHintIfNeeded(key: Self.hintKey(for: requested), text: Self.hintText(for: requested))
-            await freezeScreen()
         }
     }
 
-    /// R119: how long the overlay waits for the freeze before it takes key focus over the live screen.
+    /// R174: the tree near the pointer is read until this long after the session began, about when the
+    /// freeze arrives, so the overlay rarely waits for it.
+    private static let recordingLimit: Duration = .milliseconds(150)
+
+    /// R174: the recorded element at `point` that the app has dropped since the session began, while the
+    /// overlay still shows it.
+    private func recordedSnapshot(at point: CGPoint) async -> ElementSnapshot? {
+        guard isFrozen else { return nil }
+        return await reader.recordedSnapshot(at: point, candidates: windowCandidates(at: point))
+    }
+
+    /// R119: how long a session waits for the freeze before the overlay opens over the live screen.
     private static let freezeLimit: Duration = .seconds(1)
 
-    /// specs/frozen-screen.md R119: the overlay is up without key focus, so another app's menu is
-    /// still open. Every display is captured with the overlay left out, shown under the dim, and
-    /// only then does the overlay take key focus, which closes a standard menu.
-    private func freezeScreen() async {
-        let permitted = ScreenCapture.hasPermission()
+    /// specs/frozen-screen.md R119: every display is captured before anything of Locant's is on
+    /// screen. The overlay takes the mouse from the app under the cursor the moment it comes up,
+    /// and that app then drops whatever it showed on hover; a menu closes once the overlay is key.
+    /// So the session's first act is the capture, and the overlay waits for it.
+    private func startFreeze(permitted: Bool) -> Task<FrozenScreen?, Never> {
         let limit = Self.freezeLimit
         let freezing = Task.detached { permitted ? await ScreenCapture.freeze(within: limit) : nil }
         self.freezing = freezing
-        let frozen = await freezing.value
-        guard self.freezing == freezing else { return } // the session ended meanwhile
-        isFrozen = frozen != nil
-        overlay.freeze(frozen)
+        return freezing
     }
 
     /// R120: a crop cut from the frozen screen when it holds the crop's display, else taken live.
@@ -821,14 +846,21 @@ final class AppState {
         defer { hoverTask = nil }
         while phase == .hovering, !Task.isCancelled, let point = pendingHover {
             pendingHover = nil
-            let closed = vanishedSelection(at: point)
+            // R174 before R121: an element recorded inside a window that closed is a better answer than the window.
+            let recorded = await recordedSnapshot(at: point)
+            guard phase == .hovering, !Task.isCancelled else { return }
+            let closed = recorded == nil ? vanishedSelection(at: point) : nil
             let fresh: ElementSnapshot?
             var freshLevels: [ResolvedElement?]
             if let closed {
                 fresh = closed.snapshot
                 freshLevels = closed.levels
             } else {
-                fresh = await reader.snapshot(at: point, candidates: windowCandidates(at: point), fallbackPID: context?.frontPID ?? 0)
+                if let recorded {
+                    fresh = recorded
+                } else {
+                    fresh = await reader.snapshot(at: point, candidates: windowCandidates(at: point), fallbackPID: context?.frontPID ?? 0)
+                }
                 guard phase == .hovering, !Task.isCancelled else { return }
                 freshLevels = await shapeLevels(for: fresh, at: point)
                 guard phase == .hovering, !Task.isCancelled else { return }
@@ -1013,6 +1045,9 @@ final class AppState {
         } else if levelIndex > 0, let shown = selectedElement() {
             return (shown, lastHoverSnapshot) // an Option level chosen on purpose
         }
+        if let recorded = await recordedSnapshot(at: point) { // specs/frozen-screen.md R174
+            return (HitRefiner.selectionLevels(for: recorded, at: point).first ?? nil, recorded)
+        }
         if let closed = vanishedSelection(at: point) { // specs/frozen-screen.md R121
             return (closed.levels.first ?? nil, closed.snapshot)
         }
@@ -1188,8 +1223,9 @@ final class AppState {
             // v0.8: the page address of a web node; the localhost rule in mode inference reads it.
             if let url = snapshot?.url { context?.source.url = url }
             // specs/web-source.md R146, R151: ask a local page for the component and source lines while the note is typed.
-            if let element, element.dom != nil, let url = snapshot?.url, let bundleId = context?.source.app.bundleId,
-               WebSourceLocator.asks(bundleId: bundleId, url: url) {
+            // R174: not for an element the page has dropped; the page would answer for what is there now.
+            if let element, element.dom != nil, snapshot?.fromRecording != true, let url = snapshot?.url,
+               let bundleId = context?.source.app.bundleId, WebSourceLocator.asks(bundleId: bundleId, url: url) {
                 let pid = window?.ownerPID
                 componentTask = Task.detached {
                     await WebSourceLocator.locate(element: element, bundleId: bundleId, url: url, point: point, pid: pid)
@@ -1285,8 +1321,11 @@ final class AppState {
             // The frame belongs to whoever answers at its first corner: a normal window, or the
             // desktop, a widget, or the menu bar behind an empty stretch of Dock or menu bar backdrop.
             // specs/frozen-screen.md R121: or a window that has closed since, which keeps no elements.
-            let closed = vanishedSelection(at: start)
-            let hit = if let closed { closed.snapshot } else {
+            // R174: what the frame holds of the recording, where the app has dropped it since.
+            let past: (snapshots: [ElementSnapshot], covers: [CGRect]) = isFrozen ? await reader.recordedElements(in: rect) : ([], [])
+            let recorded = await recordedSnapshot(at: start)
+            let closed = recorded == nil ? vanishedSelection(at: start) : nil
+            let hit = if let recorded { recorded } else if let closed { closed.snapshot } else {
                 await reader.snapshot(at: start, candidates: windowCandidates(at: start), fallbackPID: context.frontPID)
             }
             guard phase == .resolving, cropTask == crop else { return }
@@ -1294,11 +1333,12 @@ final class AppState {
             let pid = window?.ownerPID ?? context.frontPID
             var snapshots = closed == nil ? await reader.elements(in: rect, pid: pid, window: window?.bounds) : []
             var retry = 0
-            while snapshots.isEmpty, closed == nil, retry < 2 { // lazy tree
+            while snapshots.isEmpty, past.snapshots.isEmpty, closed == nil, retry < 2 { // lazy tree
                 retry += 1
                 try? await Task.sleep(for: .milliseconds(100))
                 snapshots = await reader.elements(in: rect, pid: pid, window: window?.bounds)
             }
+            snapshots = TreeRecording.merged(live: snapshots, recorded: past.snapshots, under: past.covers)
             guard phase == .resolving, cropTask == crop else { return }
             await recollectContextIfNeeded(window: window, snapshot: hit)
             guard phase == .resolving, cropTask == crop else { return }
@@ -1521,6 +1561,8 @@ final class AppState {
         windows = []
         freezing = nil // R119: the images go with the session
         isFrozen = false
+        let session = recordingSession
+        Task { await reader.forgetRecording(session: session) } // R174: and so does the tree
         overlay.dismiss()
     }
 

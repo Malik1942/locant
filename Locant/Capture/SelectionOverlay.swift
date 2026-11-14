@@ -114,9 +114,9 @@ enum HudText {
     }
 }
 
-/// R2: one transparent, non-activating panel per screen over the desktop, frozen once it has been
-/// captured (specs/frozen-screen.md R119). Reports hover and click points in CG (accessibility)
-/// coordinates; draws highlight, label, and the note field.
+/// R2: one transparent, non-activating panel per screen over the desktop, showing the screen as it
+/// was captured before the overlay opened (specs/frozen-screen.md R119). Reports hover and click
+/// points in CG (accessibility) coordinates; draws highlight, label, and the note field.
 /// R22: what the overlay is open for. Point is the default; the one-shot actions reuse the gesture.
 enum OverlayMode: Equatable {
     case point, snap, text, cut
@@ -157,19 +157,26 @@ final class SelectionOverlay {
 
     var isShowing: Bool { !panels.isEmpty }
 
-    /// specs/frozen-screen.md R119: the panels come up without key focus. Another app's standard
-    /// menu closes once a panel becomes key, so `freeze(_:)` takes it after the screen is captured.
-    func show() {
+    /// specs/frozen-screen.md R119: `frozen` was captured before this call, while nothing of
+    /// Locant's was on screen. Each display's image is under the dim before its panel shows, so
+    /// the panel fades in over the same picture, and the first panel takes key focus at once.
+    /// Nil is the live screen.
+    func show(frozen: FrozenScreen?) {
         guard panels.isEmpty else { return }
         primaryHeight = Self.currentPrimaryHeight()
         panels = NSScreen.screens.map { screen in
             let panel = OverlayPanel(screen: screen)
             panel.contentOverlay.owner = self
+            let frame = Geometry.cgRect(fromAppKit: screen.frame, primaryHeight: primaryHeight)
+            if let shot = frozen?.shot(containing: CGPoint(x: frame.midX, y: frame.midY)) {
+                panel.contentOverlay.setBackdrop(shot.image)
+            }
             panel.alphaValue = 0
             panel.orderFrontRegardless()
             return panel
         }
         panels.first?.makeFirstResponder(panels.first?.contentOverlay)
+        panels.first?.makeKey()
         mode.cursor.push()
         cursorPushed = true
         NSAnimationContext.runAnimationGroup { context in
@@ -177,20 +184,6 @@ final class SelectionOverlay {
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             for panel in panels { panel.animator().alphaValue = 1 }
         }
-    }
-
-    /// R119: each display's frozen image under the dim, then key focus, unless the note field
-    /// already has it. Nil keeps the live screen.
-    func freeze(_ frozen: FrozenScreen?) {
-        guard !panels.isEmpty else { return }
-        if let frozen {
-            for panel in panels {
-                let frame = Geometry.cgRect(fromAppKit: panel.frame, primaryHeight: primaryHeight)
-                guard let shot = frozen.shot(containing: CGPoint(x: frame.midX, y: frame.midY)) else { continue }
-                panel.contentOverlay.setBackdrop(shot.image)
-            }
-        }
-        if !panels.contains(where: \.isKeyWindow) { panels.first?.makeKey() }
     }
 
     func dismiss() {

@@ -177,7 +177,7 @@ enum Geometry {
     }
 
     /// The same window, read once from the window list and once through accessibility.
-    private static func matches(_ a: CGRect, _ b: CGRect) -> Bool {
+    static func matches(_ a: CGRect, _ b: CGRect) -> Bool {
         abs(a.minX - b.minX) <= 2 && abs(a.minY - b.minY) <= 2 && abs(a.width - b.width) <= 2 && abs(a.height - b.height) <= 2
     }
 }
