@@ -264,6 +264,11 @@ Mac on macOS 15, an Intel Mac, a non-English system, or a second display are the
 - A menu or a window that opened from the menu bar is captured as it was when Point opened, even when
   it closes at the click. A standard menu (an app's File menu, most status menus) closes as the overlay
   opens, so it is taken as one window, without its items.
+- What an app shows only on hover (a hover menu, a card, a row's buttons) stays on the frozen screen,
+  and you can point at what it holds: Locant reads the elements near the pointer before the overlay
+  opens. Not when the menu is more than about 600 pt from the pointer, in the first capture over
+  Chrome or an Electron app after it starts, or when a page hides its menu with opacity alone; there
+  the outline is of what is behind. A web element that has left the page gets no source line.
 - Snap and Cut open on a normal window, or on the device's screen in Xcode 27's Device Hub; on the
   desktop, the menu bar, or the Dock they open on the largest element there is.
 

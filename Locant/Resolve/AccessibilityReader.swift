@@ -108,6 +108,169 @@ actor AccessibilityReader {
         return systemWideSnapshot(at: point)
     }
 
+    // MARK: The tree as the session began (specs/frozen-screen.md R174)
+
+    /// The recording of one session, with what only this actor may hold: each node's element, and which
+    /// nodes the app no longer lists.
+    private struct Recorded {
+        let session: Int
+        var tree: TreeRecording
+        var elements: [AXUIElement]
+        /// A node its parent stopped listing. It does not come back: the pointer is the overlay's now.
+        var gone: Set<Int> = []
+        /// When a node was last seen listed, and a parent's children as last read.
+        var listed: [Int: ContinuousClock.Instant] = [:]
+        var kids: [Int: (stamp: ContinuousClock.Instant, elements: [AXUIElement])] = [:]
+        /// From here on an answer is kept: the app dropped what it showed on hover when the overlay took
+        /// the pointer, and whatever fade it runs is over.
+        let settled: ContinuousClock.Instant
+    }
+
+    /// How long after the recording the app is still asked afresh whether a node is listed.
+    private static let recordingSettle: Duration = .seconds(2)
+
+    /// An answer read at `stamp` still holds at `now`: read after the app settled, or within `neighborTTL`.
+    private static func holds(_ stamp: ContinuousClock.Instant, at now: ContinuousClock.Instant, settled: ContinuousClock.Instant) -> Bool {
+        stamp >= settled || now - stamp < neighborTTL
+    }
+
+    private var recorded: Recorded?
+
+    /// One message per node: everything a snapshot keeps, the page address, and the children.
+    private static let recordedNames: [String] = [
+        kAXRoleAttribute, kAXSubroleAttribute, kAXTitleAttribute, kAXDescriptionAttribute, kAXValueAttribute,
+        kAXIdentifierAttribute, frameAttribute, "AXDOMClassList", "AXDOMIdentifier", "AXURL", kAXChildrenAttribute,
+    ]
+
+    private func recordedNode(_ element: AXUIElement) -> (attributes: AttributeSet, url: String?, children: [AXUIElement])? {
+        var values: CFArray?
+        let started = ContinuousClock.now
+        let error = AXUIElementCopyMultipleAttributeValues(element, Self.recordedNames as CFArray, AXCopyMultipleAttributeOptions(rawValue: 0), &values)
+        noteHang(error, since: started, on: element)
+        guard error == .success, let values = values as? [AnyObject], values.count == Self.recordedNames.count else { return nil }
+        // An attribute the element lacks comes back as an error value, which none of the readers below takes.
+        let children = (values[10] as? [AnyObject] ?? []).compactMap { CFGetTypeID($0) == AXUIElementGetTypeID() ? ($0 as! AXUIElement) : nil }
+        var attributes = AttributeSet(
+            role: string(values[0]), subrole: string(values[1]), title: string(values[2]), description: string(values[3]),
+            value: value(values[4]), identifier: string(values[5]), frame: frame(values[6]), childCount: children.count
+        )
+        if let classes = values[7] as? [String] {
+            attributes.domClasses = classes
+            attributes.domId = string(values[8])
+        } else if let id = string(values[8]) {
+            attributes.domClasses = []
+            attributes.domId = id
+        }
+        return (attributes, attributes.role == "AXWebArea" ? webURL(values[9]) : nil, children)
+    }
+
+    /// The app that answers at `point`, as `snapshot(at:candidates:fallbackPID:)` finds it.
+    private func answeringPID(at point: CGPoint, candidates: [Geometry.WindowRecord], fallbackPID: pid_t) -> pid_t {
+        for window in candidates {
+            let pid = window.ownerPID
+            if !isHung(pid) {
+                let app = AXUIElementCreateApplication(pid)
+                enableAccessibilityIfNeeded(app: app, pid: pid)
+                if let element = hit(app, at: point) {
+                    let bounds = self.element(copy(element, kAXWindowAttribute)).flatMap { frame(copy($0, Self.frameAttribute)) }
+                    if Geometry.answerIsVisible(frame: frame(copy(element, Self.frameAttribute))?.cgRect, window: bounds?.cgRect,
+                                                owner: pid, at: point, candidates: candidates) { return pid }
+                }
+            }
+            if window.layer == 0 { return pid }
+        }
+        return fallbackPID
+    }
+
+    /// R174: reads the tree of the app under `point`, nearest the point first, until `deadline`, the node
+    /// limit, or nothing within `TreeRecording.radius` is left. Called before the overlay opens, while the
+    /// app still shows what it showed on hover. Replaces the recording of the session before.
+    func record(session: Int, around point: CGPoint, candidates: [Geometry.WindowRecord], fallbackPID: pid_t,
+                until deadline: ContinuousClock.Instant) {
+        recorded = nil
+        let pid = answeringPID(at: point, candidates: candidates, fallbackPID: fallbackPID)
+        guard pid > 0, pid != ProcessInfo.processInfo.processIdentifier, !isHung(pid) else { return }
+        let app = AXUIElementCreateApplication(pid)
+        guard let root = recordedNode(app) else { return }
+        var tree = TreeRecording(pid: pid, nodes: [.init(attributes: root.attributes, parent: nil, depth: 0)])
+        var elements = [app]
+        var unread = [root.children]
+        var open: [(index: Int, distance: Double)] = [(0, 0)]
+        walk: while !open.isEmpty {
+            var nearest = 0
+            for index in open.indices where open[index].distance < open[nearest].distance { nearest = index }
+            let parent = open.remove(at: nearest).index
+            for kid in unread[parent] {
+                guard tree.nodes.count < TreeRecording.nodeLimit, ContinuousClock.now < deadline, !isHung(pid) else { break walk }
+                guard let read = recordedNode(kid) else { continue }
+                let index = tree.nodes.count
+                tree.nodes.append(.init(attributes: read.attributes, parent: parent, depth: tree.nodes[parent].depth + 1, url: read.url))
+                tree.nodes[parent].children.append(index)
+                elements.append(kid)
+                unread.append(read.children)
+                let distance = TreeRecording.distance(from: point, to: read.attributes.frame)
+                if !read.children.isEmpty, distance <= TreeRecording.radius { open.append((index, distance)) }
+            }
+            unread[parent] = []
+        }
+        recorded = Recorded(session: session, tree: tree, elements: elements, settled: ContinuousClock.now + Self.recordingSettle)
+    }
+
+    /// The session's recording goes with it.
+    func forgetRecording(session: Int) {
+        if recorded?.session == session { recorded = nil }
+    }
+
+    /// Whether the app has dropped a recorded node: it, or a node above it, is no longer among its parent's
+    /// children. A hidden view, an unmounted or undisplayed web node, and a closed window all go this way.
+    private func isGone(_ index: Int) -> Bool {
+        guard let tree = recorded?.tree, let elements = recorded?.elements, let settled = recorded?.settled else { return false }
+        let now = ContinuousClock.now
+        for node in tree.path(to: index) {
+            if recorded?.gone.contains(node) == true { return true }
+            guard let parent = tree.nodes[node].parent else { continue }
+            if let seen = recorded?.listed[node], Self.holds(seen, at: now, settled: settled) { continue }
+            let kids: [AXUIElement]
+            if let cached = recorded?.kids[parent], Self.holds(cached.stamp, at: now, settled: settled) {
+                kids = cached.elements
+            } else {
+                kids = children(of: elements[parent])
+                recorded?.kids[parent] = (now, kids)
+            }
+            guard kids.contains(where: { CFEqual($0, elements[node]) }) else {
+                recorded?.gone.insert(node)
+                return true
+            }
+            recorded?.listed[node] = now
+        }
+        return false
+    }
+
+    /// R174: the recorded element at `point`, when the app has dropped it since. Nil where what was
+    /// recorded there is still in the app, which then answers for itself.
+    func recordedSnapshot(at point: CGPoint, candidates: [Geometry.WindowRecord]) -> ElementSnapshot? {
+        guard let tree = recorded?.tree, !isHung(tree.pid) else { return nil }
+        guard let hit = tree.hits(at: point).first(where: { tree.showed($0, among: candidates) && isGone($0) }) else { return nil }
+        var snapshot = tree.snapshot(of: tree.refined(hit, at: point))
+        snapshot.window = candidates.first { $0.ownerPID == tree.pid }
+        return snapshot
+    }
+
+    /// R174, for a drawn frame: the recorded elements touching `region` that the app has dropped, and the
+    /// frames of the outermost dropped nodes there, which hide what is behind them.
+    func recordedElements(in region: CGRect) -> (snapshots: [ElementSnapshot], covers: [CGRect]) {
+        guard let tree = recorded?.tree, !isHung(tree.pid) else { return ([], []) }
+        var snapshots: [ElementSnapshot] = []
+        var covers: [CGRect] = []
+        for (index, node) in tree.nodes.enumerated() {
+            guard let frame = node.attributes.frame, frame.w > 0, frame.h > 0, frame.cgRect.intersects(region), isGone(index) else { continue }
+            // `gone` holds the node that was found unlisted, not what it held: the outermost.
+            if recorded?.gone.contains(index) == true { covers.append(frame.cgRect) }
+            if !ElementResolver.isContainer(node.attributes) { snapshots.append(tree.regionSnapshot(of: index)) }
+        }
+        return (snapshots, covers)
+    }
+
     /// Per-app hit test. Nil when the app has nothing at the point, or answers with something that
     /// does not show there (see `Geometry.answerIsVisible`).
     private func snapshot(at point: CGPoint, pid: pid_t, candidates: [Geometry.WindowRecord] = []) -> ElementSnapshot? {
@@ -670,7 +833,7 @@ actor AccessibilityReader {
 
     private var neighborCache: [NeighborKey: (stamp: ContinuousClock.Instant, elements: [AXUIElement], nodes: [AttributeSet])] = [:]
     private static let neighborTTL: Duration = .milliseconds(400)
-    private static let neighborLimit = 60
+    static let neighborLimit = 60
 
     /// A container's children: all of them as elements (they come in one read), so a check for one of them
     /// never misses a late child, and the first `neighborLimit` as attributes.

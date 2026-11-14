@@ -5,6 +5,7 @@ Every release is a signed, notarized `Locant.dmg` on [GitHub Releases](https://g
 ## Unreleased
 
 - **What shows on hover stays in the picture.** Point, Snap, Text, and Cut freeze the screen, but the overlay came up first and the picture was taken a moment later. By then the overlay had taken the mouse from the app underneath, so a hover menu, a tooltip, or a row's hover buttons had already gone, and the frozen screen showed the page without them. Now the picture is taken first and the overlay opens over it. The dim appears a little later than it did, about a tenth of a second, once the picture has arrived.
+- **And you can point at what it holds.** The frozen screen showed the hover menu, but the outline and the ⌥ levels came from the app as it is now, with the menu closed: you got whatever was behind it. Locant now also reads the elements near the pointer before the overlay opens, and uses that reading wherever the app has since dropped what the picture still shows. A click, ⇧ click, ⌥, and a drawn frame all work inside a hover menu or card. Not yet: a menu more than about 600 pt from the pointer, the first capture over Chrome or an Electron app after it starts (its tree is not built yet), a menu a page hides with opacity alone, and the source line of a web element that has left the page.
 
 ## 1.3.0 (2026-11-13)
 

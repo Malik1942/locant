@@ -55,6 +55,9 @@ struct ElementSnapshot: Codable, Sendable, Equatable {
     var window: Geometry.WindowRecord? = nil
     /// v0.8: the page address, read from the web area above a web node. Nil elsewhere.
     var url: String? = nil
+    /// specs/frozen-screen.md R174: read before the overlay opened, of an element the app has dropped since.
+    /// Nil for a live read. Not part of fixtures.
+    var fromRecording: Bool? = nil
 }
 
 /// Something that can hit-test a screen point and return a snapshot. The app's provider is the
