@@ -77,6 +77,7 @@ tests them.
 | Overlay frame | `site/assets/overlay-note.jpg` | real capture of the note field over Calculator on the Tahoe Day wallpaper, 3:2, 1260×840; the README's Use section |
 | Settings screenshots | `site/assets/settings-light.png`, `settings-dark.png` | window capture with shadow, General tab, 1184×1154; the README shows the light one |
 | Measured outcome | `site/assets/measured-outcome.png` | the chart of the Locant-against-screenshot runs; not shown anywhere since the launch rework of Oct 15, 2026 |
+| Compatibility marks | `site/assets/logos/` | each owner's mark, unaltered, in the Works where you work ribbon; compatibility only, never "used by" or a partnership, and the footer says so. Claude: `claude.com/icon.svg`. Cursor: Simple Icons (from cursor.com/brand), shown in the ink as Cursor's own kit does. Codex, Grok Bot, Antigravity: LobeHub Icons. Chrome, Edge, Brave: alrra/browser-logos. Brave gave written permission Nov 16, 2026 for its icon, to show compatibility. Dia: no file yet, the globe stands in. Any owner who asks gets its mark removed |
 
 ## Not yet decided
 
