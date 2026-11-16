@@ -458,13 +458,33 @@
   .grid2 .item { display: grid; gap: 6px; align-content: start; padding: 20px; background: var(--surface); border-radius: 16px; box-shadow: 0 0 0 1px var(--hair); }
   .grid2 .item p { color: var(--muted); font-size: 17px; }
 
-  /* works with: three lines of names */
-  .with { display: grid; gap: 12px; }
+  /* works with: three lines. Apps are pills with a plain glyph; agents and browsers are a ribbon of their own marks */
+  .with { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }   /* the column, not the ribbon's copies, sets the width */
   .with .line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   .with .lab { color: var(--muted); font-size: 15px; min-width: 68px; }
   .with .pill { display: inline-flex; align-items: center; gap: 7px; background: var(--surface); box-shadow: 0 0 0 1px var(--hair); border-radius: 980px; padding: 7px 14px 7px 11px; font-size: 15px; white-space: nowrap; }
-  /* one plain glyph per kind of thing, drawn here: no product's own mark is shown */
   .with .pill svg { width: 16px; height: 16px; flex: none; color: var(--muted); fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* the ribbon, after stripe.com's customer band: each owner's mark, unaltered, beside its name. It stands still and
+     wraps; with scripting and motion allowed it is one line from the first paint (no shift when the script adds the
+     copies), drifts at a constant speed, fades at both ends, and pauses under the pointer */
+  .ribbon { flex: 1 1 0; min-width: 0; }
+  .ribbon .track { display: flex; flex-wrap: wrap; margin: 0; padding: 0; list-style: none; }
+  .ribbon li { display: inline-flex; align-items: center; gap: 9px; height: 38px; padding-inline-end: 36px; font-size: 15px; white-space: nowrap; }
+  .ribbon .logo { width: 22px; height: 22px; flex: none; display: block; }
+  /* a one-color mark (Cursor, Grok Bot) is a mask in the ink, black in light and white in dark, as their own kits do */
+  .ribbon .logo.ink { background: var(--ink); -webkit-mask: var(--src) center / contain no-repeat; mask: var(--src) center / contain no-repeat; }
+  /* no mark of its own here yet: the plain globe the row used before */
+  .ribbon .logo.plain { color: var(--muted); fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; padding: 2px; }
+  @media (scripting: enabled) and (prefers-reduced-motion: no-preference) {
+    .ribbon { overflow: hidden; -webkit-mask: linear-gradient(90deg, transparent, #000 48px, #000 calc(100% - 48px), transparent);
+              mask: linear-gradient(90deg, transparent, #000 48px, #000 calc(100% - 48px), transparent); }
+    .ribbon .track { flex-wrap: nowrap; width: max-content; }
+    .ribbon.moving .track { animation: drift var(--dur, 30s) linear infinite; }
+    .ribbon.moving.back .track { animation-direction: reverse; }
+    .ribbon:hover .track { animation-play-state: paused; }
+  }
+  @keyframes drift { to { transform: translateX(-50%); } }
 
   /* the close: the download, once more, centered like the hero */
   .end { display: grid; justify-items: center; gap: 20px; text-align: center; }
@@ -477,6 +497,7 @@
   footer .word b { color: var(--ink); font-weight: 600; font-size: 14px; }
   footer .word .say { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; margin-inline: 6px 8px; }
   footer .word i { font-style: italic; }
+  footer .owners { margin: 0; max-width: 60ch; }
   footer .row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 24px; }
   footer .links { display: flex; flex-wrap: wrap; margin-left: auto; }
   footer .links a { color: var(--ink); text-decoration: none; }
@@ -701,9 +722,24 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
       <symbol id="g-web" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.4 3.9 5.4 3.9 9s-1.3 6.6-3.9 9c-2.6-2.4-3.9-5.4-3.9-9S9.4 5.4 12 3z"/></symbol>
     </svg>
     <div class="with">
-      <div class="line"><span class="lab">Agents</span><span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-agent"/></svg>Claude Code</span><span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-agent"/></svg>Cursor</span><span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-agent"/></svg>Codex</span><span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-agent"/></svg>Grok Bot</span><span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-agent"/></svg>Antigravity</span></div>
+      <div class="line"><span class="lab" id="lab-agents">Agents</span>
+        <div class="ribbon"><ul class="track" aria-labelledby="lab-agents">
+          <li><img class="logo" src="assets/logos/claude.svg" alt="" width="22" height="22">Claude Code</li>
+          <li><i class="logo ink" style="--src: url(assets/logos/cursor.svg)"></i>Cursor</li>
+          <li><img class="logo" src="assets/logos/codex.svg" alt="" width="22" height="22">Codex</li>
+          <li><i class="logo ink" style="--src: url(assets/logos/grok-bot.svg)"></i>Grok Bot</li>
+          <li><img class="logo" src="assets/logos/antigravity.svg" alt="" width="22" height="22">Antigravity</li>
+        </ul></div>
+      </div>
       <div class="line"><span class="lab">Apps</span><span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-phone"/></svg>iOS apps in the Simulator</span><span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-window"/></svg>Mac apps</span><span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-code"/></svg>SwiftUI</span><span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-code"/></svg>AppKit</span><span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-window"/></svg>Electron apps</span></div>
-      <div class="line"><span class="lab">Browsers</span><span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-web"/></svg>Chrome</span><span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-web"/></svg>Dia</span><span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-web"/></svg>Edge</span><span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-web"/></svg>Brave</span></div>
+      <div class="line"><span class="lab" id="lab-browsers">Browsers</span>
+        <div class="ribbon back"><ul class="track" aria-labelledby="lab-browsers">
+          <li><img class="logo" src="assets/logos/chrome.svg" alt="" width="22" height="22">Chrome</li>
+          <li><svg class="logo plain" viewBox="0 0 24 24" aria-hidden="true"><use href="#g-web"/></svg>Dia</li>
+          <li><img class="logo" src="assets/logos/edge.svg" alt="" width="22" height="22">Edge</li>
+          <li><img class="logo" src="assets/logos/brave.svg" alt="" width="22" height="22">Brave</li>
+        </ul></div>
+      </div>
     </div>
     <p class="method">New in 1.3: on a page your dev server serves, a capture in these browsers also names the React component and its source line. Any other app on your Mac comes through as a picture with its&nbsp;text.</p>
   </section>
@@ -801,6 +837,7 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
       <p class="head"><b>lo·cant</b><span class="say">/ˈloʊ·kənt/</span><i>noun</i></p>
       <p>The number in a chemical name that says exactly where a group is attached, as the&nbsp;2 in 2‑methylbutane.</p>
     </div>
+    <p class="owners">Product names and logos belong to their owners. They show where Locant works, not a partnership or an endorsement.</p>
     <div class="row">
       <span class="ver">Locant 1.3.1</span>
       <nav class="links" aria-label="Footer">
@@ -1341,6 +1378,29 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
   var sampleEl = stage.querySelector('[data-k="p-product-ideas"]');
   present(sampleEl, 'make this orb bigger, with satellite nodes like Light And Color', new Date(2026, 9, 13, 15, 30, 12));
   window.addEventListener('load', function () { drawCrop(sampleEl); fit(); });
+})();
+
+// The ribbons: repeat each row's set until one copy of it is wider than its ribbon, then double that, so sliding by
+// half loops without a seam. The copies are hidden from assistive tech; the first set is the list it reads.
+(function () {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var SPEED = 32;                                       // px per second, the same for every row
+  document.querySelectorAll('.ribbon').forEach(function (rib) {
+    var track = rib.querySelector('.track'), set = Array.prototype.slice.call(track.children), width = 0;
+    if (getComputedStyle(track).flexWrap !== 'nowrap') return;   // a browser without the scripting query keeps it still
+    function fill() {
+      if (rib.clientWidth === width) return;
+      width = rib.clientWidth;
+      while (track.children.length > set.length) track.lastChild.remove();
+      var one = track.scrollWidth, copies = Math.min(8, Math.max(1, Math.ceil(width / one)));
+      for (var i = 1; i < copies * 2; i++) set.forEach(function (li) {
+        var c = li.cloneNode(true); c.setAttribute('aria-hidden', 'true'); track.appendChild(c);
+      });
+      rib.style.setProperty('--dur', (one * copies / SPEED).toFixed(1) + 's');
+      rib.classList.add('moving');
+    }
+    new ResizeObserver(fill).observe(rib);
+  });
 })();
 
 // Scroll: each block rises in once as it enters the viewport. Without JS nothing is hidden.
