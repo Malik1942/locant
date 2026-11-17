@@ -68,9 +68,9 @@ tests them.
 | Asset | Path | Notes |
 |---|---|---|
 | Icon, light and dark, 1024 and 512 | `design/icon/renders/` | rendered by `ictool` from the shipped package |
-| Site icon copies | `site/assets/icon-light.png`, `icon-dark.png` | 512, the page picks one per theme; the README shows the light one |
+| Site icon copies | `site/assets/icon-light.png`, `icon-dark.png`; `icon-light-256.png`, `icon-dark-256.png` | 512 for the README (the light one); the page draws the 256 copies (128 pt at 2x, about 37 KB each), one per theme |
 | Favicons | `site/assets/favicon-32.png`, `favicon-64.png`, `apple-touch-icon.png` | same package, rendered at size |
-| Share image | `site/assets/og.jpg` | 1200×630, the page's `og:image` |
+| Share image | `site/assets/og.jpg` | 1200×630, the page's `og:image` (linked with `?v=2` so previews refetch it). Nov 16, 2026: the headline was re-set with the curly apostrophe (don’t), the rest of the card unchanged |
 | The film, recorded | `site/assets/hero.mp4`, `hero-mobile.mp4`, `hero-poster.jpg`; `hero.gif` (the older loop) for the README | real takes: Point on an iPhone app in the Simulator and on a website, the paste in Cursor, and each change the agent made; captions are dark cards with a blue LOCANT label |
 | Try-it demo | `site/assets/desktop.jpg`, `scene-calculator.png`, `scene-iphone.jpg`, `scene-web.jpg` | the Tahoe Day wallpaper and three real windows; the overlay, label, note field, and ball are drawn over them in CSS from the app's tokens |
 | Glyphs | `site/assets/glyph-{snap,text,color,cut}.png`, `ball-hand.png` | the ring's four symbols and the hand on the ball, used as masks and tinted on the page |
