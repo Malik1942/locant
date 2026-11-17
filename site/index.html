@@ -461,11 +461,11 @@
   .grid2 .item { display: grid; gap: 6px; align-content: start; padding: 20px; background: var(--surface); border-radius: 16px; box-shadow: 0 0 0 1px var(--hair); }
   .grid2 .item p { color: var(--muted); font-size: 17px; }
 
-  /* works with: a ledger after stripe.com's customer band. Three tiers between hairlines (agents, browsers, apps), each
-     a row of its owners' own marks, every mark cropped to its ink and set to one height. A mark with no name in it (the
-     Blossom for Codex, Apple's platform icons, Electron's atom) gets its name beside it in the page's face, so every
-     item reads as a lockup. One color, the page's secondary tone: black files softened in light, inverted in dark.
-     Nothing moves. */
+  /* works with: a ledger after stripe.com's customer band. Three tiers between hairlines (agents, browsers, apps).
+     Agents and browsers are their owners' own marks, each cropped to its ink and set to one height; the apps row uses
+     plain icons drawn for this page (no Apple or Electron artwork) at the same height. Where an item has no name in its
+     mark (the Blossom for Codex, the app icons), the name sits beside it in the page's face, so every item reads as a
+     lockup. One color, the page's secondary tone: black files softened in light, inverted in dark. Nothing moves. */
   .with { --H: 26px; border-block: 1px solid var(--hair); }
   .tier { display: grid; grid-template-columns: 116px minmax(0, 1fr); align-items: center; column-gap: 32px; padding-block: 38px; }
   .tier + .tier { border-top: 1px solid var(--hair); }
@@ -476,6 +476,7 @@
   .marks .lock { display: flex; align-items: center; gap: calc(var(--H) * var(--k, 1) * .32); font-size: calc(var(--H) * var(--k, 1) * .8); line-height: 1;
                  font-weight: 500; letter-spacing: -0.02em; white-space: nowrap; color: var(--ink); opacity: var(--mark-o); }
   .marks .lock img { opacity: 1; }
+  .marks .ico { display: block; flex: none; width: calc(var(--H) * var(--k, 1)); height: calc(var(--H) * var(--k, 1)); color: inherit; }
   /* narrower than five agents beside a label: the label goes above its row, so a row never wraps */
   @media (max-width: 1020px) {
     .tier { grid-template-columns: minmax(0, 1fr); row-gap: 20px; padding-block: 32px; }
@@ -717,6 +718,7 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
       <h2>Works where you work</h2>
       <p class="lede">Point at an iPhone app, a Mac app, or a page in your browser, then paste it into your agent. Claude Code, Cursor, and Codex can also fetch it over MCP.</p>
     </div>
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="ai-phone" viewBox="0 0 26 26"><mask id="aim-phone" maskUnits="userSpaceOnUse" x="0" y="0" width="26" height="26"><rect width="26" height="26" rx="6.5" fill="#fff"/><rect x="9" y="5" width="8" height="16" rx="2" fill="none" stroke="#000" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 7.6h2" fill="none" stroke="#000" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></mask><rect width="26" height="26" rx="6.5" fill="currentColor" mask="url(#aim-phone)"/></symbol><symbol id="ai-window" viewBox="0 0 26 26"><mask id="aim-window" maskUnits="userSpaceOnUse" x="0" y="0" width="26" height="26"><rect width="26" height="26" rx="6.5" fill="#fff"/><rect x="5.5" y="7" width="15" height="12" rx="2" fill="none" stroke="#000" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 10.6h15" fill="none" stroke="#000" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></mask><rect width="26" height="26" rx="6.5" fill="currentColor" mask="url(#aim-window)"/></symbol><symbol id="ai-layers" viewBox="0 0 26 26"><mask id="aim-layers" maskUnits="userSpaceOnUse" x="0" y="0" width="26" height="26"><rect width="26" height="26" rx="6.5" fill="#fff"/><rect x="5.5" y="5.5" width="10" height="10" rx="2" fill="none" stroke="#000" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><rect x="10.5" y="10.5" width="10" height="10" rx="2" fill="none" stroke="#000" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></mask><rect width="26" height="26" rx="6.5" fill="currentColor" mask="url(#aim-layers)"/></symbol><symbol id="ai-sidebar" viewBox="0 0 26 26"><mask id="aim-sidebar" maskUnits="userSpaceOnUse" x="0" y="0" width="26" height="26"><rect width="26" height="26" rx="6.5" fill="#fff"/><rect x="5.5" y="7" width="15" height="12" rx="2" fill="none" stroke="#000" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><path d="M10.5 7v12" fill="none" stroke="#000" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></mask><rect width="26" height="26" rx="6.5" fill="currentColor" mask="url(#aim-sidebar)"/></symbol><symbol id="ai-orbits" viewBox="0 0 26 26"><mask id="aim-orbits" maskUnits="userSpaceOnUse" x="0" y="0" width="26" height="26"><rect width="26" height="26" rx="6.5" fill="#fff"/><ellipse cx="13" cy="13" rx="8.2" ry="3.2" fill="none" stroke="#000" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><ellipse cx="13" cy="13" rx="8.2" ry="3.2" transform="rotate(60 13 13)" fill="none" stroke="#000" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><ellipse cx="13" cy="13" rx="8.2" ry="3.2" transform="rotate(-60 13 13)" fill="none" stroke="#000" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><circle cx="13" cy="13" r="1.6" fill="#000"/></mask><rect width="26" height="26" rx="6.5" fill="currentColor" mask="url(#aim-orbits)"/></symbol></svg>
     <div class="with">
       <div class="tier agents">
         <h3 class="lab" id="lab-agents">Agents</h3>
@@ -740,11 +742,11 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
       <div class="tier apps">
         <h3 class="lab" id="lab-apps">Apps</h3>
         <ul class="marks" aria-labelledby="lab-apps">
-          <li><span class="lock"><img src="assets/logos/simulator.png" alt="" width="26" height="26">iOS Simulator</span></li>
-          <li><span class="lock"><img src="assets/logos/macos.png" alt="" width="26" height="26">Mac apps</span></li>
-          <li><span class="lock"><img src="assets/logos/swiftui.png" alt="" width="26" height="26">SwiftUI</span></li>
-          <li><span class="lock"><img src="assets/logos/appkit.png" alt="" width="24" height="26">AppKit</span></li>
-          <li><span class="lock"><img src="assets/logos/electron.svg" alt="" width="24" height="26">Electron</span></li>
+          <li><span class="lock"><svg class="ico" viewBox="0 0 26 26" aria-hidden="true"><use href="#ai-phone"/></svg>iOS Simulator</span></li>
+          <li><span class="lock"><svg class="ico" viewBox="0 0 26 26" aria-hidden="true"><use href="#ai-window"/></svg>Mac apps</span></li>
+          <li><span class="lock"><svg class="ico" viewBox="0 0 26 26" aria-hidden="true"><use href="#ai-layers"/></svg>SwiftUI</span></li>
+          <li><span class="lock"><svg class="ico" viewBox="0 0 26 26" aria-hidden="true"><use href="#ai-sidebar"/></svg>AppKit</span></li>
+          <li><span class="lock"><svg class="ico" viewBox="0 0 26 26" aria-hidden="true"><use href="#ai-orbits"/></svg>Electron</span></li>
         </ul>
       </div>
     </div>
