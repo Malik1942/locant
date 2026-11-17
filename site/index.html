@@ -557,15 +557,18 @@
 
 <aside class="ph" id="ph" hidden aria-label="Product Hunt launch"><a href="https://www.producthunt.com/">Locant is on Product Hunt today. <span>See the launch&nbsp;›</span></a></aside>
 <script>
-// The launch strip: shown from 00:01 on Nov 17 to the end of Nov 19, Pacific time, once PH_URL is the launch page.
+// The launch strip: shown from 00:01 on Nov 18 (launch day) to the end of Nov 20, Pacific time, once PH_URL is the launch page.
+// On launch day it says "today"; on the two days after, "just launched".
 // Run here, before the rest of the page, so it never pushes the page down after it paints. ?ph shows it any time.
 (function () {
-  var PH_URL = '';   // the launch page on producthunt.com, filled in when it is live
-  var now = Date.now(), start = Date.UTC(2026, 10, 17, 8, 1), end = Date.UTC(2026, 10, 20, 8, 0);
+  var PH_URL = 'https://www.producthunt.com/posts/locant';   // the launch page on producthunt.com
+  var now = Date.now(), start = Date.UTC(2026, 10, 18, 8, 1), after = Date.UTC(2026, 10, 19, 8, 0), end = Date.UTC(2026, 10, 21, 8, 0);
   var force = /[?&]ph(=|&|$)/.test(location.search);
   if (!force && !(PH_URL && now >= start && now < end)) return;
   var ph = document.getElementById('ph');
-  if (PH_URL) ph.querySelector('a').href = PH_URL;
+  var a = ph.querySelector('a');
+  if (PH_URL) a.href = PH_URL;
+  if (now >= after) a.firstChild.nodeValue = 'Locant just launched on Product Hunt. ';
   ph.hidden = false;
 })();
 </script>
