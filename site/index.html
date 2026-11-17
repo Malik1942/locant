@@ -461,29 +461,32 @@
   .grid2 .item { display: grid; gap: 6px; align-content: start; padding: 20px; background: var(--surface); border-radius: 16px; box-shadow: 0 0 0 1px var(--hair); }
   .grid2 .item p { color: var(--muted); font-size: 17px; }
 
-  /* works with: after the "works with" rows on 1password.com and granola.ai, set on one grid like stripe.com's band.
-     Three tiers (agents, browsers, apps) between hairlines, each label above its row. Every item is the same thing: a
-     tile of one size holding its owner's symbol in one color (or, where no artwork is used, a line glyph drawn here),
-     and the name beside it in the page's face at one size. One column grid runs through all three tiers, so items line
-     up across them. Nothing moves. */
+  /* works with: stripe.com's customer band, in this page's colors. Three tiers between hairlines, each label above its
+     row. Agents and browsers are their owners' own logos, in one color at the page's secondary tone (black files,
+     softened in light, inverted in dark), each centered in an equal cell and sized by eye to the same visual weight
+     (--h; a starting point came from box area times ink density). Safari has no artwork here, so its name is set in
+     the page's face, as Apple sets it. Apps are platforms, not brands: a line of words in the same cells. Nothing moves. */
   .with { border-block: 1px solid var(--hair); }
-  .tier { display: grid; gap: 18px; padding-block: 30px; }
+  .tier { display: grid; gap: 22px; padding-block: 30px 34px; }
   .tier + .tier { border-top: 1px solid var(--hair); }
   .tier .lab { font-size: 15px; line-height: 1.3; font-weight: 400; letter-spacing: 0; color: var(--muted); }
-  .marks { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 18px 16px; margin: 0; padding: 0; list-style: none; }
-  .marks li { display: flex; align-items: center; gap: 12px; min-width: 0; font-size: 16px; line-height: 1.25; font-weight: 500; letter-spacing: -0.01em; color: var(--ink); white-space: nowrap; }
-  .marks .sym { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 9px; background: var(--surface); box-shadow: 0 0 0 1px var(--hair); }
-  /* the owners' symbols are black files: softened in light, inverted in dark; --s evens out their optical size */
-  .marks .sym img { display: block; width: calc(20px * var(--s, 1)); height: calc(20px * var(--s, 1)); object-fit: contain; opacity: var(--mark-o); filter: var(--mark-f); }
-  .marks .sym svg { display: block; width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; color: var(--ink); opacity: var(--mark-o); }
-  @media (max-width: 1000px) { .marks { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  .band { display: flex; flex-wrap: wrap; justify-content: center; row-gap: 26px; margin: 0; padding: 0; list-style: none; }
+  .band li { flex: 0 0 calc(100% / var(--n)); display: flex; align-items: center; justify-content: center; height: 44px; min-width: 0; padding-inline: 8px; }
+  .band img { display: block; height: calc(var(--h) * var(--k, 1)); width: auto; max-width: 100%; object-fit: contain; opacity: var(--mark-o); filter: var(--mark-f); }
+  .band .word { font-size: calc(var(--h) * var(--k, 1)); line-height: 1; font-weight: 600; letter-spacing: -0.02em; color: var(--ink); opacity: var(--mark-o); white-space: nowrap; }
+  .band.words li { height: auto; font-size: 17px; color: var(--muted); white-space: nowrap; }
+  .tier.agents .band, .tier.apps .band { --n: 5; }
+  .tier.browsers .band { --n: 6; }
+  @media (max-width: 1000px) { .with { --k: .88; } .tier.browsers .band { --n: 3; } }
   @media (max-width: 720px) {
-    .tier { gap: 16px; padding-block: 26px; }
-    .marks { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
-    .marks li { gap: 10px; font-size: 15px; }
-    .marks .sym { width: 32px; height: 32px; border-radius: 8px; }
+    .with { --k: .8; }
+    .tier { gap: 18px; padding-block: 26px 28px; }
+    .tier.agents .band, .tier.browsers .band { --n: 2; }
+    .band { row-gap: 22px; }
+    .tier.apps .band { --n: 2; row-gap: 10px; }
+    .band.words li { font-size: 16px; }
   }
-  @media (forced-colors: active) { .marks .sym img { filter: none; opacity: 1; } }
+  @media (forced-colors: active) { .band img { filter: none; opacity: 1; background: #fff; } }
 
   /* the close: the download, once more, centered like the hero */
   .end { display: grid; justify-items: center; gap: 20px; text-align: center; }
@@ -713,37 +716,36 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
       <h2>Works where you work</h2>
       <p class="lede">Point at an iPhone app, a Mac app, or a page in your browser, then paste it into your agent. Claude Code, Cursor, and Codex can also fetch it over MCP.</p>
     </div>
-    <svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="g-compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.25"/><path d="M15.6 8.4L13.1 13.1L10.9 10.9Z" fill="currentColor"/><path d="M8.4 15.6L10.9 10.9L13.1 13.1Z"/></symbol><symbol id="g-phone" viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M10.8 6h2.4"/></symbol><symbol id="g-window" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 9h18"/></symbol><symbol id="g-layers" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="11" height="11" rx="2.5"/><rect x="9.5" y="9.5" width="11" height="11" rx="2.5"/></symbol><symbol id="g-sidebar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M9 5v14"/></symbol><symbol id="g-orbits" viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="9.5" ry="3.6"/><ellipse cx="12" cy="12" rx="9.5" ry="3.6" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="9.5" ry="3.6" transform="rotate(-60 12 12)"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/></symbol></svg>
     <div class="with">
-      <div class="tier">
+      <div class="tier agents">
         <h3 class="lab" id="lab-agents">Agents</h3>
-        <ul class="marks" aria-labelledby="lab-agents">
-          <li><span class="sym"><img src="assets/logos/claude.svg" alt="" width="20" height="20"></span>Claude Code</li>
-          <li><span class="sym"><img src="assets/logos/cursor.svg" alt="" width="20" height="20" style="--s: 0.95"></span>Cursor</li>
-          <li><span class="sym"><img src="assets/logos/codex.png" alt="" width="20" height="20"></span>Codex</li>
-          <li><span class="sym"><img src="assets/logos/grok.svg" alt="" width="20" height="20"></span>Grok Bot</li>
-          <li><span class="sym"><img src="assets/logos/antigravity.svg" alt="" width="20" height="20" style="--s: 0.95"></span>Antigravity</li>
+        <ul class="band" aria-labelledby="lab-agents">
+          <li><img src="assets/logos/claude-code.svg" alt="Claude Code" width="153" height="21" style="--h: 21px"></li>
+          <li><img src="assets/logos/cursor.svg" alt="Cursor" width="109" height="26" style="--h: 26px"></li>
+          <li><img src="assets/logos/codex.png" alt="Codex" width="88" height="27" style="--h: 27px"></li>
+          <li><img src="assets/logos/grok.svg" alt="Grok Bot" width="85" height="31" style="--h: 31px"></li>
+          <li><img src="assets/logos/antigravity.svg" alt="Antigravity" width="180" height="21" style="--h: 21px"></li>
         </ul>
       </div>
-      <div class="tier">
+      <div class="tier browsers">
         <h3 class="lab" id="lab-browsers">Browsers</h3>
-        <ul class="marks" aria-labelledby="lab-browsers">
-          <li><span class="sym"><img src="assets/logos/chrome.svg" alt="" width="20" height="20" style="--s: 0.92"></span>Chrome</li>
-          <li><span class="sym"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-compass"/></svg></span>Safari</li>
-          <li><span class="sym"><img src="assets/logos/edge.png" alt="" width="20" height="20" style="--s: 0.92"></span>Edge</li>
-          <li><span class="sym"><img src="assets/logos/firefox.png" alt="" width="20" height="20" style="--s: 0.95"></span>Firefox</li>
-          <li><span class="sym"><img src="assets/logos/brave.png" alt="" width="20" height="20" style="--s: 0.95"></span>Brave</li>
-          <li><span class="sym"><img src="assets/logos/dia.png" alt="" width="20" height="20" style="--s: 0.95"></span>Dia</li>
+        <ul class="band" aria-labelledby="lab-browsers">
+          <li><img src="assets/logos/chrome.svg" alt="Chrome" width="98" height="29" style="--h: 29px"></li>
+          <li><span class="word" style="--h: 24px">Safari</span></li>
+          <li><img src="assets/logos/edge.png" alt="Edge" width="83" height="27" style="--h: 27px"></li>
+          <li><img src="assets/logos/firefox.png" alt="Firefox" width="98" height="28" style="--h: 28px"></li>
+          <li><img src="assets/logos/brave.png" alt="Brave" width="87" height="27" style="--h: 27px"></li>
+          <li><img src="assets/logos/dia.svg" alt="Dia" width="69" height="22" style="--h: 21.5px"></li>
         </ul>
       </div>
-      <div class="tier">
+      <div class="tier apps">
         <h3 class="lab" id="lab-apps">Apps</h3>
-        <ul class="marks" aria-labelledby="lab-apps">
-          <li><span class="sym"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-phone"/></svg></span>iOS Simulator</li>
-          <li><span class="sym"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-window"/></svg></span>Mac apps</li>
-          <li><span class="sym"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-layers"/></svg></span>SwiftUI</li>
-          <li><span class="sym"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-sidebar"/></svg></span>AppKit</li>
-          <li><span class="sym"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#g-orbits"/></svg></span>Electron</li>
+        <ul class="band words" aria-labelledby="lab-apps">
+          <li>iOS Simulator</li>
+          <li>Mac apps</li>
+          <li>SwiftUI</li>
+          <li>AppKit</li>
+          <li>Electron</li>
         </ul>
       </div>
     </div>
