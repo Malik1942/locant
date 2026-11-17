@@ -127,6 +127,13 @@
   .muted { color: var(--muted); }
   .small { font-size: 14px; line-height: 1.45; }
 
+  /* the Product Hunt launch: a quiet strip above the nav for the launch days, set by the script right after it */
+  .ph { margin-inline: -20px; padding: 9px 20px; text-align: center; font-size: 14px; line-height: 1.4; background: var(--surface); border-bottom: 1px solid var(--hair); }
+  .ph[hidden] { display: none; }
+  .ph a { color: var(--ink); text-decoration: none; }
+  .ph a span { color: var(--link); font-weight: 500; white-space: nowrap; }
+  .ph a:hover span { text-decoration: underline; }
+
   /* nav */
   .nav {
     position: sticky; top: 0; z-index: 10;
@@ -554,6 +561,20 @@
 </script>
 <script defer src="/_vercel/insights/script.js"></script>
 
+<aside class="ph" id="ph" hidden aria-label="Product Hunt launch"><a href="https://www.producthunt.com/">Locant is on Product Hunt today. <span>See the launch&nbsp;›</span></a></aside>
+<script>
+// The launch strip: shown from 00:01 on Nov 17 to the end of Nov 19, Pacific time, once PH_URL is the launch page.
+// Run here, before the rest of the page, so it never pushes the page down after it paints. ?ph shows it any time.
+(function () {
+  var PH_URL = '';   // the launch page on producthunt.com, filled in when it is live
+  var now = Date.now(), start = Date.UTC(2026, 10, 17, 8, 1), end = Date.UTC(2026, 10, 20, 8, 0);
+  var force = /[?&]ph(=|&|$)/.test(location.search);
+  if (!force && !(PH_URL && now >= start && now < end)) return;
+  var ph = document.getElementById('ph');
+  if (PH_URL) ph.querySelector('a').href = PH_URL;
+  ph.hidden = false;
+})();
+</script>
 <nav class="nav" aria-label="Site">
   <div class="in">
     <a class="brand" href="#top"><span class="mark" aria-hidden="true"></span>Locant</a>
