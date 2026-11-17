@@ -7,12 +7,13 @@
 <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="assets/favicon-64.png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="canonical" href="https://locant.malikzhang.com/">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://locant.malikzhang.com/">
 <meta property="og:site_name" content="Locant">
 <meta property="og:title" content="Locant: Point, don’t describe.">
 <meta property="og:description" content="Point at one element in any app. Your coding agent gets the element, not a screenshot.">
-<meta property="og:image" content="https://locant.malikzhang.com/assets/og.jpg">
+<meta property="og:image" content="https://locant.malikzhang.com/assets/og.jpg?v=2">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="The Locant icon and the words Point, don’t describe, beside the overlay outlining an orb in the iPhone Simulator, labeled button · oceanCurrent.product ideas.">
@@ -38,7 +39,7 @@
     --key-bg: #ffffff;
     --shadow: 0 1px 2px rgba(0,0,0,.06), 0 12px 32px rgba(0,0,0,.08);
     --icon-shadow: 0 2px 4px rgba(0,0,0,.10), 0 14px 28px rgba(0,0,0,.16);
-    --icon: url("assets/icon-light.png");
+    --icon: url("assets/icon-light-256.png");
     --show-light: block; --show-dark: none;
     color-scheme: light;
   }
@@ -62,7 +63,7 @@
       --key-bg: #2c2c2e;
       --shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.5);
       --icon-shadow: 0 2px 4px rgba(0,0,0,.4), 0 14px 28px rgba(0,0,0,.5);
-      --icon: url("assets/icon-dark.png");
+      --icon: url("assets/icon-dark-256.png");
       --show-light: none; --show-dark: block;
       color-scheme: dark;
     }
@@ -86,7 +87,7 @@
     --key-bg: #2c2c2e;
     --shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.5);
     --icon-shadow: 0 2px 4px rgba(0,0,0,.4), 0 14px 28px rgba(0,0,0,.5);
-    --icon: url("assets/icon-dark.png");
+    --icon: url("assets/icon-dark-256.png");
     --show-light: none; --show-dark: block;
     color-scheme: dark;
   }
@@ -169,6 +170,13 @@
   .link:hover { text-decoration: underline; }
   .fine { font-size: 14px; color: var(--muted); }
   .fine span + span::before { content: "·"; margin-inline: 8px; }
+  /* the Homebrew line: the command, and a button that copies it */
+  .brew { display: inline-flex; align-items: center; gap: 6px; margin-top: -6px; padding: 4px 4px 4px 12px; border-radius: 10px; background: var(--surface); box-shadow: 0 0 0 1px var(--hair); max-width: 100%; }
+  .brew code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .brew .copy { font: inherit; font-size: 12px; font-weight: 500; border: 0; border-radius: 7px; padding: 5px 9px; background: var(--frame); color: var(--ink); cursor: pointer; flex: none; }
+  .brew .copy:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .mac-note { margin-top: -6px; }
+  .brew[hidden], .mac-note[hidden] { display: none; }   /* their own display would otherwise beat [hidden] */
 
   /* the hero film: two real changes, recorded (an iPhone app, then a website), about forty seconds */
   .demo { display: block; width: 100%; max-width: 100%; height: auto; border-radius: 18px; box-shadow: var(--shadow); margin-top: 36px; }
@@ -539,7 +547,9 @@
       <a class="btn" href="https://github.com/Malik1942/locant/releases/latest/download/Locant.dmg">Download for Mac</a>
       <a class="link" href="https://github.com/Malik1942/locant">View on GitHub</a>
     </div>
-    <p class="fine"><span>Free</span><span>macOS 15 or later</span></p>
+    <p class="fine"><span>Free</span><span>Open source</span><span>macOS 15 or later</span></p>
+    <p class="brew" id="brew"><code>brew install Malik1942/locant/locant</code><button type="button" class="copy" aria-label="Copy the Homebrew command">Copy</button></p>
+    <p class="fine mac-note" id="mac-note" hidden>Locant runs on a Mac. Send this page to yours to download&nbsp;it.</p>
   </header>
 
   <figure class="wide" style="margin-block: 0;">
@@ -558,7 +568,7 @@
   <section class="col" id="how">
     <div class="sect-head">
       <h2>Try it here</h2>
-      <p class="lede">One ball points at a website, a Mac app, and an iPhone app.</p>
+      <p class="lede">One floating ball points at a website, a Mac app, and an iPhone app.</p>
     </div>
     <div class="steps" id="steps" aria-live="polite">
       <span class="s on"><b>1</b>Point</span><span class="s"><b>2</b>Note</span><span class="s"><b>3</b>Paste</span>
@@ -724,7 +734,7 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
   <section class="col" id="actions">
     <div class="sect-head">
       <h2>Four more tools</h2>
-      <p class="lede">Press and hold the ball.</p>
+      <p class="lede">Press and hold the floating ball.</p>
     </div>
     <div class="actions">
       <div class="action">
@@ -793,7 +803,7 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
   <section class="col end">
     <h2>Try Locant on your Mac.</h2>
     <a class="btn" href="https://github.com/Malik1942/locant/releases/latest/download/Locant.dmg">Download for Mac</a>
-    <p class="fine"><span>Free</span><span>macOS 15 or later</span></p>
+    <p class="fine"><span>Free</span><span>Open source</span><span>macOS 15 or later</span></p>
   </section>
 
   <footer class="col">
@@ -837,6 +847,7 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
   var V = touch ? 'Tap' : 'Click';
   ball.querySelector('.tip').textContent = V + ' to point';
   var AGAIN = V + ' the ball to point. Hold it for more tools.';   // after a first use; until then the label beside the ball says it
+  say.textContent = V + ' the ball, then ' + V.toLowerCase() + ' anything to point at it.';   // the start, so the line under the steps is never empty
 
   // mode: what the demo is doing. bs: the ball's own state, as FloatingBall.State.
   var mode = 'ball', bs = 'hidden';
@@ -1341,6 +1352,38 @@ Library" style="left:70.000%;top:16.000%;width:19.531%;height:65.887%">
   var sampleEl = stage.querySelector('[data-k="p-product-ideas"]');
   present(sampleEl, 'make this orb bigger, with satellite nodes like Light And Color', new Date(2026, 9, 13, 15, 30, 12));
   window.addEventListener('load', function () { drawCrop(sampleEl); fit(); });
+})();
+
+// Download buttons on a phone or tablet: a .dmg is no use there, so the button offers to send this page to a Mac
+// (the share sheet, so AirDrop or Messages), or copies the link where there is no share sheet. Without script the
+// buttons stay plain downloads. The Homebrew line goes, and a note says why.
+(function () {
+  var touchOnly = /iPhone|iPad|iPod|Android/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var brew = document.getElementById('brew');
+  if (brew) brew.querySelector('.copy').addEventListener('click', function () {
+    var b = this, cmd = brew.querySelector('code').textContent;
+    (navigator.clipboard ? navigator.clipboard.writeText(cmd) : Promise.reject()).then(function () {
+      b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 1600);
+    }, function () { getSelection().selectAllChildren(brew.querySelector('code')); });
+  });
+  if (!touchOnly) return;
+  if (brew) brew.hidden = true;
+  var note = document.getElementById('mac-note'); if (note) note.hidden = false;
+  var url = 'https://locant.malikzhang.com/';
+  document.querySelectorAll('a[href$="Locant.dmg"]').forEach(function (a) {
+    var label = a.classList.contains('dl') ? 'Send to Mac' : 'Send to your Mac';
+    a.textContent = label;
+    a.addEventListener('click', function (e) {
+      e.preventDefault();
+      if (navigator.share) {
+        navigator.share({ title: 'Locant', text: 'Locant for Mac. Point, don\u2019t describe.', url: url }).catch(function () {});
+        return;
+      }
+      (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(function () {
+        a.textContent = 'Link copied'; setTimeout(function () { a.textContent = label; }, 2000);
+      }, function () { location.href = a.href; });
+    });
+  });
 })();
 
 // Scroll: each block rises in once as it enters the viewport. Without JS nothing is hidden.
