@@ -58,6 +58,34 @@ The setup, the tasks, and every run are in [the report](docs/video/11-measuremen
 [One night of captures](https://locant.malikzhang.com/oryne/) shows what a real redesign by pointing
 looks like, before and after.
 
+## FAQ
+
+### How do I tell Claude Code which UI element to change?
+
+Point at it with Locant. The payload carries the element's accessibility identifier, which is usually
+the same string your source code uses, so the agent greps for it instead of guessing from pixels.
+
+### Why does my coding agent edit the wrong file when I send a screenshot?
+
+A screenshot shows where something is, not which code drew it. When the project held two copies of
+the same view, the agent given a screenshot edited the wrong one in 14 of 20 runs; given the element,
+in none. The table above has the rest.
+
+### Does it work with Cursor and Codex, not just Claude Code?
+
+Yes. Locant ships a stdio MCP server (`Locant --mcp`), tested with Claude Code, Cursor, and Codex.
+Any agent also takes the Markdown payload on paste. See [Works where you paste](#works-where-you-paste).
+
+### Can I point at elements in the iOS Simulator or a local web page?
+
+Yes. The iOS Simulator, SwiftUI and AppKit apps, and Chromium pages on `localhost` all expose their
+elements. On a local React page Locant also names the component and its source line.
+
+### Is there a skill for my agent?
+
+Yes. `npx skills add Malik1942/locant` installs the Locant skill, which reads your latest capture
+when you say "fix what I just pointed at".
+
 ## Install
 
 1. [Download Locant.dmg](https://github.com/Malik1942/locant/releases/latest/download/Locant.dmg) and
