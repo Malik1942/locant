@@ -1,12 +1,16 @@
 <p align="center">
-  <img src="site/assets/icon-light.png" width="96" alt="">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="site/assets/icon-dark.png">
+    <img src="site/assets/icon-light.png" width="96" alt="">
+  </picture>
 </p>
 
 <h1 align="center">Locant</h1>
 
 <p align="center">
   <b>Point, don't describe.</b><br>
-  Point at one element in any Mac app. Your coding agent gets the element, not a screenshot.<br>
+  Your coding agent gets the element you point at, not a screenshot.<br>
+  Point at one element in a Mac app, an iPhone app in the Simulator, or a web page; say what should change; paste.<br>
   Free, open source, macOS 15+, Apple silicon and Intel.
 </p>
 
@@ -18,13 +22,14 @@
 </p>
 
 <p align="center">
-  <img src="site/assets/hero.gif" width="720" alt="The loop, recorded: the ball is clicked, the overlay dims the screen, hovering an orb in the iPhone Simulator shows button · oceanCurrent.product.ideas, a note is typed, Enter copies, and the Markdown payload lands in the agent's chat with the image path first.">
-  <br><sub>Click the ball, hover, click, say what should change, paste. Every frame is a real capture.</sub>
+  <a href="https://locant.malikzhang.com"><img src="site/assets/hero.gif" width="720" alt="The film, recorded: in the iPhone Simulator, Locant outlines the three Try asking rows of an app's Ask screen and the note reads These read like a list. Make them tappable pills. The capture is pasted into Cursor with its path, text in the image, and note; the agent changes AskView.swift and the rows come back as pills. Then on a website, Locant outlines the words drift away in the headline, a note is typed, and the agent's change makes them glow."></a>
+  <br><sub>Point at an iPhone app and a website, say what's wrong, paste into the agent. Real takes; only the agent's wait is sped up.</sub>
 </p>
 
 <p align="center">
   <a href="https://locant.malikzhang.com">Website</a> ·
-  <a href="https://github.com/Malik1942/locant/releases/latest/download/Locant.dmg">Download</a>
+  <a href="https://github.com/Malik1942/locant/releases/latest/download/Locant.dmg">Download</a> ·
+  <a href="https://www.producthunt.com/posts/locant">Product Hunt</a>
 </p>
 
 ## Why
@@ -39,6 +44,19 @@ element's role, label, accessibility identifier, frame, and ancestry, plus a cro
 can grep for the right file on the first try.
 
 Window-level tools give your agent the window. Locant gives it the element.
+
+**Measured against a screenshot of the same element**, on Claude Code, graded blind. The agent had two
+copies of the code and only one was on screen:
+
+| | Locant | Screenshot |
+|---|---|---|
+| Runs that edited the wrong copy | **0 of 20** | 14 of 20 |
+| Time to the right file (median) | **39 s** | 80 s |
+| Cost per run | **$0.55** | $1.13 |
+
+The setup, the tasks, and every run are in [the report](docs/video/11-measurement-worktrees.md).
+[One night of captures](https://locant.malikzhang.com/oryne/) shows what a real redesign by pointing
+looks like, before and after.
 
 ## Install
 
@@ -202,7 +220,10 @@ the hotkey.
   a local web page, Locant reads that page's source maps from the dev server it came from.
 
 <p align="center">
-  <img src="site/assets/settings-light.png" width="592" alt="The Locant Settings window, General tab: the floating ball, sounds and haptic feedback, updates, and Locant Help.">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="site/assets/settings-dark.png">
+    <img src="site/assets/settings-light.png" width="592" alt="The Locant Settings window, General tab: the floating ball, sounds and haptic feedback, updates, and Locant Help.">
+  </picture>
   <br><sub>Settings (⌘,): General, Hotkeys, Captures, My Apps, Agents. Every default works on first launch.</sub>
 </p>
 
@@ -227,10 +248,15 @@ the hotkey.
 
 </details>
 
-## Works where you paste
+## Works where you work
 
-The payload is plain Markdown, so most agents take it on paste; over MCP the agent fetches it instead.
-What each one did, and when it was run:
+- **Agents:** Claude Code, Cursor, Codex, Grok Bot, Antigravity, and anything else that takes a paste.
+- **Browsers:** Chrome, Safari, Edge, Firefox, Brave, Dia. In Chrome, Edge, Brave, and Dia a local
+  React page also gives its component and source line.
+- **Apps:** the iOS Simulator, Mac apps in SwiftUI and AppKit, and Electron.
+
+The payload is plain Markdown, so most agents take it on paste; Claude Code, Cursor, and Codex can also
+fetch it over MCP. What each one did, and when it was run:
 
 | Agent | Over MCP | On paste | Tested |
 |---|---|---|---|
