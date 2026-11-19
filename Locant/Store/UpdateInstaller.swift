@@ -342,6 +342,8 @@ enum UpdateInstaller {
         let process = Process()
         process.executableURL = URL(filePath: path)
         process.arguments = arguments
+        // R178: a tool that asks a question fails instead of waiting forever.
+        process.standardInput = FileHandle.nullDevice
         let out = Pipe()
         process.standardOutput = out
         process.standardError = FileHandle.nullDevice
