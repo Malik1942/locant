@@ -63,8 +63,10 @@ looks like, before and after.
 1. [Download Locant.dmg](https://github.com/Malik1942/locant/releases/latest/download/Locant.dmg) and
    drag Locant to Applications. Signed with a Developer ID and notarized, so it opens like any other app.
    Or, with Homebrew: `brew install Malik1942/locant/locant`.
-   Updates are manual: Locant tells you when a newer version exists and opens the download; drag it
-   over the old copy, and the permissions carry over. There is no in-place update.
+   Updates install from the app: when a newer version exists, Locant offers Install and Relaunch,
+   checks that the download is signed by the same developer, swaps it in, and reopens; the permissions
+   carry over. Opened from a disk image or Downloads, it offers the download instead. Copies up to
+   1.3.1 update through the browser one last time.
 2. Launch it. There is no Dock icon; look for the pointing hand in the menu bar.
 3. Allow the two permissions it asks for, in this order:
    - **Accessibility** reads what is under your cursor and listens for the hotkey. Without it nothing works.
@@ -243,7 +245,7 @@ the hotkey.
 | **The ball** | A 48 pt glass disc. Rests translucent, tucks into the nearest edge after two seconds without use (left, right, or the bottom beside the Dock; on a first launch, not until you have found it), wakes where it rests as the cursor approaches, starts Point on click. Hold half a second for the ring: Snap ↑, Text →, Color ↓, Cut ←; release at center cancels. Drag it anywhere, or flick it at an edge and it tucks where it was heading. |
 | **Hotkeys** | Point is ⌃⌃ (double-tap Control) or ⌃⌥1, and the menu shows both; Snap, Text, Color, and Cut are ⌃⌥2 through ⌃⌥5, their place in the menu. Re-record or clear any of them in Settings › Hotkeys, which refuses a clash inside Locant and warns when a chord is also a macOS shortcut. A matched chord is swallowed before the frontmost app sees it. |
 | **Feedback** | A light trackpad tap when the outline moves to a new element, when the ring opens and between its segments, and when a capture lands; a short, quiet note when a capture reaches the clipboard and a lower one when nothing did, fired with a tap of its own. The sounds follow the system's switch for interface sounds. Settings › General has a switch for each. |
-| **Updates** | Once a day, 10 s after launch, Locant asks the GitHub releases API for the newest version and offers Download, Later, or Skip This Version. The request carries the version number and nothing else. Settings › General has the switch and Check Now. There is no in-place update: you drag the new copy over the old one. |
+| **Updates** | Once a day, 10 s after launch, Locant asks the GitHub releases API for the newest version and offers Install and Relaunch, Later, or Skip This Version. The request carries the version number and nothing else. Settings › General has the switch and Check Now. Install and Relaunch downloads the versioned dmg, checks that it is signed by the same Developer ID and notarized, moves the old copy to the Trash, puts the new one in its place, and reopens. Where Locant can't replace itself (a disk image, Downloads, or a folder you can't write to), the alert says why and offers Download. |
 | **Diagnostics** | Settings › General › Diagnostics puts one block on the clipboard for an issue: version, macOS, chip, displays, the two grants, hotkeys, settings, and the last failure's reason. Your user name is replaced by `~`; nothing from any capture; nothing is sent. |
 | **Nothing to notice** | No Dock icon. Idle memory under 30 MB. Locant never appears in its own captures. |
 
