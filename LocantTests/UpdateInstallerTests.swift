@@ -322,6 +322,35 @@ final class UpdateInstallerTests: XCTestCase {
         XCTAssertEqual(try marker(in: running.deletingLastPathComponent().appending(path: ".Locant-1.3.1.outgoing.app")), "old")
     }
 
+    /// R180: an app whose bundle Locant can't write to (another account's, say) still swaps, because
+    /// every move before the Trash is a rename inside the folder. Only the Trash move fails.
+    func testScriptSwapsABundleItCannotWriteTo() throws {
+        let (running, incoming, work, home) = try makeSwapFixture(incomingExists: true)
+        let fm = FileManager.default
+        try fm.setAttributes([.posixPermissions: 0o555], ofItemAtPath: running.path(percentEncoded: false))
+        let outgoing = running.deletingLastPathComponent().appending(path: ".Locant-1.3.1.outgoing.app")
+        defer { try? fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: outgoing.path(percentEncoded: false)) }
+
+        let run = try runSwap(running: running, incoming: incoming, work: work, home: home, waitFor: 0)
+
+        XCTAssertEqual(try marker(in: running), "new")
+        XCTAssertEqual(run.opened, running.path(percentEncoded: false))
+        XCTAssertEqual(try marker(in: outgoing), "old") // R182 tries again at the next start
+    }
+
+    func testScriptReplacesALeftoverOutgoingCopy() throws {
+        let (running, incoming, work, home) = try makeSwapFixture(incomingExists: true)
+        let leftover = running.deletingLastPathComponent().appending(path: ".Locant-1.3.1.outgoing.app")
+        try FileManager.default.createDirectory(at: leftover, withIntermediateDirectories: true)
+        try Data("stale".utf8).write(to: leftover.appending(path: "marker"))
+
+        _ = try runSwap(running: running, incoming: incoming, work: work, home: home, waitFor: 0)
+
+        XCTAssertEqual(try marker(in: running), "new")
+        XCTAssertEqual(try marker(in: home.appending(path: ".Trash/Locant 1.3.1.app")), "old")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: leftover.path(percentEncoded: false)))
+    }
+
     func testSwapArgumentsAreInTheOrderTheScriptReadsThem() {
         let arguments = UpdateInstaller.swapArguments(
             pid: 42, running: URL(filePath: "/Apps/Locant.app"), incoming: URL(filePath: "/Apps/.Locant-1.4.0.incoming.app"),

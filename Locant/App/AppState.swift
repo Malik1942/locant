@@ -171,9 +171,12 @@ final class AppState {
         showHelpOnFirstLaunch()
         scheduleSweeps()
         scheduleUpdateChecks()
-        let bundle = Bundle.main.bundleURL
-        Task.detached { UpdateInstaller.removeLeftovers(beside: bundle) } // R182
-        reportSwapThatDidNotHappen()
+        // As the test host, leave the real temporary folder alone: a real install's files live there.
+        if !AppDelegate.isTestHost {
+            let bundle = Bundle.main.bundleURL
+            Task.detached { UpdateInstaller.removeLeftovers(beside: bundle) } // R182
+            reportSwapThatDidNotHappen()
+        }
         watchAppsForIterations()
         watchAgentApps()
         overlay.onHover = { [weak self] point in self?.hover(point) }
