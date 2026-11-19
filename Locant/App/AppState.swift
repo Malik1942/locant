@@ -511,8 +511,15 @@ final class AppState {
                 // A Cancel that landed after `prepare` returned still never swaps.
                 try Task.checkCancellation()
                 guard let self else { throw CancellationError() }
-                // R180: an install never cuts a session short.
-                await self.waitForIdle()
+                // R180: an install never cuts a session short. R179: the checks run again after the wait,
+                // since the copy sat in a folder the user can write to. A session that began during them is
+                // waited for and the copy checked again; from the last check to the quit nothing awaits.
+                repeat {
+                    await self.waitForIdle()
+                    try await Task.detached {
+                        try UpdateInstaller.verify(incoming: ready.incoming, running: ready.running, offered: offered, current: current)
+                    }.value
+                } while self.phase != .idle
                 // R181: the next start learns from this file whether the swap happened.
                 do { try UpdateInstaller.writePending(PendingUpdate(version: offered.description, downloadURL: release.downloadURL)) }
                 catch { self.log.error("Update to \(newest, privacy: .public): pending file not written: \(error.localizedDescription, privacy: .public)") }
