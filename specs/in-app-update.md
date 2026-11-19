@@ -53,10 +53,12 @@ Later and Skip This Version behave as R48 says.
 - While it downloads, a small panel shows "Downloading Locant 1.4.0…", a progress bar (determinate when the reply has a length), and **Cancel**.
   - Cancel stops the download and removes the folder. It shows nothing else, and the alert does not come back until the next daily check.
   - The panel stays up through R178 and R179, which take a few seconds, with its text changed to "Checking Locant 1.4.0…".
+- While an install is under way (from the click until Locant quits or R181 shows), the daily check and Check Now offer nothing, so no second Install button appears that would do nothing.
 
 **R178. Unpack.**
+Every tool here runs with its standard input at `/dev/null`, so a dmg that asks a question fails instead of waiting forever.
 1. Locant runs `/usr/bin/hdiutil attach -nobrowse -readonly -noautoopen -mountrandom <download folder> -plist <dmg>` and reads the mount point from the plist. No Finder window opens.
-2. The dmg must hold `Locant.app` at its root, or R181: "The download doesn't hold Locant."
+2. The dmg must hold `Locant.app` at its root, a folder and not a symbolic link, or R181: "The download doesn't hold Locant."
 3. `/usr/bin/ditto` copies it into the folder that holds the running copy, as `.Locant-<version>.incoming.app`. A name that starts with a dot is hidden in Finder. The copy sits on the same volume as the running copy, so R180's swap is a rename.
 4. `hdiutil detach -force` unmounts the dmg whatever happened before. The dmg is deleted.
 
@@ -68,15 +70,23 @@ Later and Skip This Version behave as R48 says.
 
 The two plist comparisons are pure: `UpdateInstaller.checkBundle(incoming:running:offered:current:)`. The signature check is not.
 
+Locant runs all three checks a second time right before R180 starts the script, after the wait for idle. The incoming copy sits in a folder the user can write to during that wait, so the copy that gets swapped in is the one checked last. A copy that fails then goes to R181 the same way.
+
 **R180. Swap and relaunch.** When the checks pass, Locant waits until `phase == .idle`. An install never cuts a session short; a session started during R177–R179 finishes first. Then:
-1. Locant writes a shell script into the download folder and starts it with `Process` (`/bin/sh <script> <pid> <running path> <incoming path> <old version> <download folder> /usr/bin/open`). The script text is a constant, `UpdateInstaller.script`, and takes everything as arguments, never interpolated into the text. The last argument is the command that opens the result, so the tests can pass `/usr/bin/true`.
+1. Locant runs R179's checks again, writes R181's pending file, and starts the script with `Process`: `/bin/sh -c <UpdateInstaller.script> sh <pid> <running path> <incoming path> <old version> <download folder> /usr/bin/open`.
+   - The script text is a constant, `UpdateInstaller.script`, passed inline. No script file is written, so nothing can replace it between writing and running, and it never deletes its own file.
+   - It takes everything as arguments, never interpolated into the text. The arguments after `-c <script>` come from one pure function, `UpdateInstaller.swapArguments(pid:running:incoming:oldVersion:work:opener:)`, which `startSwap` and the tests both use, so the order can't drift.
+   - The last argument is the command that opens the result, so the tests can pass `/usr/bin/true`.
 2. Locant quits (`NSApp.terminate`).
 3. The script:
-   1. Waits for the pid to exit, checking `kill -0` every 100 ms for up to 20 s. If the pid is still running at 20 s, it removes the incoming copy and stops.
-   2. Moves the running copy to `~/.Trash/Locant <old version>.app`, adding ` <date and time>` to the name if one exists.
-   3. Renames the incoming copy to the running copy's path. If that fails, it moves the old copy back.
-   4. Runs `/usr/bin/open` on the path, so whichever copy ended up there opens.
-   5. Deletes the download folder, its own folder included.
+   1. Waits for the pid to exit, checking `kill -0` every 100 ms for up to 20 s. If the pid is still running at 20 s, it removes the incoming copy and the download folder and stops.
+   2. If the incoming copy is missing, it goes to step 6.
+   3. Renames the running copy to `.Locant-<old version>.outgoing.app` in the same folder, removing a leftover of that name first. If that fails, it removes the incoming copy and goes to step 6.
+   4. Renames the incoming copy to the running copy's path. If that fails, it renames the outgoing copy back and removes the incoming copy.
+   5. Moves the outgoing copy, if it is still there, to `~/.Trash/Locant <old version>.app`, adding ` <date and time>` to the name if one exists. This is best effort: if the move fails, the outgoing copy stays and R182 removes it.
+   6. Runs `/usr/bin/open` on the running path, so whichever copy ended up there opens.
+   7. Deletes the download folder.
+- Every move on the way to the new copy is a rename inside the folder that holds Locant. A rename needs only write access to that folder (R176), never to the bundle itself, and it can't leave half a copy behind. Moving a folder to another parent needs write access to the folder itself, and across volumes it is a copy and a delete, so the move to the Trash comes after the new copy is in place.
 - `Locant --mcp` processes that agents have running keep running from the old files until their agent restarts them. They are not waited for and not stopped.
 - Files that URLSession downloads and that `hdiutil` and `ditto` copy carry no quarantine flag, so the new copy opens without the "downloaded from the internet" dialog. It is notarized either way.
 
@@ -87,13 +97,23 @@ The two plist comparisons are pure: `UpdateInstaller.checkBundle(incoming:runnin
 
 Before the alert, Locant removes the download folder and any incoming copy, and detaches a dmg it attached. The running copy is never touched before R180, so a failure leaves Locant as it was.
 
+**A swap that didn't happen.** Once Locant has quit, it can't show an alert, and the script reopens the old copy without a word. So:
+- Right before it starts the script, Locant writes `Locant-pending-update.json` in `FileManager.default.temporaryDirectory`, holding the offered version and the dmg's browser URL (the one R48's Download opens).
+- At `AppState.start()`, Locant reads that file and deletes it. The decision is pure: `UpdateInstaller.pendingOutcome(pending:current:)`.
+  - When the running version is the pending one or newer, the update went in, and nothing shows.
+  - When the running version is older, the swap didn't happen: the script couldn't rename a copy, or Locant was still running at 20 s. Locant shows, once the session is idle:
+    - Title "Locant couldn't install 1.4.0".
+    - Text "Locant couldn't replace the copy in <folder name>, so you still have 1.3.1."
+    - Buttons: **Download in Browser** (opens the URL from the file) and **Cancel**.
+  - A file that doesn't decode is deleted and ignored.
+
 **R182. Leftovers.** At `AppState.start()`, Locant removes:
-- any `.Locant-*.incoming.app` in the folder that holds it;
-- any `Locant-update-*` folder in the temporary directory.
+- any `.Locant-*.incoming.app` and `.Locant-*.outgoing.app` in the folder that holds it;
+- any `Locant-update-*` folder in the temporary directory, after `hdiutil detach -force` on any disk image still mounted inside it (`hdiutil info -plist`, mount points under that folder).
 
-These are what a crash or a stopped script leaves behind.
+These are what a crash, a quit during unpacking, or a stopped script leaves behind. Each removal is best effort; one that fails is left for the next start.
 
-**R183. A switch to test it.** In Debug builds only, the launch argument `-updateFeed <path>` makes the update check read a release JSON from that file instead of asking GitHub, with the same decoding (R45). Its asset URL may point at a server on this Mac (`http://127.0.0.1:<port>/…`), which R177 downloads like any other. Release builds compile none of it.
+**R183. A switch to test it.** In Debug builds only, the launch argument `-updateFeed <path>` makes the update check read a release JSON from that file instead of asking GitHub, with the same decoding (R45). Its asset URL may point at a server on this Mac (`http://127.0.0.1:<port>/…`), which R177 downloads like any other. Release builds compile none of it, except a build that sets the Swift flag `UPDATE_FEED_TEST` (`OTHER_SWIFT_FLAGS`), which is only for step 8 of the end-to-end run below and is never committed or shipped.
 
 **R184. Words elsewhere.**
 - **README Install:**
@@ -133,10 +153,15 @@ These are what a crash or a stopped script leaves behind.
 - `checkBundle`:
   - It passes the same identifier with the offered version, newer than the running one.
   - It fails a different identifier, a different version from the offered one, an equal version, and an older version.
-- `script`:
+- `script`, run as `/bin/sh -c` with `swapArguments` against folders in a temporary directory (a fake running copy, a fake incoming copy, and the pid of a `sleep 0.3`):
   - It names no path: everything comes in as arguments.
-  - Run with `/bin/sh` against folders in a temporary directory (a fake running copy, a fake incoming copy, and the pid of a `sleep 0.3`), it swaps them and leaves the old copy under the trash name it was given.
-  - Run with an incoming path that does not exist, it leaves the running copy in place.
+  - It waits for the pid, swaps the copies, and leaves the old copy in the Trash under the name it was given, with no `.outgoing.app` left.
+  - With an incoming path that does not exist, it leaves the running copy in place.
+  - When the incoming copy can't be renamed into place, the old copy is back at the running path.
+  - When the Trash can't take the outgoing copy, the new copy is still in place and opened.
+- `swapArguments` puts the values in the order the script reads them.
+- `pendingOutcome`: an older running version is a failure with the pending version and URL; an equal or newer one is installed.
+- `unpack` rejects a dmg whose `Locant.app` is a symbolic link.
 
 The existing tests pass.
 
@@ -153,4 +178,6 @@ The existing tests pass.
    - The R181 alert shows "isn't signed by Locant's developer".
    - The running copy is untouched, and no `.incoming.app` is left.
 6. **Translocated:** opened from the dmg itself (not copied out), the alert shows the R176 reason and Download.
-7. **Cleanup:** remove the test folder and the 9.9.9 dmg, and restore `MARKETING_VERSION`.
+7. **Failure after quitting:** make the test folder's old copy impossible to rename (for example `chmod a-w` on the test folder after the checks pass, by hand), install, and check that the old copy reopens and shows "Locant couldn't replace the copy in…". Restore the folder's mode.
+8. **Notarized to notarized, through LaunchServices (the gate before release):** steps 1–4 test a Debug old copy started from a shell, which App Management likely doesn't protect. Build 9.9.8 and 9.9.9 both with `release.sh`'s settings plus `UPDATE_FEED_TEST`, notarized. Install 9.9.8 from its dmg into `/Applications`, open it once with `open` so Gatekeeper assesses it, then update to 9.9.9 through the feed. It reopens as 9.9.9 with its permissions. This Mac has Gatekeeper turned off, which may hide a failure, so a second Mac with it on is better.
+9. **Cleanup:** remove the test folder, the test copies, and the 9.9.8 and 9.9.9 dmgs, and restore `MARKETING_VERSION`.
