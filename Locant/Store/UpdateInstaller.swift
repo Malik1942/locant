@@ -89,4 +89,106 @@ enum UpdateInstaller {
               let entities = plist["system-entities"] as? [[String: Any]] else { return nil }
         return entities.lazy.compactMap { $0["mount-point"] as? String }.first
     }
+
+    // MARK: System steps
+
+    /// R178: attach the dmg read-only and hidden, copy `Locant.app` out to `incoming`, and always detach
+    /// and delete the dmg. Synchronous; call it off the main actor.
+    static func unpack(dmg: URL, in work: URL, to incoming: URL) throws {
+        let fm = FileManager.default
+        let mounts = work.appending(path: "mnt", directoryHint: .isDirectory)
+        try? fm.createDirectory(at: mounts, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: dmg) }
+        guard let plist = runTool("/usr/bin/hdiutil", ["attach", "-nobrowse", "-readonly", "-noautoopen",
+                                                      "-mountrandom", mounts.path(percentEncoded: false),
+                                                      "-plist", dmg.path(percentEncoded: false)]),
+              let mount = mountPoint(inAttachPlist: plist)
+        else { throw InstallFailure.unpackFailed }
+        defer { runTool("/usr/bin/hdiutil", ["detach", "-force", mount]) }
+
+        let app = URL(filePath: mount).appending(path: "Locant.app", directoryHint: .isDirectory)
+        guard fm.fileExists(atPath: app.path(percentEncoded: false)) else { throw InstallFailure.notLocant }
+        try? fm.removeItem(at: incoming)
+        guard runTool("/usr/bin/ditto", [app.path(percentEncoded: false), incoming.path(percentEncoded: false)]) != nil else {
+            try? fm.removeItem(at: incoming)
+            throw spaceIsLow(at: incoming.deletingLastPathComponent()) ? InstallFailure.noSpace : InstallFailure.unpackFailed
+        }
+    }
+
+    /// R179: all checks on the incoming copy. Synchronous; call it off the main actor.
+    static func verify(incoming: URL, running: URL, offered: AppVersion, current: AppVersion) throws {
+        guard let designated = designatedRequirementOfSelf(),
+              signatureIsValid(incoming, requirement: requirement(designated: designated))
+        else { throw InstallFailure.notSigned }
+        if let failure = checkBundle(incoming: .read(incoming), running: .read(running), offered: offered, current: current) {
+            throw failure
+        }
+    }
+
+    /// The running copy's designated requirement as text. For a release copy it names the Developer ID
+    /// anchor, the team, and the bundle id; macOS keys the privacy permissions to the same requirement.
+    static func designatedRequirementOfSelf() -> String? {
+        var code: SecCode?
+        guard SecCodeCopySelf([], &code) == errSecSuccess, let code else { return nil }
+        var staticCode: SecStaticCode?
+        guard SecCodeCopyStaticCode(code, [], &staticCode) == errSecSuccess, let staticCode else { return nil }
+        var requirement: SecRequirement?
+        guard SecCodeCopyDesignatedRequirement(staticCode, [], &requirement) == errSecSuccess, let requirement else { return nil }
+        var text: CFString?
+        guard SecRequirementCopyString(requirement, [], &text) == errSecSuccess, let text else { return nil }
+        return text as String
+    }
+
+    /// Every architecture, strict, nested code included, against `requirement`.
+    static func signatureIsValid(_ app: URL, requirement text: String) -> Bool {
+        var requirement: SecRequirement?
+        guard SecRequirementCreateWithString(text as CFString, [], &requirement) == errSecSuccess, let requirement else { return false }
+        var code: SecStaticCode?
+        guard SecStaticCodeCreateWithPath(app as CFURL, [], &code) == errSecSuccess, let code else { return false }
+        let flags = SecCSFlags(rawValue: kSecCSCheckAllArchitectures | kSecCSStrictValidate | kSecCSCheckNestedCode)
+        return SecStaticCodeCheckValidity(code, flags, requirement) == errSecSuccess
+    }
+
+    /// R182: what a crash or a stopped script leaves: incoming copies beside Locant, download folders.
+    static func removeLeftovers(beside running: URL, temporary: URL = FileManager.default.temporaryDirectory) {
+        let fm = FileManager.default
+        let folder = running.deletingLastPathComponent()
+        for name in (try? fm.contentsOfDirectory(atPath: folder.path(percentEncoded: false))) ?? []
+        where name.hasPrefix(".Locant-") && name.hasSuffix(".incoming.app") {
+            try? fm.removeItem(at: folder.appending(path: name))
+        }
+        for name in (try? fm.contentsOfDirectory(atPath: temporary.path(percentEncoded: false))) ?? []
+        where name.hasPrefix("Locant-update-") {
+            try? fm.removeItem(at: temporary.appending(path: name))
+        }
+    }
+
+    /// R181: undo everything before the swap; the running copy was never touched.
+    static func discard(work: URL, incoming: URL) {
+        try? FileManager.default.removeItem(at: incoming)
+        try? FileManager.default.removeItem(at: work)
+    }
+
+    /// Runs a tool and returns its standard output, or nil when it fails. The tools here print little
+    /// (`hdiutil -plist` a few KB), so reading to the end before waiting cannot fill the pipe.
+    @discardableResult
+    static func runTool(_ path: String, _ arguments: [String]) -> Data? {
+        let process = Process()
+        process.executableURL = URL(filePath: path)
+        process.arguments = arguments
+        let out = Pipe()
+        process.standardOutput = out
+        process.standardError = FileHandle.nullDevice
+        do { try process.run() } catch { return nil }
+        let data = out.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        return process.terminationStatus == 0 ? data : nil
+    }
+
+    /// Under 200 MB free where the copy goes: the likely reason `ditto` failed.
+    private static func spaceIsLow(at folder: URL) -> Bool {
+        let free = (try? folder.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]))?
+            .volumeAvailableCapacityForImportantUsage ?? .max
+        return free < 200 * 1024 * 1024
+    }
 }

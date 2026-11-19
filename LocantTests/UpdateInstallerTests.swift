@@ -102,4 +102,89 @@ final class UpdateInstallerTests: XCTestCase {
         XCTAssertEqual(InstallFailure.wrongVersion.reason, "The download isn't the version that was offered.")
         XCTAssertEqual(InstallFailure.unpackFailed.reason, "Something went wrong unpacking it.")
     }
+
+    // R178
+    func testUnpackCopiesLocantOutOfTheDiskImage() throws {
+        let source = temp.appending(path: "src", directoryHint: .isDirectory)
+        let contents = source.appending(path: "Locant.app/Contents", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: contents, withIntermediateDirectories: true)
+        try Data("new".utf8).write(to: contents.appending(path: "marker"))
+        let dmg = try makeDiskImage(from: source)
+        let work = try makeFolder("work")
+        let incoming = temp.appending(path: ".Locant-9.9.9.incoming.app", directoryHint: .isDirectory)
+
+        try UpdateInstaller.unpack(dmg: dmg, in: work, to: incoming)
+
+        XCTAssertEqual(try String(contentsOf: incoming.appending(path: "Contents/marker"), encoding: .utf8), "new")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: dmg.path(percentEncoded: false)))
+        let info = String(decoding: UpdateInstaller.runTool("/usr/bin/hdiutil", ["info"]) ?? Data(), as: UTF8.self)
+        XCTAssertFalse(info.contains(work.path(percentEncoded: false)), "the disk image is still attached")
+    }
+
+    func testUnpackRefusesADiskImageWithoutLocant() throws {
+        let source = try makeFolder("src")
+        try Data("x".utf8).write(to: source.appending(path: "readme.txt"))
+        let dmg = try makeDiskImage(from: source)
+        let work = try makeFolder("work")
+        let incoming = temp.appending(path: ".Locant-9.9.9.incoming.app", directoryHint: .isDirectory)
+
+        XCTAssertThrowsError(try UpdateInstaller.unpack(dmg: dmg, in: work, to: incoming)) { error in
+            XCTAssertEqual(error as? InstallFailure, .notLocant)
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: incoming.path(percentEncoded: false)))
+    }
+
+    // R179
+    func testSignatureCheck() {
+        let calculator = URL(filePath: "/System/Applications/Calculator.app")
+        XCTAssertTrue(UpdateInstaller.signatureIsValid(calculator, requirement: "anchor apple"))
+        // Apple's own apps are not notarized, so the notarized clause refuses them.
+        XCTAssertFalse(UpdateInstaller.signatureIsValid(calculator, requirement: UpdateInstaller.requirement(designated: "anchor apple")))
+        XCTAssertFalse(UpdateInstaller.signatureIsValid(calculator, requirement: "anchor apple generic and identifier \"com.malikzhang.deixis\""))
+        XCTAssertFalse(UpdateInstaller.signatureIsValid(temp.appending(path: "Missing.app"), requirement: "anchor apple"))
+        XCTAssertFalse(UpdateInstaller.signatureIsValid(calculator, requirement: "this is not a requirement"))
+    }
+
+    func testInstalledLocantPassesTheReleaseRequirement() throws {
+        let installed = URL(filePath: "/Applications/Locant.app")
+        guard FileManager.default.fileExists(atPath: installed.path(percentEncoded: false)) else { throw XCTSkip("no installed Locant") }
+        let designated = "anchor apple generic and identifier \"com.malikzhang.deixis\" and certificate leaf[subject.OU] = MVAUZXPK9M"
+        XCTAssertTrue(UpdateInstaller.signatureIsValid(installed, requirement: UpdateInstaller.requirement(designated: designated)))
+    }
+
+    // R182
+    func testLeftoversAreRemoved() throws {
+        let apps = try makeFolder("apps")
+        let tmp = try makeFolder("tmp")
+        for name in ["Locant.app", ".Locant-1.4.0.incoming.app", "Other.app"] {
+            try FileManager.default.createDirectory(at: apps.appending(path: name), withIntermediateDirectories: true)
+        }
+        for name in ["Locant-update-ABC", "keep"] {
+            try FileManager.default.createDirectory(at: tmp.appending(path: name), withIntermediateDirectories: true)
+        }
+
+        UpdateInstaller.removeLeftovers(beside: apps.appending(path: "Locant.app"), temporary: tmp)
+
+        let left = Set(try FileManager.default.contentsOfDirectory(atPath: apps.path(percentEncoded: false)))
+        XCTAssertEqual(left, ["Locant.app", "Other.app"])
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: tmp.path(percentEncoded: false)), ["keep"])
+    }
+
+    private func makeFolder(_ name: String) throws -> URL {
+        let folder = temp.appending(path: name, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        return folder
+    }
+
+    private func makeDiskImage(from folder: URL) throws -> URL {
+        let dmg = temp.appending(path: "test-\(UUID().uuidString).dmg")
+        let process = Process()
+        process.executableURL = URL(filePath: "/usr/bin/hdiutil")
+        process.arguments = ["create", "-volname", "LocantTest", "-srcfolder", folder.path(percentEncoded: false),
+                             "-format", "UDZO", "-quiet", dmg.path(percentEncoded: false)]
+        try process.run()
+        process.waitUntilExit()
+        XCTAssertEqual(process.terminationStatus, 0, "hdiutil create failed")
+        return dmg
+    }
 }
