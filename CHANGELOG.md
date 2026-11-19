@@ -1,6 +1,10 @@
 # Changelog
 
-Every release is a signed, notarized `Locant.dmg` on [GitHub Releases](https://github.com/Malik1942/locant/releases). Drag the new copy over the old one; the permissions carry over.
+Every release is a signed, notarized `Locant.dmg` on [GitHub Releases](https://github.com/Malik1942/locant/releases). From 1.4.0 on, Locant installs it for you from the update alert; your permissions carry over.
+
+## Unreleased
+
+- **Locant installs its own updates.** The update alert's Install and Relaunch downloads the new version from GitHub, checks that it is signed by the same developer and notarized, puts it in place of the old copy, and reopens Locant. Your permissions carry over, and the old copy goes to the Trash. Where Locant can't replace itself (opened from a disk image or Downloads, or from a folder you can't write to), the alert says why and offers the browser download as before. Copies older than this version update through the browser one last time.
 
 ## 1.3.1 (2026-11-13)
 

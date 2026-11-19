@@ -72,7 +72,8 @@ looks like, before and after.
      reopens, and offers Quit & Reopen when you turn it on; take it before the first capture.
 
    There is no third prompt. Nothing leaves the machine: no telemetry, no accounts. The one request Locant
-   makes is a daily check for a newer release on GitHub; turn it off in Settings › General.
+   makes is a daily check for a newer release on GitHub. When you click Install and Relaunch, it downloads
+   that release from GitHub. Turn the check off in Settings › General.
 4. A one-page guide opens: every action, its hotkey, and the gestures on the overlay. Close it; reopen it
    any time from Settings › General. The first three times each action opens, a line at the bottom of the
    screen names its gestures, then fades by itself.
@@ -321,7 +322,7 @@ Locant's event tap matches its hotkeys and passes every other key through untouc
 logged. One key it also watches: when you press ⌘V in the message box of Cursor, Codex, or Grok Bot
 while the clipboard still holds a capture, your keystroke pastes the text and Locant posts one paste
 of its own for the image, because those apps keep only half of a capture pasted whole.
-`defaults write com.malikzhang.deixis completesPaste -bool NO` turns that off. It never talks to the network except the release check and, for a local page's source lines, your own dev server, and stores nothing but its settings
+`defaults write com.malikzhang.deixis completesPaste -bool NO` turns that off. It never talks to the network except the release check and the update you install, and, for a local page's source lines, your own dev server, and stores nothing but its settings
 and the captures you make.
 
 <details>
