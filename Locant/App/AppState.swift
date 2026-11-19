@@ -443,7 +443,8 @@ final class AppState {
     /// The daily check, or Settings › General "Check Now" (`manual`), which ignores the daily
     /// limit and the skipped version and always answers with an alert (R47).
     func checkForUpdates(manual: Bool) async {
-        guard let current = UpdateCheck.currentVersion else { return }
+        // R177: while an install is under way, a second Install button would do nothing.
+        guard installTask == nil, let current = UpdateCheck.currentVersion else { return }
         preferences.lastUpdateCheck = .now
         let latest: GitHubRelease
         do {
@@ -452,6 +453,7 @@ final class AppState {
             if manual { inform("Locant could not reach GitHub.", detail: "Try again later.") }
             return
         }
+        guard installTask == nil else { return } // one may have begun during the request
         switch UpdateCheck.outcome(latest: latest, current: current, skipped: manual ? nil : preferences.skippedUpdateVersion) {
         case .available(let release):
             // R48: never over the overlay; the daily check tries again tomorrow instead of waiting.
@@ -531,11 +533,13 @@ final class AppState {
             } catch {
                 panel.close()
                 if let prepared { UpdateInstaller.discard(work: prepared.work, incoming: prepared.incoming) }
-                self?.installTask = nil
                 // R177: Cancel shows nothing else, even when a failure raced it.
-                guard !(error is CancellationError), !Task.isCancelled, let self else { return }
-                await self.waitForIdle()
-                self.offerBrowserDownload(release, newest: newest, failure: error as? InstallFailure ?? .unpackFailed)
+                if !(error is CancellationError), !Task.isCancelled, let self {
+                    await self.waitForIdle()
+                    self.offerBrowserDownload(release, newest: newest, failure: error as? InstallFailure ?? .unpackFailed)
+                }
+                // Only now: until R181 has shown, the update checks offer nothing.
+                self?.installTask = nil
             }
         }
     }
