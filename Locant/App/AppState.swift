@@ -508,6 +508,8 @@ final class AppState {
                     checking: { panel.setText("Checking Locant \(newest)…") })
                 prepared = ready
                 panel.close()
+                // A Cancel that landed after `prepare` returned still never swaps.
+                try Task.checkCancellation()
                 guard let self else { throw CancellationError() }
                 // R180: an install never cuts a session short.
                 await self.waitForIdle()
@@ -523,7 +525,8 @@ final class AppState {
                 panel.close()
                 if let prepared { UpdateInstaller.discard(work: prepared.work, incoming: prepared.incoming) }
                 self?.installTask = nil
-                guard !(error is CancellationError), let self else { return }
+                // R177: Cancel shows nothing else, even when a failure raced it.
+                guard !(error is CancellationError), !Task.isCancelled, let self else { return }
                 await self.waitForIdle()
                 self.offerBrowserDownload(release, newest: newest, failure: error as? InstallFailure ?? .unpackFailed)
             }
