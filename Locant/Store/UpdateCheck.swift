@@ -77,6 +77,13 @@ enum UpdateCheck {
     /// After `AppState.start()`, so the check never races the permission alerts or the Help window.
     static let launchDelay: Duration = .seconds(10)
 
+    #if DEBUG
+    /// specs/in-app-update.md R183: `-updateFeed <path>` reads the release JSON from that file in place of
+    /// asking GitHub. Debug builds only, read from the launch arguments alone, so a persisted default can
+    /// never turn it on.
+    static let debugFeed = UserDefaults.standard.volatileDomain(forName: UserDefaults.argumentDomain)["updateFeed"] as? String
+    #endif
+
     enum Outcome: Equatable, Sendable {
         /// A newer release the user has not skipped.
         case available(GitHubRelease)
@@ -118,6 +125,9 @@ enum UpdateCheck {
 
     /// Fetch the newest release. Throws on any failure; the caller stays silent.
     static func fetch(current: AppVersion?) async throws -> GitHubRelease {
+        #if DEBUG
+        if let debugFeed { return try GitHubRelease.decode(Data(contentsOf: URL(filePath: debugFeed))) }
+        #endif
         let configuration = URLSessionConfiguration.ephemeral
         configuration.httpCookieStorage = nil
         configuration.urlCache = nil

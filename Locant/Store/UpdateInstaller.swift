@@ -97,6 +97,97 @@ enum UpdateInstaller {
         return entities.lazy.compactMap { $0["mount-point"] as? String }.first
     }
 
+    static let downloadTimeout: TimeInterval = 60
+    static let maxDownload: Int64 = 200 * 1024 * 1024
+
+    /// R177–R179: download the dmg, unpack it beside the running copy, and check it. Everything is
+    /// removed again on any failure or cancel; the running copy is not touched.
+    static func prepare(asset: URL, offered: AppVersion, current: AppVersion, running: URL,
+                        progress: @escaping @MainActor @Sendable (Double?) -> Void,
+                        checking: @escaping @MainActor @Sendable () -> Void) async throws -> PreparedUpdate {
+        let work = FileManager.default.temporaryDirectory
+            .appending(path: "Locant-update-\(UUID().uuidString)", directoryHint: .isDirectory)
+        let incoming = running.deletingLastPathComponent()
+            .appending(path: ".Locant-\(offered).incoming.app", directoryHint: .isDirectory)
+        do {
+            do { try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true) }
+            catch { throw InstallFailure.unpackFailed }
+            let dmg = work.appending(path: "Locant-\(offered).dmg")
+            try await download(asset, to: dmg, current: current, progress: progress)
+            await checking()
+            try await Task.detached {
+                try UpdateInstaller.unpack(dmg: dmg, in: work, to: incoming)
+                try UpdateInstaller.verify(incoming: incoming, running: running, offered: offered, current: current)
+            }.value
+            try Task.checkCancellation()
+            return PreparedUpdate(work: work, incoming: incoming, running: running)
+        } catch {
+            discard(work: work, incoming: incoming)
+            throw error
+        }
+    }
+
+    /// R177: like the release check's request (R45): ephemeral, no cookies, no cache, the version in the
+    /// User-Agent. Written in 64 KB pieces so the panel can show progress.
+    static func download(_ url: URL, to file: URL, current: AppVersion,
+                         progress: @escaping @MainActor @Sendable (Double?) -> Void) async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.httpCookieStorage = nil
+        configuration.urlCache = nil
+        configuration.timeoutIntervalForRequest = downloadTimeout
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData, timeoutInterval: downloadTimeout)
+        request.setValue("Locant/\(current)", forHTTPHeaderField: "User-Agent")
+
+        do {
+            let (bytes, response) = try await session.bytes(for: request)
+            if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) { throw InstallFailure.downloadFailed }
+            let expected = response.expectedContentLength > 0 ? response.expectedContentLength : nil
+            if let expected, expected > maxDownload { throw InstallFailure.downloadFailed }
+            await progress(nil)
+
+            guard FileManager.default.createFile(atPath: file.path(percentEncoded: false), contents: nil) else {
+                throw InstallFailure.unpackFailed
+            }
+            let handle = try FileHandle(forWritingTo: file)
+            defer { try? handle.close() }
+            let piece = 1 << 16
+            var buffer = Data()
+            buffer.reserveCapacity(piece)
+            var written: Int64 = 0
+            var shown = -1
+            for try await byte in bytes {
+                buffer.append(byte)
+                guard buffer.count == piece else { continue }
+                try handle.write(contentsOf: buffer)
+                written += Int64(buffer.count)
+                buffer.removeAll(keepingCapacity: true)
+                if written > maxDownload { throw InstallFailure.downloadFailed }
+                if let expected {
+                    let percent = Int(written * 100 / expected)
+                    if percent != shown {
+                        shown = percent
+                        await progress(Double(percent) / 100)
+                    }
+                }
+            }
+            try handle.write(contentsOf: buffer)
+        } catch let failure as InstallFailure {
+            throw failure
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch let error as URLError where error.code == .cancelled {
+            throw CancellationError()
+        } catch let error as CocoaError where error.code == .fileWriteOutOfSpace {
+            throw InstallFailure.noSpace
+        } catch let error as POSIXError where error.code == .ENOSPC {
+            throw InstallFailure.noSpace
+        } catch {
+            throw InstallFailure.downloadFailed
+        }
+    }
+
     // MARK: System steps
 
     /// R178: attach the dmg read-only and hidden, copy `Locant.app` out to `incoming`, and always detach
