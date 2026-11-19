@@ -172,6 +172,33 @@ final class UpdateInstallerTests: XCTestCase {
         XCTAssertTrue(UpdateInstaller.signatureIsValid(installed, requirement: UpdateInstaller.requirement(designated: designated)))
     }
 
+    // R181: a swap that didn't happen
+    func testPendingOutcome() {
+        let url = URL(string: "https://github.com/Malik1942/locant/releases/download/v1.4.0/Locant.dmg")!
+        let pending = PendingUpdate(version: "1.4.0", downloadURL: url)
+        XCTAssertEqual(UpdateInstaller.pendingOutcome(pending: pending, current: AppVersion("1.3.1")!),
+                       .failed(version: "1.4.0", downloadURL: url))
+        XCTAssertEqual(UpdateInstaller.pendingOutcome(pending: pending, current: AppVersion("1.4.0")!), .installed)
+        XCTAssertEqual(UpdateInstaller.pendingOutcome(pending: pending, current: AppVersion("1.4.1")!), .installed)
+    }
+
+    func testPendingFileIsReadOnce() throws {
+        let tmp = try makeFolder("tmp")
+        let pending = PendingUpdate(version: "1.4.0", downloadURL: URL(string: "https://example.com/Locant.dmg")!)
+        try UpdateInstaller.writePending(pending, temporary: tmp)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: tmp.appending(path: "Locant-pending-update.json").path(percentEncoded: false)))
+        XCTAssertEqual(UpdateInstaller.takePending(temporary: tmp), pending)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: tmp.path(percentEncoded: false)), [])
+        XCTAssertNil(UpdateInstaller.takePending(temporary: tmp))
+    }
+
+    func testPendingFileThatDoesNotDecodeIsDeleted() throws {
+        let tmp = try makeFolder("tmp")
+        try Data("{\"version\": 3}".utf8).write(to: tmp.appending(path: "Locant-pending-update.json"))
+        XCTAssertNil(UpdateInstaller.takePending(temporary: tmp))
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: tmp.path(percentEncoded: false)), [])
+    }
+
     // R182
     func testLeftoversAreRemoved() throws {
         let apps = try makeFolder("apps")

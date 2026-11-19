@@ -173,6 +173,7 @@ final class AppState {
         scheduleUpdateChecks()
         let bundle = Bundle.main.bundleURL
         Task.detached { UpdateInstaller.removeLeftovers(beside: bundle) } // R182
+        reportSwapThatDidNotHappen()
         watchAppsForIterations()
         watchAgentApps()
         overlay.onHover = { [weak self] point in self?.hover(point) }
@@ -509,7 +510,13 @@ final class AppState {
                 // R180: an install never cuts a session short.
                 while let self, self.phase != .idle { try await Task.sleep(for: .milliseconds(200)) }
                 guard let ready = prepared else { return }
-                try UpdateInstaller.startSwap(ready, oldVersion: current)
+                // R181: the next start learns from this file whether the swap happened.
+                do { try UpdateInstaller.writePending(PendingUpdate(version: offered.description, downloadURL: release.downloadURL)) }
+                catch { self?.log.error("Update to \(newest, privacy: .public): pending file not written: \(error.localizedDescription, privacy: .public)") }
+                do { try UpdateInstaller.startSwap(ready, oldVersion: current) } catch {
+                    UpdateInstaller.removePending()
+                    throw error
+                }
                 NSApp.terminate(nil)
             } catch {
                 panel.close()
@@ -525,13 +532,33 @@ final class AppState {
     /// R181: the reason, and the browser download as before.
     private func offerBrowserDownload(_ release: GitHubRelease, newest: String, failure: InstallFailure) {
         log.error("Update to \(newest, privacy: .public) failed: \(String(describing: failure), privacy: .public)")
+        offerBrowserDownload(newest: newest, reason: failure.reason, downloadURL: release.downloadURL)
+    }
+
+    private func offerBrowserDownload(newest: String, reason: String, downloadURL: URL) {
         let alert = NSAlert()
         alert.messageText = "Locant couldn't install \(newest)"
-        alert.informativeText = failure.reason
+        alert.informativeText = reason
         alert.addButton(withTitle: "Download in Browser")
         alert.addButton(withTitle: "Cancel")
         NSApp.activate()
-        if alert.runModal() == .alertFirstButtonReturn { NSWorkspace.shared.open(release.downloadURL) }
+        if alert.runModal() == .alertFirstButtonReturn { NSWorkspace.shared.open(downloadURL) }
+    }
+
+    /// R181 "A swap that didn't happen": the last run started the swap script and quit, and this copy
+    /// is still older than the version it installed. Read once and deleted; the alert waits for idle.
+    private func reportSwapThatDidNotHappen() {
+        guard let pending = UpdateInstaller.takePending(), let current = UpdateCheck.currentVersion,
+              case .failed(let version, let downloadURL) = UpdateInstaller.pendingOutcome(pending: pending, current: current)
+        else { return }
+        log.error("Update to \(version, privacy: .public) didn't happen; still \(current.description, privacy: .public)")
+        let folder = Bundle.main.bundleURL.deletingLastPathComponent().lastPathComponent
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.waitForIdle()
+            self.offerBrowserDownload(newest: version, reason: "Locant couldn't replace the copy in \(folder), so you still have \(current).",
+                                      downloadURL: downloadURL)
+        }
     }
 
     /// Alerts wait for the session to end: `runModal` blocks the main actor, and the overlay's deferred

@@ -72,6 +72,23 @@ struct PreparedUpdate: Sendable {
     let running: URL
 }
 
+/// R181 "A swap that didn't happen": written right before the swap script starts, read at the next
+/// start. Once Locant has quit it can't show an alert, so the next start decides from this.
+struct PendingUpdate: Codable, Equatable, Sendable {
+    /// The version that was offered.
+    var version: String
+    /// The dmg's browser URL, the one R48's Download opens.
+    var downloadURL: URL
+}
+
+/// R181: what the pending file says at the next start.
+enum PendingOutcome: Equatable, Sendable {
+    /// The update went in, or the file names nothing newer; nothing shows.
+    case installed
+    /// The running copy is still older than the offered one: the swap didn't happen.
+    case failed(version: String, downloadURL: URL)
+}
+
 /// R177–R180: download, unpack, check, and swap. The decisions are pure and tested; the steps that
 /// touch the network, the disk images, and the signatures are below them.
 enum UpdateInstaller {
@@ -186,6 +203,31 @@ enum UpdateInstaller {
         } catch {
             throw InstallFailure.downloadFailed
         }
+    }
+
+    /// R181: the running version is the pending one or newer when the update went in.
+    static func pendingOutcome(pending: PendingUpdate, current: AppVersion) -> PendingOutcome {
+        guard let version = AppVersion(pending.version), current < version else { return .installed }
+        return .failed(version: pending.version, downloadURL: pending.downloadURL)
+    }
+
+    static let pendingName = "Locant-pending-update.json"
+
+    static func writePending(_ pending: PendingUpdate, temporary: URL = FileManager.default.temporaryDirectory) throws {
+        try JSONEncoder().encode(pending).write(to: temporary.appending(path: pendingName), options: .atomic)
+    }
+
+    /// Reads the pending file and deletes it, so it is acted on once. A file that doesn't decode is
+    /// deleted all the same.
+    static func takePending(temporary: URL = FileManager.default.temporaryDirectory) -> PendingUpdate? {
+        let file = temporary.appending(path: pendingName)
+        guard let data = try? Data(contentsOf: file) else { return nil }
+        removePending(temporary: temporary)
+        return try? JSONDecoder().decode(PendingUpdate.self, from: data)
+    }
+
+    static func removePending(temporary: URL = FileManager.default.temporaryDirectory) {
+        try? FileManager.default.removeItem(at: temporary.appending(path: pendingName))
     }
 
     // MARK: System steps
