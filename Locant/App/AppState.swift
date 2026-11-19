@@ -502,17 +502,18 @@ final class AppState {
         installTask = Task { @MainActor [weak self] in
             var prepared: PreparedUpdate?
             do {
-                prepared = try await UpdateInstaller.prepare(
+                let ready = try await UpdateInstaller.prepare(
                     asset: asset, offered: offered, current: current, running: Bundle.main.bundleURL,
                     progress: { panel.setProgress($0) },
                     checking: { panel.setText("Checking Locant \(newest)…") })
+                prepared = ready
                 panel.close()
+                guard let self else { throw CancellationError() }
                 // R180: an install never cuts a session short.
-                while let self, self.phase != .idle { try await Task.sleep(for: .milliseconds(200)) }
-                guard let ready = prepared else { return }
+                await self.waitForIdle()
                 // R181: the next start learns from this file whether the swap happened.
                 do { try UpdateInstaller.writePending(PendingUpdate(version: offered.description, downloadURL: release.downloadURL)) }
-                catch { self?.log.error("Update to \(newest, privacy: .public): pending file not written: \(error.localizedDescription, privacy: .public)") }
+                catch { self.log.error("Update to \(newest, privacy: .public): pending file not written: \(error.localizedDescription, privacy: .public)") }
                 do { try UpdateInstaller.startSwap(ready, oldVersion: current) } catch {
                     UpdateInstaller.removePending()
                     throw error
