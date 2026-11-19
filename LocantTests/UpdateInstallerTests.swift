@@ -134,6 +134,22 @@ final class UpdateInstallerTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: incoming.path(percentEncoded: false)))
     }
 
+    func testUnpackRefusesALocantThatIsASymbolicLink() throws {
+        let source = try makeFolder("src")
+        let real = source.appending(path: "Real.app/Contents", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: real, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(atPath: source.appending(path: "Locant.app").path(percentEncoded: false),
+                                                   withDestinationPath: "Real.app")
+        let dmg = try makeDiskImage(from: source)
+        let work = try makeFolder("work")
+        let incoming = temp.appending(path: ".Locant-9.9.9.incoming.app", directoryHint: .isDirectory)
+
+        XCTAssertThrowsError(try UpdateInstaller.unpack(dmg: dmg, in: work, to: incoming)) { error in
+            XCTAssertEqual(error as? InstallFailure, .notLocant)
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: incoming.path(percentEncoded: false)))
+    }
+
     // R179
     func testSignatureCheck() {
         let calculator = URL(filePath: "/System/Applications/Calculator.app")

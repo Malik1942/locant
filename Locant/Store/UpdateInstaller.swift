@@ -204,8 +204,11 @@ enum UpdateInstaller {
         else { throw InstallFailure.unpackFailed }
         defer { runTool("/usr/bin/hdiutil", ["detach", "-force", mount]) }
 
-        let app = URL(filePath: mount).appending(path: "Locant.app", directoryHint: .isDirectory)
-        guard fm.fileExists(atPath: app.path(percentEncoded: false)) else { throw InstallFailure.notLocant }
+        // A folder at the root, not a symbolic link that could point anywhere. No trailing slash on the
+        // path, or `lstat` follows the link.
+        let app = URL(filePath: mount).appending(path: "Locant.app", directoryHint: .notDirectory)
+        guard (try? fm.attributesOfItem(atPath: app.path(percentEncoded: false))[.type] as? FileAttributeType) == .typeDirectory
+        else { throw InstallFailure.notLocant }
         try? fm.removeItem(at: incoming)
         guard runTool("/usr/bin/ditto", [app.path(percentEncoded: false), incoming.path(percentEncoded: false)]) != nil else {
             try? fm.removeItem(at: incoming)
