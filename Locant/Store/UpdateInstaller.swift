@@ -267,9 +267,11 @@ enum UpdateInstaller {
         try? FileManager.default.removeItem(at: work)
     }
 
-    /// R180: run by `/bin/sh` after Locant quits. Everything comes in as arguments: the pid to wait for,
-    /// the running path, the incoming path, the old version, the download folder, and the command that
-    /// opens the result. The old copy goes to the Trash, so it can be put back by hand.
+    /// R180: run by `/bin/sh -c` after Locant quits. Everything comes in as arguments (`swapArguments`):
+    /// the pid to wait for, the running path, the incoming path, the old version, the download folder,
+    /// and the command that opens the result. Every move on the way to the new copy is a rename inside
+    /// the folder that holds Locant; the old copy goes to the Trash only once the new one is in place,
+    /// so it can be put back by hand.
     static let script = """
     PATH=/usr/bin:/bin
     pid=$1 running=$2 incoming=$3 old=$4 work=$5 opener=$6
@@ -283,18 +285,26 @@ enum UpdateInstaller {
       sleep 0.1
     done
     if [ -d "$incoming" ]; then
-      mkdir -p "$HOME/.Trash"
-      trash="$HOME/.Trash/Locant $old.app"
-      if [ -e "$trash" ]; then
-        trash="$HOME/.Trash/Locant $old $(date '+%Y-%m-%d %H.%M.%S').app"
-      fi
-      if mv "$running" "$trash"; then
+      outgoing="$(dirname "$running")/.Locant-$old.outgoing.app"
+      rm -rf "$outgoing"
+      # `mv dir existing-dir` would move into it, so rename only when the name is free.
+      if [ ! -e "$outgoing" ] && mv "$running" "$outgoing"; then
         if ! mv "$incoming" "$running"; then
-          mv "$trash" "$running"
+          mv "$outgoing" "$running"
           rm -rf "$incoming"
         fi
       else
         rm -rf "$incoming"
+      fi
+      if [ -d "$outgoing" ]; then
+        trash="$HOME/.Trash/Locant $old.app"
+        if [ -e "$trash" ]; then
+          trash="$HOME/.Trash/Locant $old $(date '+%Y-%m-%d %H.%M.%S').app"
+        fi
+        # Best effort: what stays here, R182 removes at the next start.
+        if [ ! -e "$trash" ]; then
+          mkdir -p "$HOME/.Trash" && mv "$outgoing" "$trash"
+        fi
       fi
     fi
     "$opener" "$running"
@@ -302,17 +312,20 @@ enum UpdateInstaller {
 
     """
 
-    /// R180: write the script into the download folder and start it. The caller quits right after.
-    /// A child started with `Process` outlives its parent: Locant has no terminal to hang up.
+    /// R180: the values after `-c <script> sh`, in the order the script reads them as `$1…$6`.
+    static func swapArguments(pid: pid_t, running: URL, incoming: URL, oldVersion: AppVersion, work: URL, opener: String) -> [String] {
+        [String(pid), running.path(percentEncoded: false), incoming.path(percentEncoded: false), oldVersion.description,
+         work.path(percentEncoded: false), opener]
+    }
+
+    /// R180: start the script, passed inline so there is no file to replace or delete. The caller quits
+    /// right after. A child started with `Process` outlives its parent: Locant has no terminal to hang up.
     static func startSwap(_ prepared: PreparedUpdate, oldVersion: AppVersion,
                           pid: pid_t = ProcessInfo.processInfo.processIdentifier, opener: String = "/usr/bin/open") throws {
-        let scriptURL = prepared.work.appending(path: "swap.sh")
-        do { try script.write(to: scriptURL, atomically: true, encoding: .utf8) } catch { throw InstallFailure.unpackFailed }
         let process = Process()
         process.executableURL = URL(filePath: "/bin/sh")
-        process.arguments = [scriptURL.path(percentEncoded: false), String(pid), prepared.running.path(percentEncoded: false),
-                             prepared.incoming.path(percentEncoded: false), oldVersion.description,
-                             prepared.work.path(percentEncoded: false), opener]
+        process.arguments = ["-c", script, "sh"] + swapArguments(pid: pid, running: prepared.running, incoming: prepared.incoming,
+                                                                 oldVersion: oldVersion, work: prepared.work, opener: opener)
         process.standardInput = FileHandle.nullDevice
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice

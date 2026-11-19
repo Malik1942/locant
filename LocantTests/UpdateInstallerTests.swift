@@ -185,14 +185,18 @@ final class UpdateInstallerTests: XCTestCase {
         XCTAssertEqual(try marker(in: home.appending(path: ".Trash/Locant 1.3.1.app")), "old")
         XCTAssertFalse(FileManager.default.fileExists(atPath: incoming.path(percentEncoded: false)))
         XCTAssertFalse(FileManager.default.fileExists(atPath: work.path(percentEncoded: false)))
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: running.deletingLastPathComponent().path(percentEncoded: false)),
+                       ["Locant.app"], "an .outgoing.app was left")
+        XCTAssertEqual(run.opened, running.path(percentEncoded: false))
     }
 
     func testScriptKeepsTheRunningCopyWhenTheIncomingOneIsMissing() throws {
         let (running, incoming, work, home) = try makeSwapFixture(incomingExists: false)
-        _ = try runSwap(running: running, incoming: incoming, work: work, home: home, waitFor: 0)
+        let run = try runSwap(running: running, incoming: incoming, work: work, home: home, waitFor: 0)
         XCTAssertEqual(try marker(in: running), "old")
         XCTAssertFalse(FileManager.default.fileExists(atPath: home.appending(path: ".Trash/Locant 1.3.1.app").path(percentEncoded: false)))
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: home.appending(path: ".Trash").path(percentEncoded: false)), [])
+        XCTAssertEqual(run.opened, running.path(percentEncoded: false))
     }
 
     func testScriptGivesTheTrashCopyAnotherNameWhenTheFirstIsTaken() throws {
@@ -204,6 +208,48 @@ final class UpdateInstallerTests: XCTestCase {
         XCTAssertEqual(trash.count, 2)
         let renamed = try XCTUnwrap(trash.first { $0.hasPrefix("Locant 1.3.1 ") && $0.hasSuffix(".app") })
         XCTAssertEqual(try marker(in: home.appending(path: ".Trash/\(renamed)")), "old")
+    }
+
+    func testScriptPutsTheOldCopyBackWhenTheIncomingOneCannotMove() throws {
+        let (running, _, work, home) = try makeSwapFixture(incomingExists: false)
+        // Renaming out of a folder that can't be written fails with EACCES; the same volume, so `mv`
+        // doesn't fall back to a copy.
+        let locked = try makeFolder("locked")
+        let incoming = locked.appending(path: ".Locant-9.9.9.incoming.app", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: incoming, withIntermediateDirectories: true)
+        try Data("new".utf8).write(to: incoming.appending(path: "marker"))
+        try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: locked.path(percentEncoded: false))
+        addTeardownBlock { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: locked.path(percentEncoded: false)) }
+
+        let run = try runSwap(running: running, incoming: incoming, work: work, home: home, waitFor: 0)
+
+        XCTAssertEqual(try marker(in: running), "old")
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: running.deletingLastPathComponent().path(percentEncoded: false)),
+                       ["Locant.app"])
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: home.appending(path: ".Trash").path(percentEncoded: false)), [])
+        XCTAssertEqual(run.opened, running.path(percentEncoded: false))
+    }
+
+    func testScriptKeepsTheNewCopyWhenTheTrashCannotTakeTheOldOne() throws {
+        let (running, incoming, work, home) = try makeSwapFixture(incomingExists: true)
+        let trash = home.appending(path: ".Trash")
+        try FileManager.default.removeItem(at: trash)
+        try Data().write(to: trash) // a plain file, so nothing can go in it
+
+        let run = try runSwap(running: running, incoming: incoming, work: work, home: home, waitFor: 0)
+
+        XCTAssertEqual(try marker(in: running), "new")
+        XCTAssertEqual(run.opened, running.path(percentEncoded: false))
+        // R182 removes it at the next start.
+        XCTAssertEqual(try marker(in: running.deletingLastPathComponent().appending(path: ".Locant-1.3.1.outgoing.app")), "old")
+    }
+
+    func testSwapArgumentsAreInTheOrderTheScriptReadsThem() {
+        let arguments = UpdateInstaller.swapArguments(
+            pid: 42, running: URL(filePath: "/Apps/Locant.app"), incoming: URL(filePath: "/Apps/.Locant-1.4.0.incoming.app"),
+            oldVersion: AppVersion("1.3.1")!, work: URL(filePath: "/tmp/Locant-update-X"), opener: "/usr/bin/open")
+        XCTAssertEqual(arguments, ["42", "/Apps/Locant.app", "/Apps/.Locant-1.4.0.incoming.app", "1.3.1", "/tmp/Locant-update-X", "/usr/bin/open"])
+        XCTAssertTrue(UpdateInstaller.script.contains("pid=$1 running=$2 incoming=$3 old=$4 work=$5 opener=$6"))
     }
 
     private func makeSwapFixture(incomingExists: Bool) throws -> (running: URL, incoming: URL, work: URL, home: URL) {
@@ -222,22 +268,27 @@ final class UpdateInstallerTests: XCTestCase {
         return (running, incoming, work, home)
     }
 
-    /// Runs the script as `startSwap` would, with `HOME` pointed at the fixture and `/usr/bin/true` as
-    /// the opener, against the pid of a `sleep` that ends after `waitFor` seconds. Returns how long the
-    /// shell ran, and whether the sleeper was still alive the moment the shell exited: a script that
-    /// does not wait for the pid finishes first, so the test sees it.
+    /// Runs the script as `startSwap` does (`/bin/sh -c <script> sh` and `swapArguments`), with `HOME`
+    /// pointed at the fixture and an opener that writes down what it was asked to open, against the pid
+    /// of a `sleep` that ends after `waitFor` seconds. Returns how long the shell ran, whether the
+    /// sleeper was still alive the moment the shell exited (a script that does not wait for the pid
+    /// finishes first, so the test sees it), and the path the opener got.
     private func runSwap(running: URL, incoming: URL, work: URL, home: URL, waitFor: Double) throws
-        -> (elapsed: TimeInterval, sleeperStillRunning: Bool) {
-        let script = work.appending(path: "swap.sh")
-        try UpdateInstaller.script.write(to: script, atomically: true, encoding: .utf8)
+        -> (elapsed: TimeInterval, sleeperStillRunning: Bool, opened: String?) {
+        let openerFolder = try makeFolder("opener")
+        let opener = openerFolder.appending(path: "open.sh")
+        let opened = openerFolder.appending(path: "opened")
+        try "#!/bin/sh\nprintf '%s' \"$1\" > '\(opened.path(percentEncoded: false))'\n".write(to: opener, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: opener.path(percentEncoded: false))
         let sleeper = Process()
         sleeper.executableURL = URL(filePath: "/bin/sleep")
         sleeper.arguments = [String(waitFor)]
         try sleeper.run()
         let shell = Process()
         shell.executableURL = URL(filePath: "/bin/sh")
-        shell.arguments = [script.path(percentEncoded: false), String(sleeper.processIdentifier), running.path(percentEncoded: false),
-                           incoming.path(percentEncoded: false), "1.3.1", work.path(percentEncoded: false), "/usr/bin/true"]
+        shell.arguments = ["-c", UpdateInstaller.script, "sh"] + UpdateInstaller.swapArguments(
+            pid: sleeper.processIdentifier, running: running, incoming: incoming, oldVersion: AppVersion("1.3.1")!,
+            work: work, opener: opener.path(percentEncoded: false))
         shell.environment = ["HOME": home.path(percentEncoded: false)]
         let started = Date()
         try shell.run()
@@ -246,7 +297,7 @@ final class UpdateInstallerTests: XCTestCase {
         let sleeperStillRunning = sleeper.isRunning
         sleeper.waitUntilExit()
         XCTAssertEqual(shell.terminationStatus, 0)
-        return (elapsed, sleeperStillRunning)
+        return (elapsed, sleeperStillRunning, try? String(contentsOf: opened, encoding: .utf8))
     }
 
     private func marker(in app: URL) throws -> String {
