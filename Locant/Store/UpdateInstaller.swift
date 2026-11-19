@@ -65,6 +65,13 @@ struct BundleFacts: Equatable, Sendable {
     }
 }
 
+/// R180: a checked copy beside the running one, ready to swap.
+struct PreparedUpdate: Sendable {
+    let work: URL
+    let incoming: URL
+    let running: URL
+}
+
 /// R177–R180: download, unpack, check, and swap. The decisions are pure and tested; the steps that
 /// touch the network, the disk images, and the signatures are below them.
 enum UpdateInstaller {
@@ -167,6 +174,56 @@ enum UpdateInstaller {
     static func discard(work: URL, incoming: URL) {
         try? FileManager.default.removeItem(at: incoming)
         try? FileManager.default.removeItem(at: work)
+    }
+
+    /// R180: run by `/bin/sh` after Locant quits. Everything comes in as arguments: the pid to wait for,
+    /// the running path, the incoming path, the old version, the download folder, and the command that
+    /// opens the result. The old copy goes to the Trash, so it can be put back by hand.
+    static let script = """
+    PATH=/usr/bin:/bin
+    pid=$1 running=$2 incoming=$3 old=$4 work=$5 opener=$6
+    tries=0
+    while kill -0 "$pid" 2>/dev/null; do
+      tries=$((tries + 1))
+      if [ "$tries" -ge 200 ]; then
+        rm -rf "$incoming" "$work"
+        exit 1
+      fi
+      sleep 0.1
+    done
+    mkdir -p "$HOME/.Trash"
+    trash="$HOME/.Trash/Locant $old.app"
+    if [ -e "$trash" ]; then
+      trash="$HOME/.Trash/Locant $old $(date '+%Y-%m-%d %H.%M.%S').app"
+    fi
+    if mv "$running" "$trash"; then
+      if ! mv "$incoming" "$running"; then
+        mv "$trash" "$running"
+        rm -rf "$incoming"
+      fi
+    else
+      rm -rf "$incoming"
+    fi
+    "$opener" "$running"
+    rm -rf "$work"
+
+    """
+
+    /// R180: write the script into the download folder and start it. The caller quits right after.
+    /// A child started with `Process` outlives its parent: Locant has no terminal to hang up.
+    static func startSwap(_ prepared: PreparedUpdate, oldVersion: AppVersion,
+                          pid: pid_t = ProcessInfo.processInfo.processIdentifier, opener: String = "/usr/bin/open") throws {
+        let scriptURL = prepared.work.appending(path: "swap.sh")
+        do { try script.write(to: scriptURL, atomically: true, encoding: .utf8) } catch { throw InstallFailure.unpackFailed }
+        let process = Process()
+        process.executableURL = URL(filePath: "/bin/sh")
+        process.arguments = [scriptURL.path(percentEncoded: false), String(pid), prepared.running.path(percentEncoded: false),
+                             prepared.incoming.path(percentEncoded: false), oldVersion.description,
+                             prepared.work.path(percentEncoded: false), opener]
+        process.standardInput = FileHandle.nullDevice
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        do { try process.run() } catch { throw InstallFailure.unpackFailed }
     }
 
     /// Runs a tool and returns its standard output, or nil when it fails. The tools here print little

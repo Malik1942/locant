@@ -170,6 +170,80 @@ final class UpdateInstallerTests: XCTestCase {
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: tmp.path(percentEncoded: false)), ["keep"])
     }
 
+    // R180
+    func testScriptNamesNoPath() {
+        XCTAssertFalse(UpdateInstaller.script.contains("/Applications"))
+        XCTAssertFalse(UpdateInstaller.script.contains("Locant.app"))
+    }
+
+    func testScriptSwapsAfterThePidExits() throws {
+        let (running, incoming, work, home) = try makeSwapFixture(incomingExists: true)
+        let started = Date()
+        try runSwap(running: running, incoming: incoming, work: work, home: home, waitFor: 0.3)
+        XCTAssertGreaterThanOrEqual(Date().timeIntervalSince(started), 0.25, "the script did not wait for the pid")
+        XCTAssertEqual(try marker(in: running), "new")
+        XCTAssertEqual(try marker(in: home.appending(path: ".Trash/Locant 1.3.1.app")), "old")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: incoming.path(percentEncoded: false)))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: work.path(percentEncoded: false)))
+    }
+
+    func testScriptKeepsTheRunningCopyWhenTheIncomingOneIsMissing() throws {
+        let (running, incoming, work, home) = try makeSwapFixture(incomingExists: false)
+        try runSwap(running: running, incoming: incoming, work: work, home: home, waitFor: 0)
+        XCTAssertEqual(try marker(in: running), "old")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: home.appending(path: ".Trash/Locant 1.3.1.app").path(percentEncoded: false)))
+    }
+
+    func testScriptGivesTheTrashCopyAnotherNameWhenTheFirstIsTaken() throws {
+        let (running, incoming, work, home) = try makeSwapFixture(incomingExists: true)
+        try FileManager.default.createDirectory(at: home.appending(path: ".Trash/Locant 1.3.1.app"), withIntermediateDirectories: true)
+        try runSwap(running: running, incoming: incoming, work: work, home: home, waitFor: 0)
+        XCTAssertEqual(try marker(in: running), "new")
+        let trash = try FileManager.default.contentsOfDirectory(atPath: home.appending(path: ".Trash").path(percentEncoded: false))
+        XCTAssertEqual(trash.count, 2)
+        XCTAssertTrue(trash.contains { $0.hasPrefix("Locant 1.3.1 ") && $0.hasSuffix(".app") })
+    }
+
+    private func makeSwapFixture(incomingExists: Bool) throws -> (running: URL, incoming: URL, work: URL, home: URL) {
+        let apps = try makeFolder("apps")
+        let home = try makeFolder("home")
+        try FileManager.default.createDirectory(at: home.appending(path: ".Trash"), withIntermediateDirectories: true)
+        let work = try makeFolder("Locant-update-test")
+        let running = apps.appending(path: "Locant.app", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: running, withIntermediateDirectories: true)
+        try Data("old".utf8).write(to: running.appending(path: "marker"))
+        let incoming = apps.appending(path: ".Locant-9.9.9.incoming.app", directoryHint: .isDirectory)
+        if incomingExists {
+            try FileManager.default.createDirectory(at: incoming, withIntermediateDirectories: true)
+            try Data("new".utf8).write(to: incoming.appending(path: "marker"))
+        }
+        return (running, incoming, work, home)
+    }
+
+    /// Runs the script as `startSwap` would, with `HOME` pointed at the fixture and `/usr/bin/true` as
+    /// the opener, against the pid of a `sleep` that ends after `waitFor` seconds.
+    private func runSwap(running: URL, incoming: URL, work: URL, home: URL, waitFor: Double) throws {
+        let script = work.appending(path: "swap.sh")
+        try UpdateInstaller.script.write(to: script, atomically: true, encoding: .utf8)
+        let sleeper = Process()
+        sleeper.executableURL = URL(filePath: "/bin/sleep")
+        sleeper.arguments = [String(waitFor)]
+        try sleeper.run()
+        let shell = Process()
+        shell.executableURL = URL(filePath: "/bin/sh")
+        shell.arguments = [script.path(percentEncoded: false), String(sleeper.processIdentifier), running.path(percentEncoded: false),
+                           incoming.path(percentEncoded: false), "1.3.1", work.path(percentEncoded: false), "/usr/bin/true"]
+        shell.environment = ["HOME": home.path(percentEncoded: false)]
+        try shell.run()
+        shell.waitUntilExit()
+        sleeper.waitUntilExit()
+        XCTAssertEqual(shell.terminationStatus, 0)
+    }
+
+    private func marker(in app: URL) throws -> String {
+        try String(contentsOf: app.appending(path: "marker"), encoding: .utf8)
+    }
+
     private func makeFolder(_ name: String) throws -> URL {
         let folder = temp.appending(path: name, directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
