@@ -11,6 +11,10 @@ final class UpdateInstallerTests: XCTestCase {
     }
 
     override func tearDownWithError() throws {
+        // A failed test can leave a disk image attached under the fixture.
+        for mount in UpdateInstaller.mountPoints(inInfoPlist: UpdateInstaller.runTool("/usr/bin/hdiutil", ["info", "-plist"]) ?? Data(), under: temp) {
+            UpdateInstaller.runTool("/usr/bin/hdiutil", ["detach", "-force", mount])
+        }
         try? FileManager.default.removeItem(at: temp)
     }
 
@@ -172,18 +176,49 @@ final class UpdateInstallerTests: XCTestCase {
     func testLeftoversAreRemoved() throws {
         let apps = try makeFolder("apps")
         let tmp = try makeFolder("tmp")
-        for name in ["Locant.app", ".Locant-1.4.0.incoming.app", "Other.app"] {
+        for name in ["Locant.app", ".Locant-1.4.0.incoming.app", ".Locant-1.3.1.outgoing.app", "Other.app"] {
             try FileManager.default.createDirectory(at: apps.appending(path: name), withIntermediateDirectories: true)
         }
         for name in ["Locant-update-ABC", "keep"] {
             try FileManager.default.createDirectory(at: tmp.appending(path: name), withIntermediateDirectories: true)
         }
+        // A quit during unpacking leaves the dmg attached inside the download folder.
+        let source = try makeFolder("src")
+        try Data("x".utf8).write(to: source.appending(path: "readme.txt"))
+        let download = tmp.appending(path: "Locant-update-DEF", directoryHint: .isDirectory)
+        let mounts = download.appending(path: "mnt", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: mounts, withIntermediateDirectories: true)
+        let dmg = try makeDiskImage(from: source)
+        let attached = UpdateInstaller.runTool("/usr/bin/hdiutil", ["attach", "-nobrowse", "-readonly", "-noautoopen", "-mountrandom",
+                                                                    mounts.path(percentEncoded: false), "-plist", dmg.path(percentEncoded: false)])
+        XCTAssertNotNil(attached.flatMap(UpdateInstaller.mountPoint(inAttachPlist:)), "hdiutil attach failed")
 
         UpdateInstaller.removeLeftovers(beside: apps.appending(path: "Locant.app"), temporary: tmp)
 
         let left = Set(try FileManager.default.contentsOfDirectory(atPath: apps.path(percentEncoded: false)))
         XCTAssertEqual(left, ["Locant.app", "Other.app"])
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: tmp.path(percentEncoded: false)), ["keep"])
+        let info = String(decoding: UpdateInstaller.runTool("/usr/bin/hdiutil", ["info"]) ?? Data(), as: UTF8.self)
+        XCTAssertFalse(info.contains(download.path(percentEncoded: false)), "the disk image is still attached")
+    }
+
+    func testMountPointsUnderAFolder() throws {
+        // `hdiutil info` names /private/var/folders where the temporary directory says /var/folders.
+        func spelledPrivate(_ url: URL) -> String {
+            let path = url.path(percentEncoded: false)
+            return path.hasPrefix("/var/") || path.hasPrefix("/tmp/") ? "/private" + path : path
+        }
+        let inside = try makeFolder("Locant-update-A/mnt/dmg.1")
+        let sibling = try makeFolder("Locant-update-AB/mnt/dmg.2")
+        let plist: [String: Any] = ["images": [
+            ["system-entities": [["dev-entry": "/dev/disk8"], ["dev-entry": "/dev/disk8s1", "mount-point": spelledPrivate(inside)]]],
+            ["system-entities": [["dev-entry": "/dev/disk9s1", "mount-point": sibling.path(percentEncoded: false)]]],
+            ["system-entities": [["dev-entry": "/dev/disk10s1", "mount-point": "/Volumes/Other"]]],
+        ]]
+        let data = try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
+        XCTAssertEqual(UpdateInstaller.mountPoints(inInfoPlist: data, under: temp.appending(path: "Locant-update-A")), [spelledPrivate(inside)])
+        XCTAssertEqual(UpdateInstaller.mountPoints(inInfoPlist: data, under: temp.appending(path: "Nothing")), [])
+        XCTAssertEqual(UpdateInstaller.mountPoints(inInfoPlist: Data("not a plist".utf8), under: temp), [])
     }
 
     // R180

@@ -250,18 +250,40 @@ enum UpdateInstaller {
         return SecStaticCodeCheckValidity(code, flags, requirement) == errSecSuccess
     }
 
-    /// R182: what a crash or a stopped script leaves: incoming copies beside Locant, download folders.
+    /// R182: what a crash, a quit during unpacking, or a stopped script leaves: incoming and outgoing
+    /// copies beside Locant, download folders, and a dmg still attached inside one. Best effort; what
+    /// stays is tried again at the next start.
     static func removeLeftovers(beside running: URL, temporary: URL = FileManager.default.temporaryDirectory) {
         let fm = FileManager.default
         let folder = running.deletingLastPathComponent()
         for name in (try? fm.contentsOfDirectory(atPath: folder.path(percentEncoded: false))) ?? []
-        where name.hasPrefix(".Locant-") && name.hasSuffix(".incoming.app") {
+        where name.hasPrefix(".Locant-") && (name.hasSuffix(".incoming.app") || name.hasSuffix(".outgoing.app"))
+            && name != running.lastPathComponent {
             try? fm.removeItem(at: folder.appending(path: name))
         }
-        for name in (try? fm.contentsOfDirectory(atPath: temporary.path(percentEncoded: false))) ?? []
-        where name.hasPrefix("Locant-update-") {
-            try? fm.removeItem(at: temporary.appending(path: name))
+        let downloads = ((try? fm.contentsOfDirectory(atPath: temporary.path(percentEncoded: false))) ?? [])
+            .filter { $0.hasPrefix("Locant-update-") }
+            .map { temporary.appending(path: $0, directoryHint: .isDirectory) }
+        guard !downloads.isEmpty else { return }
+        let info = runTool("/usr/bin/hdiutil", ["info", "-plist"]) ?? Data()
+        for download in downloads {
+            for mount in mountPoints(inInfoPlist: info, under: download) {
+                runTool("/usr/bin/hdiutil", ["detach", "-force", mount])
+            }
+            try? fm.removeItem(at: download)
         }
+    }
+
+    /// R182: the mount points in `hdiutil info -plist` output that lie inside `folder`. Both sides are
+    /// compared with their links resolved: `hdiutil` says /private/var/folders where the temporary
+    /// directory says /var/folders.
+    static func mountPoints(inInfoPlist data: Data, under folder: URL) -> [String] {
+        guard let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
+              let images = plist["images"] as? [[String: Any]] else { return [] }
+        let base = folder.resolvingSymlinksInPath().pathComponents
+        return images.flatMap { $0["system-entities"] as? [[String: Any]] ?? [] }
+            .compactMap { $0["mount-point"] as? String }
+            .filter { Array(URL(filePath: $0).resolvingSymlinksInPath().pathComponents.prefix(base.count)) == base }
     }
 
     /// R181: undo everything before the swap; the running copy was never touched.
