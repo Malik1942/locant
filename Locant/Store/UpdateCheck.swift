@@ -58,6 +58,12 @@ struct GitHubRelease: Decodable, Equatable, Sendable {
         assets.first { $0.name.lowercased().hasSuffix(".dmg") }?.browserDownloadURL ?? htmlURL
     }
 
+    /// specs/in-app-update.md R177: the versioned dmg, the one the Homebrew cask uses. `Locant.dmg`
+    /// is the same file under a stable name, but only the versioned name says which version it is.
+    func installerAsset(version: AppVersion) -> URL? {
+        assets.first { $0.name == "Locant-\(version).dmg" }?.browserDownloadURL
+    }
+
     static func decode(_ data: Data) throws -> GitHubRelease {
         try JSONDecoder().decode(GitHubRelease.self, from: data)
     }
