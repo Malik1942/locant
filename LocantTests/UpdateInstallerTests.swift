@@ -178,9 +178,9 @@ final class UpdateInstallerTests: XCTestCase {
 
     func testScriptSwapsAfterThePidExits() throws {
         let (running, incoming, work, home) = try makeSwapFixture(incomingExists: true)
-        let started = Date()
-        try runSwap(running: running, incoming: incoming, work: work, home: home, waitFor: 0.3)
-        XCTAssertGreaterThanOrEqual(Date().timeIntervalSince(started), 0.25, "the script did not wait for the pid")
+        let run = try runSwap(running: running, incoming: incoming, work: work, home: home, waitFor: 0.3)
+        XCTAssertGreaterThanOrEqual(run.elapsed, 0.25, "the script did not wait for the pid")
+        XCTAssertFalse(run.sleeperStillRunning, "the script finished before the pid exited")
         XCTAssertEqual(try marker(in: running), "new")
         XCTAssertEqual(try marker(in: home.appending(path: ".Trash/Locant 1.3.1.app")), "old")
         XCTAssertFalse(FileManager.default.fileExists(atPath: incoming.path(percentEncoded: false)))
@@ -189,19 +189,21 @@ final class UpdateInstallerTests: XCTestCase {
 
     func testScriptKeepsTheRunningCopyWhenTheIncomingOneIsMissing() throws {
         let (running, incoming, work, home) = try makeSwapFixture(incomingExists: false)
-        try runSwap(running: running, incoming: incoming, work: work, home: home, waitFor: 0)
+        _ = try runSwap(running: running, incoming: incoming, work: work, home: home, waitFor: 0)
         XCTAssertEqual(try marker(in: running), "old")
         XCTAssertFalse(FileManager.default.fileExists(atPath: home.appending(path: ".Trash/Locant 1.3.1.app").path(percentEncoded: false)))
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: home.appending(path: ".Trash").path(percentEncoded: false)), [])
     }
 
     func testScriptGivesTheTrashCopyAnotherNameWhenTheFirstIsTaken() throws {
         let (running, incoming, work, home) = try makeSwapFixture(incomingExists: true)
         try FileManager.default.createDirectory(at: home.appending(path: ".Trash/Locant 1.3.1.app"), withIntermediateDirectories: true)
-        try runSwap(running: running, incoming: incoming, work: work, home: home, waitFor: 0)
+        _ = try runSwap(running: running, incoming: incoming, work: work, home: home, waitFor: 0)
         XCTAssertEqual(try marker(in: running), "new")
         let trash = try FileManager.default.contentsOfDirectory(atPath: home.appending(path: ".Trash").path(percentEncoded: false))
         XCTAssertEqual(trash.count, 2)
-        XCTAssertTrue(trash.contains { $0.hasPrefix("Locant 1.3.1 ") && $0.hasSuffix(".app") })
+        let renamed = try XCTUnwrap(trash.first { $0.hasPrefix("Locant 1.3.1 ") && $0.hasSuffix(".app") })
+        XCTAssertEqual(try marker(in: home.appending(path: ".Trash/\(renamed)")), "old")
     }
 
     private func makeSwapFixture(incomingExists: Bool) throws -> (running: URL, incoming: URL, work: URL, home: URL) {
@@ -221,8 +223,11 @@ final class UpdateInstallerTests: XCTestCase {
     }
 
     /// Runs the script as `startSwap` would, with `HOME` pointed at the fixture and `/usr/bin/true` as
-    /// the opener, against the pid of a `sleep` that ends after `waitFor` seconds.
-    private func runSwap(running: URL, incoming: URL, work: URL, home: URL, waitFor: Double) throws {
+    /// the opener, against the pid of a `sleep` that ends after `waitFor` seconds. Returns how long the
+    /// shell ran, and whether the sleeper was still alive the moment the shell exited: a script that
+    /// does not wait for the pid finishes first, so the test sees it.
+    private func runSwap(running: URL, incoming: URL, work: URL, home: URL, waitFor: Double) throws
+        -> (elapsed: TimeInterval, sleeperStillRunning: Bool) {
         let script = work.appending(path: "swap.sh")
         try UpdateInstaller.script.write(to: script, atomically: true, encoding: .utf8)
         let sleeper = Process()
@@ -234,10 +239,14 @@ final class UpdateInstallerTests: XCTestCase {
         shell.arguments = [script.path(percentEncoded: false), String(sleeper.processIdentifier), running.path(percentEncoded: false),
                            incoming.path(percentEncoded: false), "1.3.1", work.path(percentEncoded: false), "/usr/bin/true"]
         shell.environment = ["HOME": home.path(percentEncoded: false)]
+        let started = Date()
         try shell.run()
         shell.waitUntilExit()
+        let elapsed = Date().timeIntervalSince(started)
+        let sleeperStillRunning = sleeper.isRunning
         sleeper.waitUntilExit()
         XCTAssertEqual(shell.terminationStatus, 0)
+        return (elapsed, sleeperStillRunning)
     }
 
     private func marker(in app: URL) throws -> String {

@@ -191,18 +191,20 @@ enum UpdateInstaller {
       fi
       sleep 0.1
     done
-    mkdir -p "$HOME/.Trash"
-    trash="$HOME/.Trash/Locant $old.app"
-    if [ -e "$trash" ]; then
-      trash="$HOME/.Trash/Locant $old $(date '+%Y-%m-%d %H.%M.%S').app"
-    fi
-    if mv "$running" "$trash"; then
-      if ! mv "$incoming" "$running"; then
-        mv "$trash" "$running"
+    if [ -d "$incoming" ]; then
+      mkdir -p "$HOME/.Trash"
+      trash="$HOME/.Trash/Locant $old.app"
+      if [ -e "$trash" ]; then
+        trash="$HOME/.Trash/Locant $old $(date '+%Y-%m-%d %H.%M.%S').app"
+      fi
+      if mv "$running" "$trash"; then
+        if ! mv "$incoming" "$running"; then
+          mv "$trash" "$running"
+          rm -rf "$incoming"
+        fi
+      else
         rm -rf "$incoming"
       fi
-    else
-      rm -rf "$incoming"
     fi
     "$opener" "$running"
     rm -rf "$work"
