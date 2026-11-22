@@ -111,6 +111,8 @@ final class AppState {
     @ObservationIgnored private var clipboardOnlyPreset = false
     @ObservationIgnored private var sweepTask: Task<Void, Never>?
     @ObservationIgnored private var updateTask: Task<Void, Never>?
+    /// specs/in-app-update.md R177–R180: an install under way, from Install and Relaunch to the quit.
+    @ObservationIgnored private var installTask: Task<Void, Never>?
     /// R52: NSWorkspace launch and activation observers, and whether an iteration is being collected.
     @ObservationIgnored private var appObservers: [any NSObjectProtocol] = []
     @ObservationIgnored private var collecting = false
@@ -169,6 +171,12 @@ final class AppState {
         showHelpOnFirstLaunch()
         scheduleSweeps()
         scheduleUpdateChecks()
+        // As the test host, leave the real temporary folder alone: a real install's files live there.
+        if !AppDelegate.isTestHost {
+            let bundle = Bundle.main.bundleURL
+            Task.detached { UpdateInstaller.removeLeftovers(beside: bundle) } // R182
+            reportSwapThatDidNotHappen()
+        }
         watchAppsForIterations()
         watchAgentApps()
         overlay.onHover = { [weak self] point in self?.hover(point) }
@@ -438,7 +446,8 @@ final class AppState {
     /// The daily check, or Settings › General "Check Now" (`manual`), which ignores the daily
     /// limit and the skipped version and always answers with an alert (R47).
     func checkForUpdates(manual: Bool) async {
-        guard let current = UpdateCheck.currentVersion else { return }
+        // R177: while an install is under way, a second Install button would do nothing.
+        guard installTask == nil, let current = UpdateCheck.currentVersion else { return }
         preferences.lastUpdateCheck = .now
         let latest: GitHubRelease
         do {
@@ -447,6 +456,7 @@ final class AppState {
             if manual { inform("Locant could not reach GitHub.", detail: "Try again later.") }
             return
         }
+        guard installTask == nil else { return } // one may have begun during the request
         switch UpdateCheck.outcome(latest: latest, current: current, skipped: manual ? nil : preferences.skippedUpdateVersion) {
         case .available(let release):
             // R48: never over the overlay; the daily check tries again tomorrow instead of waiting.
@@ -459,20 +469,120 @@ final class AppState {
         }
     }
 
+    /// specs/in-app-update.md R175 (over specs/v0.6.md R48): Install and Relaunch where Locant can replace
+    /// itself (R176), the browser download where it can't, with the reason.
     private func offerUpdate(_ release: GitHubRelease, current: AppVersion) {
         let newest = release.version.map(\.description) ?? release.tagName
+        let place = InstallPlace.current()
         let alert = NSAlert()
         alert.messageText = "Locant \(newest) is available"
-        alert.informativeText = "You have \(current). Drag the new copy over the old one in Applications; your permissions carry over."
-        alert.addButton(withTitle: "Download")
+        if place == .ok {
+            alert.informativeText = "You have \(current). Locant downloads the new version, checks that it is signed by the same developer, and reopens. Your permissions carry over."
+            alert.addButton(withTitle: "Install and Relaunch")
+        } else {
+            alert.informativeText = "You have \(current). Drag the new copy over the old one in Applications; your permissions carry over.\n\n\(place.reason ?? "")"
+            alert.addButton(withTitle: "Download")
+        }
         alert.addButton(withTitle: "Later")
         alert.addButton(withTitle: "Skip This Version")
         NSApp.activate()
         switch alert.runModal() {
-        case .alertFirstButtonReturn: NSWorkspace.shared.open(release.downloadURL)
+        case .alertFirstButtonReturn:
+            if place == .ok { install(release, current: current) } else { NSWorkspace.shared.open(release.downloadURL) }
         case .alertThirdButtonReturn: preferences.skippedUpdateVersion = newest
         default: break
         }
+    }
+
+    /// R177–R180: download, check, wait for idle, start the swap script, quit. Any failure ends in R181.
+    private func install(_ release: GitHubRelease, current: AppVersion) {
+        guard installTask == nil else { return }
+        let newest = release.version.map(\.description) ?? release.tagName
+        guard let offered = release.version, let asset = release.installerAsset(version: offered) else {
+            offerBrowserDownload(release, newest: newest, failure: .noInstaller)
+            return
+        }
+        let panel = UpdatePanel()
+        panel.show("Downloading Locant \(newest)…") { [weak self] in self?.installTask?.cancel() }
+        installTask = Task { @MainActor [weak self] in
+            var prepared: PreparedUpdate?
+            do {
+                let ready = try await UpdateInstaller.prepare(
+                    asset: asset, offered: offered, current: current, running: Bundle.main.bundleURL,
+                    progress: { panel.setProgress($0) },
+                    checking: { panel.setText("Checking Locant \(newest)…") })
+                prepared = ready
+                panel.close()
+                // A Cancel that landed after `prepare` returned still never swaps.
+                try Task.checkCancellation()
+                guard let self else { throw CancellationError() }
+                // R180: an install never cuts a session short. R179: the checks run again after the wait,
+                // since the copy sat in a folder the user can write to. A session that began during them is
+                // waited for and the copy checked again; from the last check to the quit nothing awaits.
+                repeat {
+                    await self.waitForIdle()
+                    try await Task.detached {
+                        try UpdateInstaller.verify(incoming: ready.incoming, running: ready.running, offered: offered, current: current)
+                    }.value
+                } while self.phase != .idle
+                // R181: the next start learns from this file whether the swap happened.
+                do { try UpdateInstaller.writePending(PendingUpdate(version: offered.description, downloadURL: release.downloadURL)) }
+                catch { self.log.error("Update to \(newest, privacy: .public): pending file not written: \(error.localizedDescription, privacy: .public)") }
+                do { try UpdateInstaller.startSwap(ready, oldVersion: current) } catch {
+                    UpdateInstaller.removePending()
+                    throw error
+                }
+                NSApp.terminate(nil)
+            } catch {
+                panel.close()
+                if let prepared { UpdateInstaller.discard(work: prepared.work, incoming: prepared.incoming) }
+                // R177: Cancel shows nothing else, even when a failure raced it.
+                if !(error is CancellationError), !Task.isCancelled, let self {
+                    await self.waitForIdle()
+                    self.offerBrowserDownload(release, newest: newest, failure: error as? InstallFailure ?? .unpackFailed)
+                }
+                // Only now: until R181 has shown, the update checks offer nothing.
+                self?.installTask = nil
+            }
+        }
+    }
+
+    /// R181: the reason, and the browser download as before.
+    private func offerBrowserDownload(_ release: GitHubRelease, newest: String, failure: InstallFailure) {
+        log.error("Update to \(newest, privacy: .public) failed: \(String(describing: failure), privacy: .public)")
+        offerBrowserDownload(newest: newest, reason: failure.reason, downloadURL: release.downloadURL)
+    }
+
+    private func offerBrowserDownload(newest: String, reason: String, downloadURL: URL) {
+        let alert = NSAlert()
+        alert.messageText = "Locant couldn't install \(newest)"
+        alert.informativeText = reason
+        alert.addButton(withTitle: "Download in Browser")
+        alert.addButton(withTitle: "Cancel")
+        NSApp.activate()
+        if alert.runModal() == .alertFirstButtonReturn { NSWorkspace.shared.open(downloadURL) }
+    }
+
+    /// R181 "A swap that didn't happen": the last run started the swap script and quit, and this copy
+    /// is still older than the version it installed. Read once and deleted; the alert waits for idle.
+    private func reportSwapThatDidNotHappen() {
+        guard let pending = UpdateInstaller.takePending(), let current = UpdateCheck.currentVersion,
+              case .failed(let version, let downloadURL) = UpdateInstaller.pendingOutcome(pending: pending, current: current)
+        else { return }
+        log.error("Update to \(version, privacy: .public) didn't happen; still \(current.description, privacy: .public)")
+        let folder = Bundle.main.bundleURL.deletingLastPathComponent().lastPathComponent
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.waitForIdle()
+            self.offerBrowserDownload(newest: version, reason: "Locant couldn't replace the copy in \(folder), so you still have \(current).",
+                                      downloadURL: downloadURL)
+        }
+    }
+
+    /// Alerts wait for the session to end: `runModal` blocks the main actor, and the overlay's deferred
+    /// work with it.
+    private func waitForIdle() async {
+        while phase != .idle { try? await Task.sleep(for: .milliseconds(200)) }
     }
 
     private func inform(_ message: String, detail: String = "") {

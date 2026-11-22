@@ -58,6 +58,12 @@ struct GitHubRelease: Decodable, Equatable, Sendable {
         assets.first { $0.name.lowercased().hasSuffix(".dmg") }?.browserDownloadURL ?? htmlURL
     }
 
+    /// specs/in-app-update.md R177: the versioned dmg, the one the Homebrew cask uses. `Locant.dmg`
+    /// is the same file under a stable name, but only the versioned name says which version it is.
+    func installerAsset(version: AppVersion) -> URL? {
+        assets.first { $0.name == "Locant-\(version).dmg" }?.browserDownloadURL
+    }
+
     static func decode(_ data: Data) throws -> GitHubRelease {
         try JSONDecoder().decode(GitHubRelease.self, from: data)
     }
@@ -70,6 +76,14 @@ enum UpdateCheck {
     static let timeout: TimeInterval = 15
     /// After `AppState.start()`, so the check never races the permission alerts or the Help window.
     static let launchDelay: Duration = .seconds(10)
+
+    #if DEBUG || UPDATE_FEED_TEST
+    /// specs/in-app-update.md R183: `-updateFeed <path>` reads the release JSON from that file in place of
+    /// asking GitHub. Debug builds only, read from the launch arguments alone, so a persisted default can
+    /// never turn it on. A Release build compiles it only with the Swift flag `UPDATE_FEED_TEST`, set by
+    /// hand for the notarized end-to-end run and never committed.
+    static let debugFeed = UserDefaults.standard.volatileDomain(forName: UserDefaults.argumentDomain)["updateFeed"] as? String
+    #endif
 
     enum Outcome: Equatable, Sendable {
         /// A newer release the user has not skipped.
@@ -112,6 +126,9 @@ enum UpdateCheck {
 
     /// Fetch the newest release. Throws on any failure; the caller stays silent.
     static func fetch(current: AppVersion?) async throws -> GitHubRelease {
+        #if DEBUG || UPDATE_FEED_TEST
+        if let debugFeed { return try GitHubRelease.decode(Data(contentsOf: URL(filePath: debugFeed))) }
+        #endif
         let configuration = URLSessionConfiguration.ephemeral
         configuration.httpCookieStorage = nil
         configuration.urlCache = nil

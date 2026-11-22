@@ -1,6 +1,11 @@
 # Changelog
 
-Every release is a signed, notarized `Locant.dmg` on [GitHub Releases](https://github.com/Malik1942/locant/releases). Drag the new copy over the old one; the permissions carry over.
+Every release is a signed, notarized `Locant.dmg` on [GitHub Releases](https://github.com/Malik1942/locant/releases). From 1.4.0 on, Locant installs it for you from the update alert; your permissions carry over.
+
+## 1.4.0 (2026-11-22)
+
+- **Locant installs its own updates.** The update alert's Install and Relaunch downloads the new version from GitHub, checks that it is signed by the same developer and notarized, puts it in place of the old copy, and reopens Locant. Your permissions carry over, and the old copy goes to the Trash. Where Locant can't replace itself (opened from a disk image or Downloads, or from a folder you can't write to), the alert says why and offers the browser download as before. Copies older than this version update through the browser one last time.
+- **Homebrew leaves Locant to update itself.** The cask now says `auto_updates true`, so a plain `brew upgrade` skips Locant from here on. To get this version from 1.3.1 or earlier, use the update alert's Download once, or run `brew upgrade --greedy locant`.
 
 ## 1.3.1 (2026-11-13)
 

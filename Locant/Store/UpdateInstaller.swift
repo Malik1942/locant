@@ -1,0 +1,426 @@
+import Foundation
+
+/// specs/in-app-update.md R176: whether Locant can replace itself where it runs, decided before the
+/// alert offers Install and Relaunch. Pure given the three facts; `current` reads them.
+enum InstallPlace: Equatable, Sendable {
+    case ok, translocated, readOnlyVolume, notWritable(folder: String)
+
+    static func check(bundlePath: String, volumeIsReadOnly: Bool, parentIsWritable: Bool) -> InstallPlace {
+        if bundlePath.contains("/AppTranslocation/") { return .translocated }
+        if volumeIsReadOnly { return .readOnlyVolume }
+        if !parentIsWritable {
+            return .notWritable(folder: URL(filePath: bundlePath).deletingLastPathComponent().lastPathComponent)
+        }
+        return .ok
+    }
+
+    static func current(bundleURL: URL = Bundle.main.bundleURL) -> InstallPlace {
+        let readOnly = (try? bundleURL.resourceValues(forKeys: [.volumeIsReadOnlyKey]))?.volumeIsReadOnly ?? true
+        let parent = bundleURL.deletingLastPathComponent().path(percentEncoded: false)
+        return check(bundlePath: bundleURL.path(percentEncoded: false), volumeIsReadOnly: readOnly,
+                     parentIsWritable: FileManager.default.isWritableFile(atPath: parent))
+    }
+
+    /// The alert's second paragraph when Locant cannot update itself; nil when it can.
+    var reason: String? {
+        switch self {
+        case .ok: nil
+        case .translocated, .readOnlyVolume:
+            "Locant is running from a download or a disk image. Move it to Applications, open it from there, and it can update itself next time."
+        case .notWritable(let folder): "Locant can't write to the folder it is in, \(folder)."
+        }
+    }
+}
+
+/// R181: why an install stopped. Each has the sentence the failure alert shows.
+enum InstallFailure: Error, Equatable, Sendable {
+    case noInstaller, downloadFailed, noSpace, notLocant, notSigned, wrongVersion, unpackFailed
+
+    var reason: String {
+        switch self {
+        case .noInstaller: "The release has no installer."
+        case .downloadFailed: "The download failed."
+        case .noSpace: "There isn't enough space to unpack it."
+        case .notLocant: "The download doesn't hold Locant."
+        case .notSigned: "The download isn't signed by Locant's developer."
+        case .wrongVersion: "The download isn't the version that was offered."
+        case .unpackFailed: "Something went wrong unpacking it."
+        }
+    }
+}
+
+/// R179: the two Info.plist facts the checks compare.
+struct BundleFacts: Equatable, Sendable {
+    var identifier: String?
+    var version: String?
+
+    /// Read from the file, not through `Bundle`, which caches by path.
+    static func read(_ app: URL) -> BundleFacts {
+        let plist = app.appending(path: "Contents/Info.plist")
+        guard let data = try? Data(contentsOf: plist),
+              let dict = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+        else { return BundleFacts() }
+        return BundleFacts(identifier: dict["CFBundleIdentifier"] as? String,
+                           version: dict["CFBundleShortVersionString"] as? String)
+    }
+}
+
+/// R180: a checked copy beside the running one, ready to swap.
+struct PreparedUpdate: Sendable {
+    let work: URL
+    let incoming: URL
+    let running: URL
+}
+
+/// R181 "A swap that didn't happen": written right before the swap script starts, read at the next
+/// start. Once Locant has quit it can't show an alert, so the next start decides from this.
+struct PendingUpdate: Codable, Equatable, Sendable {
+    /// The version that was offered.
+    var version: String
+    /// The dmg's browser URL, the one R48's Download opens.
+    var downloadURL: URL
+}
+
+/// R181: what the pending file says at the next start.
+enum PendingOutcome: Equatable, Sendable {
+    /// The update went in, or the file names nothing newer; nothing shows.
+    case installed
+    /// The running copy is still older than the offered one: the swap didn't happen.
+    case failed(version: String, downloadURL: URL)
+}
+
+/// R177–R180: download, unpack, check, and swap. The decisions are pure and tested; the steps that
+/// touch the network, the disk images, and the signatures are below them.
+enum UpdateInstaller {
+    /// R179: nil when the incoming copy is the offered version of the same app, newer than this one.
+    static func checkBundle(incoming: BundleFacts, running: BundleFacts, offered: AppVersion, current: AppVersion) -> InstallFailure? {
+        guard let identifier = incoming.identifier, identifier == running.identifier else { return .notSigned }
+        guard let text = incoming.version, let version = AppVersion(text), version == offered, current < version else {
+            return .wrongVersion
+        }
+        return nil
+    }
+
+    /// R179: the running copy's designated requirement, which holds an `or`, so it is wrapped before
+    /// `notarized` is added.
+    static func requirement(designated: String) -> String {
+        "(\(designated)) and notarized"
+    }
+
+    /// R178: the first mount point in `hdiutil attach -plist` output.
+    static func mountPoint(inAttachPlist data: Data) -> String? {
+        guard let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
+              let entities = plist["system-entities"] as? [[String: Any]] else { return nil }
+        return entities.lazy.compactMap { $0["mount-point"] as? String }.first
+    }
+
+    static let downloadTimeout: TimeInterval = 60
+    static let maxDownload: Int64 = 200 * 1024 * 1024
+
+    /// R177–R179: download the dmg, unpack it beside the running copy, and check it. Everything is
+    /// removed again on any failure or cancel; the running copy is not touched.
+    static func prepare(asset: URL, offered: AppVersion, current: AppVersion, running: URL,
+                        progress: @escaping @MainActor @Sendable (Double?) -> Void,
+                        checking: @escaping @MainActor @Sendable () -> Void) async throws -> PreparedUpdate {
+        let work = FileManager.default.temporaryDirectory
+            .appending(path: "Locant-update-\(UUID().uuidString)", directoryHint: .isDirectory)
+        let incoming = running.deletingLastPathComponent()
+            .appending(path: ".Locant-\(offered).incoming.app", directoryHint: .isDirectory)
+        do {
+            do { try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true) }
+            catch { throw InstallFailure.unpackFailed }
+            let dmg = work.appending(path: "Locant-\(offered).dmg")
+            try await download(asset, to: dmg, current: current, progress: progress)
+            await checking()
+            try await Task.detached {
+                try UpdateInstaller.unpack(dmg: dmg, in: work, to: incoming)
+                try UpdateInstaller.verify(incoming: incoming, running: running, offered: offered, current: current)
+            }.value
+            try Task.checkCancellation()
+            return PreparedUpdate(work: work, incoming: incoming, running: running)
+        } catch {
+            discard(work: work, incoming: incoming)
+            throw error
+        }
+    }
+
+    /// R177: like the release check's request (R45): ephemeral, no cookies, no cache, the version in the
+    /// User-Agent. Written in 64 KB pieces so the panel can show progress.
+    static func download(_ url: URL, to file: URL, current: AppVersion,
+                         progress: @escaping @MainActor @Sendable (Double?) -> Void) async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.httpCookieStorage = nil
+        configuration.urlCache = nil
+        configuration.timeoutIntervalForRequest = downloadTimeout
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData, timeoutInterval: downloadTimeout)
+        request.setValue("Locant/\(current)", forHTTPHeaderField: "User-Agent")
+
+        do {
+            let (bytes, response) = try await session.bytes(for: request)
+            if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) { throw InstallFailure.downloadFailed }
+            let expected = response.expectedContentLength > 0 ? response.expectedContentLength : nil
+            if let expected, expected > maxDownload { throw InstallFailure.downloadFailed }
+            await progress(nil)
+
+            guard FileManager.default.createFile(atPath: file.path(percentEncoded: false), contents: nil) else {
+                throw InstallFailure.unpackFailed
+            }
+            let handle = try FileHandle(forWritingTo: file)
+            defer { try? handle.close() }
+            let piece = 1 << 16
+            var buffer = Data()
+            buffer.reserveCapacity(piece)
+            var written: Int64 = 0
+            var shown = -1
+            for try await byte in bytes {
+                buffer.append(byte)
+                guard buffer.count == piece else { continue }
+                try handle.write(contentsOf: buffer)
+                written += Int64(buffer.count)
+                buffer.removeAll(keepingCapacity: true)
+                if written > maxDownload { throw InstallFailure.downloadFailed }
+                if let expected {
+                    let percent = Int(written * 100 / expected)
+                    if percent != shown {
+                        shown = percent
+                        await progress(Double(percent) / 100)
+                    }
+                }
+            }
+            try handle.write(contentsOf: buffer)
+        } catch let failure as InstallFailure {
+            throw failure
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch let error as URLError where error.code == .cancelled {
+            throw CancellationError()
+        } catch let error as CocoaError where error.code == .fileWriteOutOfSpace {
+            throw InstallFailure.noSpace
+        } catch let error as POSIXError where error.code == .ENOSPC {
+            throw InstallFailure.noSpace
+        } catch {
+            throw InstallFailure.downloadFailed
+        }
+    }
+
+    /// R181: the running version is the pending one or newer when the update went in.
+    static func pendingOutcome(pending: PendingUpdate, current: AppVersion) -> PendingOutcome {
+        guard let version = AppVersion(pending.version), current < version else { return .installed }
+        return .failed(version: pending.version, downloadURL: pending.downloadURL)
+    }
+
+    static let pendingName = "Locant-pending-update.json"
+
+    static func writePending(_ pending: PendingUpdate, temporary: URL = FileManager.default.temporaryDirectory) throws {
+        try JSONEncoder().encode(pending).write(to: temporary.appending(path: pendingName), options: .atomic)
+    }
+
+    /// Reads the pending file and deletes it, so it is acted on once. A file that doesn't decode is
+    /// deleted all the same.
+    static func takePending(temporary: URL = FileManager.default.temporaryDirectory) -> PendingUpdate? {
+        let file = temporary.appending(path: pendingName)
+        guard let data = try? Data(contentsOf: file) else { return nil }
+        removePending(temporary: temporary)
+        return try? JSONDecoder().decode(PendingUpdate.self, from: data)
+    }
+
+    static func removePending(temporary: URL = FileManager.default.temporaryDirectory) {
+        try? FileManager.default.removeItem(at: temporary.appending(path: pendingName))
+    }
+
+    // MARK: System steps
+
+    /// R178: attach the dmg read-only and hidden, copy `Locant.app` out to `incoming`, and always detach
+    /// and delete the dmg. Synchronous; call it off the main actor.
+    static func unpack(dmg: URL, in work: URL, to incoming: URL) throws {
+        let fm = FileManager.default
+        let mounts = work.appending(path: "mnt", directoryHint: .isDirectory)
+        try? fm.createDirectory(at: mounts, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: dmg) }
+        guard let plist = runTool("/usr/bin/hdiutil", ["attach", "-nobrowse", "-readonly", "-noautoopen",
+                                                      "-mountrandom", mounts.path(percentEncoded: false),
+                                                      "-plist", dmg.path(percentEncoded: false)]),
+              let mount = mountPoint(inAttachPlist: plist)
+        else { throw InstallFailure.unpackFailed }
+        defer { runTool("/usr/bin/hdiutil", ["detach", "-force", mount]) }
+
+        // A folder at the root, not a symbolic link that could point anywhere. No trailing slash on the
+        // path, or `lstat` follows the link.
+        let app = URL(filePath: mount).appending(path: "Locant.app", directoryHint: .notDirectory)
+        guard (try? fm.attributesOfItem(atPath: app.path(percentEncoded: false))[.type] as? FileAttributeType) == .typeDirectory
+        else { throw InstallFailure.notLocant }
+        try? fm.removeItem(at: incoming)
+        guard runTool("/usr/bin/ditto", [app.path(percentEncoded: false), incoming.path(percentEncoded: false)]) != nil else {
+            try? fm.removeItem(at: incoming)
+            throw spaceIsLow(at: incoming.deletingLastPathComponent()) ? InstallFailure.noSpace : InstallFailure.unpackFailed
+        }
+    }
+
+    /// R179: all checks on the incoming copy. Synchronous; call it off the main actor.
+    static func verify(incoming: URL, running: URL, offered: AppVersion, current: AppVersion) throws {
+        guard let designated = designatedRequirementOfSelf(),
+              signatureIsValid(incoming, requirement: requirement(designated: designated))
+        else { throw InstallFailure.notSigned }
+        if let failure = checkBundle(incoming: .read(incoming), running: .read(running), offered: offered, current: current) {
+            throw failure
+        }
+    }
+
+    /// The running copy's designated requirement as text. For a release copy it names the Developer ID
+    /// anchor, the team, and the bundle id; macOS keys the privacy permissions to the same requirement.
+    static func designatedRequirementOfSelf() -> String? {
+        var code: SecCode?
+        guard SecCodeCopySelf([], &code) == errSecSuccess, let code else { return nil }
+        var staticCode: SecStaticCode?
+        guard SecCodeCopyStaticCode(code, [], &staticCode) == errSecSuccess, let staticCode else { return nil }
+        var requirement: SecRequirement?
+        guard SecCodeCopyDesignatedRequirement(staticCode, [], &requirement) == errSecSuccess, let requirement else { return nil }
+        var text: CFString?
+        guard SecRequirementCopyString(requirement, [], &text) == errSecSuccess, let text else { return nil }
+        return text as String
+    }
+
+    /// Every architecture, strict, nested code included, against `requirement`.
+    static func signatureIsValid(_ app: URL, requirement text: String) -> Bool {
+        var requirement: SecRequirement?
+        guard SecRequirementCreateWithString(text as CFString, [], &requirement) == errSecSuccess, let requirement else { return false }
+        var code: SecStaticCode?
+        guard SecStaticCodeCreateWithPath(app as CFURL, [], &code) == errSecSuccess, let code else { return false }
+        let flags = SecCSFlags(rawValue: kSecCSCheckAllArchitectures | kSecCSStrictValidate | kSecCSCheckNestedCode)
+        return SecStaticCodeCheckValidity(code, flags, requirement) == errSecSuccess
+    }
+
+    /// R182: what a crash, a quit during unpacking, or a stopped script leaves: incoming and outgoing
+    /// copies beside Locant, download folders, and a dmg still attached inside one. Best effort; what
+    /// stays is tried again at the next start.
+    static func removeLeftovers(beside running: URL, temporary: URL = FileManager.default.temporaryDirectory) {
+        let fm = FileManager.default
+        let folder = running.deletingLastPathComponent()
+        for name in (try? fm.contentsOfDirectory(atPath: folder.path(percentEncoded: false))) ?? []
+        where name.hasPrefix(".Locant-") && (name.hasSuffix(".incoming.app") || name.hasSuffix(".outgoing.app"))
+            && name != running.lastPathComponent {
+            try? fm.removeItem(at: folder.appending(path: name))
+        }
+        let downloads = ((try? fm.contentsOfDirectory(atPath: temporary.path(percentEncoded: false))) ?? [])
+            .filter { $0.hasPrefix("Locant-update-") }
+            .map { temporary.appending(path: $0, directoryHint: .isDirectory) }
+        guard !downloads.isEmpty else { return }
+        let info = runTool("/usr/bin/hdiutil", ["info", "-plist"]) ?? Data()
+        for download in downloads {
+            for mount in mountPoints(inInfoPlist: info, under: download) {
+                runTool("/usr/bin/hdiutil", ["detach", "-force", mount])
+            }
+            try? fm.removeItem(at: download)
+        }
+    }
+
+    /// R182: the mount points in `hdiutil info -plist` output that lie inside `folder`. Both sides are
+    /// compared with their links resolved: `hdiutil` says /private/var/folders where the temporary
+    /// directory says /var/folders.
+    static func mountPoints(inInfoPlist data: Data, under folder: URL) -> [String] {
+        guard let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
+              let images = plist["images"] as? [[String: Any]] else { return [] }
+        let base = folder.resolvingSymlinksInPath().pathComponents
+        return images.flatMap { $0["system-entities"] as? [[String: Any]] ?? [] }
+            .compactMap { $0["mount-point"] as? String }
+            .filter { Array(URL(filePath: $0).resolvingSymlinksInPath().pathComponents.prefix(base.count)) == base }
+    }
+
+    /// R181: undo everything before the swap; the running copy was never touched.
+    static func discard(work: URL, incoming: URL) {
+        try? FileManager.default.removeItem(at: incoming)
+        try? FileManager.default.removeItem(at: work)
+    }
+
+    /// R180: run by `/bin/sh -c` after Locant quits. Everything comes in as arguments (`swapArguments`):
+    /// the pid to wait for, the running path, the incoming path, the old version, the download folder,
+    /// and the command that opens the result. Every move on the way to the new copy is a rename inside
+    /// the folder that holds Locant; the old copy goes to the Trash only once the new one is in place,
+    /// so it can be put back by hand.
+    static let script = """
+    PATH=/usr/bin:/bin
+    pid=$1 running=$2 incoming=$3 old=$4 work=$5 opener=$6
+    tries=0
+    while kill -0 "$pid" 2>/dev/null; do
+      tries=$((tries + 1))
+      if [ "$tries" -ge 200 ]; then
+        rm -rf "$incoming" "$work"
+        exit 1
+      fi
+      sleep 0.1
+    done
+    if [ -d "$incoming" ]; then
+      outgoing="$(dirname "$running")/.Locant-$old.outgoing.app"
+      rm -rf "$outgoing"
+      # `mv dir existing-dir` would move into it, so rename only when the name is free.
+      if [ ! -e "$outgoing" ] && mv "$running" "$outgoing"; then
+        if ! mv "$incoming" "$running"; then
+          mv "$outgoing" "$running"
+          rm -rf "$incoming"
+        fi
+      else
+        rm -rf "$incoming"
+      fi
+      if [ -d "$outgoing" ]; then
+        trash="$HOME/.Trash/Locant $old.app"
+        if [ -e "$trash" ]; then
+          trash="$HOME/.Trash/Locant $old $(date '+%Y-%m-%d %H.%M.%S').app"
+        fi
+        # Best effort: what stays here, R182 removes at the next start.
+        if [ ! -e "$trash" ]; then
+          mkdir -p "$HOME/.Trash" && mv "$outgoing" "$trash"
+        fi
+      fi
+    fi
+    "$opener" "$running"
+    rm -rf "$work"
+
+    """
+
+    /// R180: the values after `-c <script> sh`, in the order the script reads them as `$1…$6`.
+    static func swapArguments(pid: pid_t, running: URL, incoming: URL, oldVersion: AppVersion, work: URL, opener: String) -> [String] {
+        [String(pid), running.path(percentEncoded: false), incoming.path(percentEncoded: false), oldVersion.description,
+         work.path(percentEncoded: false), opener]
+    }
+
+    /// R180: start the script, passed inline so there is no file to replace or delete. The caller quits
+    /// right after. A child started with `Process` outlives its parent: Locant has no terminal to hang up.
+    static func startSwap(_ prepared: PreparedUpdate, oldVersion: AppVersion,
+                          pid: pid_t = ProcessInfo.processInfo.processIdentifier, opener: String = "/usr/bin/open") throws {
+        let process = Process()
+        process.executableURL = URL(filePath: "/bin/sh")
+        process.arguments = ["-c", script, "sh"] + swapArguments(pid: pid, running: prepared.running, incoming: prepared.incoming,
+                                                                 oldVersion: oldVersion, work: prepared.work, opener: opener)
+        process.standardInput = FileHandle.nullDevice
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        do { try process.run() } catch { throw InstallFailure.unpackFailed }
+    }
+
+    /// Runs a tool and returns its standard output, or nil when it fails. The tools here print little
+    /// (`hdiutil -plist` a few KB), so reading to the end before waiting cannot fill the pipe.
+    @discardableResult
+    static func runTool(_ path: String, _ arguments: [String]) -> Data? {
+        let process = Process()
+        process.executableURL = URL(filePath: path)
+        process.arguments = arguments
+        // R178: a tool that asks a question fails instead of waiting forever.
+        process.standardInput = FileHandle.nullDevice
+        let out = Pipe()
+        process.standardOutput = out
+        process.standardError = FileHandle.nullDevice
+        do { try process.run() } catch { return nil }
+        let data = out.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        return process.terminationStatus == 0 ? data : nil
+    }
+
+    /// Under 200 MB free where the copy goes: the likely reason `ditto` failed.
+    private static func spaceIsLow(at folder: URL) -> Bool {
+        let free = (try? folder.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]))?
+            .volumeAvailableCapacityForImportantUsage ?? .max
+        return free < 200 * 1024 * 1024
+    }
+}

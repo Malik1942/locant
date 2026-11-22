@@ -15,6 +15,9 @@ cask "locant" do
     strategy :github_latest
   end
 
+  # specs/in-app-update.md R184: Locant installs its own updates, so `brew upgrade` leaves it alone.
+  auto_updates true
+
   depends_on macos: :sequoia
 
   app "Locant.app"

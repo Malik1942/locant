@@ -132,7 +132,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         state.start()
     }
 
-    private static var isTestHost: Bool {
+    static var isTestHost: Bool {
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil || NSClassFromString("XCTestCase") != nil
     }
 
