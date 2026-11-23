@@ -515,6 +515,9 @@ Locant was called Deixis until Sep 14, 2026; tags up to v0.6.1 carry the old nam
 Solo project; issues and PRs are welcome. The most useful bug report is the JSON sidecar of the capture
 that went wrong, plus the name of the app you pointed at.
 
+Questions, ideas, or something you built with it go in
+[Discussions](https://github.com/Malik1942/locant/discussions); no bug needed.
+
 ## License
 
 MIT, see [LICENSE](LICENSE).
