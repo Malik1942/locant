@@ -24,6 +24,8 @@ xcodebuild -project Locant.xcodeproj -scheme Locant -destination 'platform=macOS
 
 That line is what CI runs. Ad hoc signing changes on every build, so macOS asks for Accessibility and Screen Recording again after each rebuild; any real identity, including the free Apple Development one, avoids that (set your team in Signing & Capabilities).
 
+Every build registers itself with macOS under the app's bundle ID. When the installed Locant goes missing from Spotlight's Apps view, or macOS opens a build in its place, run `scripts/forget-builds.sh` (`-n` only lists the builds).
+
 ## Pull requests
 
 - A PR follows a spec in [`specs/`](specs/) or fixes a filed bug. For anything larger than a bug fix, open an issue first; the answer may be a spec, and the spec is where the design is argued.
