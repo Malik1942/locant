@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "locant",
   "display_name": "Locant",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Point at any element on your Mac's screen; your agent gets a screenshot of it, its details, and your note.",
   "long_description": "Locant is a free macOS app. Press ⌃⌃, click a button, a row, part of a web page or a simulator, type what should change, and press Return. Locant saves a cropped screenshot with the element's role, label, accessibility identifier or DOM id and classes, ancestry, the app or page URL, often the source file and line, and your note. This bundle starts the server built into the installed app (Locant --mcp); install Locant first from https://locant.malikzhang.com.",
   "author": {

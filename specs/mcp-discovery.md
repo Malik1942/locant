@@ -24,5 +24,6 @@ asset on GitHub whose URL contains "mcp". So each release may carry `locant-mcp.
 execs `Locant --mcp` from `$LOCANT_APP`, `/Applications` or `~/Applications`, and otherwise says on stderr
 where to get Locant and exits 1. The script stamps the project version, the release URL and the bundle's
 sha256 into `server.json`; the zip is built with fixed dates, so the same files give the same sha256.
-Publishing is by hand, after the release: `gh release upload`, `mcp-publisher login github`, `mcp-publisher
-publish` from `packaging/mcp`.
+`scripts/publish.sh` adds the bundle to the release's assets when it is built, after checking that
+`server.json` names this version and the bundle's sha256. Then, by hand: `mcp-publisher login github` and
+`mcp-publisher publish` from `packaging/mcp`. First listed with 1.4.1.
