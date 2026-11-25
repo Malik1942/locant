@@ -1,0 +1,39 @@
+{
+  "manifest_version": "0.3",
+  "name": "locant",
+  "display_name": "Locant",
+  "version": "1.4.0",
+  "description": "Point at any element on your Mac's screen; your agent gets a screenshot of it, its details, and your note.",
+  "long_description": "Locant is a free macOS app. Press ⌃⌃, click a button, a row, part of a web page or a simulator, type what should change, and press Return. Locant saves a cropped screenshot with the element's role, label, accessibility identifier or DOM id and classes, ancestry, the app or page URL, often the source file and line, and your note. This bundle starts the server built into the installed app (Locant --mcp); install Locant first from https://locant.malikzhang.com.",
+  "author": {
+    "name": "Malik Zhang",
+    "url": "https://locant.malikzhang.com"
+  },
+  "homepage": "https://locant.malikzhang.com",
+  "documentation": "https://github.com/Malik1942/locant#or-let-the-agent-fetch-it",
+  "support": "https://github.com/Malik1942/locant/discussions",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Malik1942/locant"
+  },
+  "license": "MIT",
+  "icon": "icon.png",
+  "server": {
+    "type": "binary",
+    "entry_point": "server/locant-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/server/locant-mcp",
+      "args": []
+    }
+  },
+  "tools": [
+    { "name": "latest_capture", "description": "The UI element the user last pointed at: screenshot path, element details, source line, and their note." },
+    { "name": "list_captures", "description": "Recent captures, newest first, one line each." },
+    { "name": "get_capture", "description": "An earlier capture in full, by id." },
+    { "name": "resolve_capture", "description": "Mark a capture as acted on." }
+  ],
+  "keywords": ["macos", "screenshot", "ui", "accessibility", "point", "design", "frontend"],
+  "compatibility": {
+    "platforms": ["darwin"]
+  }
+}

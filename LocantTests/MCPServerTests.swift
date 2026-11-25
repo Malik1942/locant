@@ -57,7 +57,10 @@ final class MCPServerTests: XCTestCase {
         XCTAssertEqual((result["capabilities"] as? [String: Any])?.keys.sorted(), ["tools"])
         XCTAssertEqual((result["serverInfo"] as? [String: Any])?["name"] as? String, "locant")
         XCTAssertEqual((result["serverInfo"] as? [String: Any])?["version"] as? String, "0.7.1")
-        XCTAssertTrue((result["instructions"] as? String ?? "").contains("latest_capture"))
+        let instructions = result["instructions"] as? String ?? ""
+        XCTAssertTrue(instructions.contains("Call latest_capture first when the user:"))
+        XCTAssertTrue(instructions.contains("before asking them for a screenshot"))
+        XCTAssertTrue(instructions.contains("resolve_capture"))
 
         let unknown = try XCTUnwrap(server.handle(request(2, "initialize", ["protocolVersion": "1999-01-01"])))
         XCTAssertEqual((unknown["result"] as? [String: Any])?["protocolVersion"] as? String, "2025-06-18")
@@ -74,6 +77,12 @@ final class MCPServerTests: XCTestCase {
             XCTAssertEqual(schema["type"] as? String, "object")
             XCTAssertFalse((tool["description"] as? String ?? "").isEmpty)
         }
+        // R185: each description says when to call it; tool search ranks on these words.
+        for tool in tools {
+            XCTAssertTrue((tool["description"] as? String ?? "").hasPrefix("Call this "), "\(tool["name"] ?? "")")
+        }
+        let latest = try XCTUnwrap(tools.first { $0["name"] as? String == "latest_capture" })["description"] as? String ?? ""
+        for word in ["screen", "this button", "screenshot", "UI", "note"] { XCTAssertTrue(latest.contains(word), word) }
         let get = try XCTUnwrap(tools.first { $0["name"] as? String == "get_capture" })
         XCTAssertEqual((get["inputSchema"] as? [String: Any])?["required"] as? [String], ["id"])
         XCTAssertEqual((get["annotations"] as? [String: Any])?["readOnlyHint"] as? Bool, true)

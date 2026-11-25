@@ -1,0 +1,8 @@
+#!/bin/sh
+# R186: the MCP Registry lists Locant through this bundle. Locant's server is `Locant --mcp` inside the
+# app, so the bundle carries no server of its own: it starts the installed app's.
+for L in "${LOCANT_APP:-}" /Applications/Locant.app "$HOME/Applications/Locant.app"; do
+  [ -n "$L" ] && [ -x "$L/Contents/MacOS/Locant" ] && exec "$L/Contents/MacOS/Locant" --mcp "$@"
+done
+echo "Locant is not installed in /Applications or ~/Applications. Get it at https://locant.malikzhang.com or with: brew install --cask Malik1942/locant/locant" >&2
+exit 1
