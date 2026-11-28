@@ -1,6 +1,6 @@
 # MCP discovery: when to call, and the Registry
 
-Nov 25 2026. Agents pick tools from their names, descriptions and the server's instructions, nothing else.
+Nov 27 2026. Agents pick tools from their names, descriptions and the server's instructions, nothing else.
 Clients that defer tools (Claude Code's tool search) load a server's tools only when the instructions or a
 search over names, descriptions and parameter names says to, and descriptions written as "call this when"
 are picked more often than ones that say what a tool is. People still find servers themselves, mostly through

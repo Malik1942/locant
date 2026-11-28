@@ -2,7 +2,7 @@
 
 Every release is a signed, notarized `Locant.dmg` on [GitHub Releases](https://github.com/Malik1942/locant/releases). From 1.4.0 on, Locant installs it for you from the update alert; your permissions carry over.
 
-## 1.4.1 (2026-11-25)
+## 1.4.1 (2026-11-27)
 
 - **Agents reach for Locant when you say "this".** The MCP server's instructions and its four tools now say when to call them, not only what they return: when you refer to something on screen the agent can't see ("this", "that button", "here", in any language), or ask to change part of an app or a page without giving a screenshot or a file. The agent fetches your latest capture before it asks you for a screenshot, and checks how old it is. Agents that load tools only when they need them, such as Claude Code with tool search, now find Locant's tools from those words.
 - **Locant is in the official MCP Registry** as `io.github.Malik1942/locant`, so the directories and agent galleries that copy the Registry list it too. Each release carries `locant-mcp.mcpb`, a small bundle that starts the server inside your installed Locant; you still install the app itself.
