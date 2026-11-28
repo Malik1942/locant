@@ -1,0 +1,23 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Malik1942/locant",
+  "title": "Locant",
+  "description": "Point at any UI element on your Mac; your agent gets its screenshot, details, and your note.",
+  "version": "1.4.1",
+  "websiteUrl": "https://locant.malikzhang.com",
+  "repository": {
+    "url": "https://github.com/Malik1942/locant",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/Malik1942/locant/releases/download/v1.4.1/locant-mcp.mcpb",
+      "fileSha256": "56465be870faab00827f25098ca4139b702927619eafb203b9aec21a866d17a9",
+      "version": "1.4.1",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

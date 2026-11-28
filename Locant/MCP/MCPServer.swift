@@ -7,12 +7,29 @@ struct MCPServer {
     var version: String
 
     static let protocolVersions = ["2025-06-18", "2025-03-26", "2024-11-05"]
+    /// R185: written as when to call, not what it is. Clients that defer tools read only this to decide
+    /// whether to search for Locant's tools, and tool search ranks on names and descriptions.
     static let instructions = """
-        Locant is a macOS tool. The user points at one element on screen (a button, a view, a drawn frame), \
-        types a note, and Locant records the element's role, accessibility identifier, frame, ancestry, a \
-        cropped PNG, and the note. When the user says "fix what I just pointed at", "this button", or refers \
-        to something they pointed at, call latest_capture; it returns the payload with the image path first. \
-        Grep for the identifier to find the code. Call resolve_capture when the change is done.
+        Locant lets the user point at things on their Mac's screen instead of describing them. They click one \
+        element (a button, a row, a view, part of a web page or a simulator, or a frame they drew) and type a \
+        note such as "make this bigger". Locant saves a capture: the note, a cropped screenshot, the app or page \
+        URL, the element's role, label, accessibility identifier or DOM id and classes, frame, ancestry, and \
+        often an "In source:" file and line.
+
+        Call latest_capture first when the user:
+        - refers to something on screen you cannot see: "this", "that button", "here", "what I just pointed at", \
+        "the one I selected", in any language;
+        - asks to change, fix, restyle, move, or explain part of an app's or a web page's interface without \
+        giving a screenshot, a file, or a line;
+        - mentions Locant or a capture.
+        Do this before asking them for a screenshot or a description: the capture is what they meant. Check \
+        its Captured time; if it is old or about something else, say so and ask.
+
+        Then open the Image path, go to the "In source:" line if there is one (otherwise search the code for \
+        the identifier, the DOM id or classes, or the label text), and do what the note asks. If a Project line \
+        names a different checkout than yours, change the code there or ask which copy to change. Call \
+        resolve_capture with the capture's id when the change is done. Use list_captures and get_capture only \
+        when the user asks about an earlier capture.
         """
 
     /// `--mcp [--folder <path>]`; nil when the app should start normally.
@@ -115,7 +132,7 @@ struct MCPServer {
         [
             "name": "latest_capture",
             "title": "Latest capture",
-            "description": "The element the user most recently pointed at with Locant: role, accessibility identifier, frame, ancestry, the path of a cropped PNG, and the user's note. Call this when the user says \"fix what I just pointed at\", \"this button\", or refers to what they pointed at. The image path comes first; open it to see the element.",
+            "description": "Call this when the user refers to something on their screen you cannot see (\"this\", \"this button\", \"here\", \"what I just pointed at\") or asks to change part of an app or web page UI without giving a screenshot or a file. Call it before asking them for a screenshot. Returns the UI element the user last pointed at with Locant on their Mac: the path of a cropped screenshot (PNG) first, and also the app or page URL, the user's note saying what to change, the element's role, label, accessibility identifier or DOM id and classes, frame, ancestry, and often an \"In source:\" file and line.",
             "inputSchema": [
                 "type": "object",
                 "properties": [
@@ -129,7 +146,7 @@ struct MCPServer {
         [
             "name": "list_captures",
             "title": "List captures",
-            "description": "Recent Locant captures, newest first, one line each: id, when, fix or reference, app, element, note, resolved or not. Use get_capture with an id for the full payload.",
+            "description": "Call this only when the user asks about an earlier Locant capture (\"the one before\", \"the buttons I pointed at this morning\") or what is still open. Lists recent captures of on-screen UI elements, newest first, one line each: id, when, fix or reference, app, element, note, resolved or not. Then call get_capture with an id.",
             "inputSchema": [
                 "type": "object",
                 "properties": [
@@ -143,7 +160,7 @@ struct MCPServer {
         [
             "name": "get_capture",
             "title": "Get capture",
-            "description": "One Locant capture by id: the Markdown payload (image path first, element, ancestry, note), then the JSON sidecar with everything else, including iterations recorded after an edit.",
+            "description": "Call this with an id from list_captures to read an earlier Locant capture in full, the same way latest_capture reads the newest: the screenshot path first, the element, its ancestry, the note, then the JSON sidecar with everything else, including iterations recorded after an edit.",
             "inputSchema": [
                 "type": "object",
                 "properties": [
@@ -158,7 +175,7 @@ struct MCPServer {
         [
             "name": "resolve_capture",
             "title": "Resolve capture",
-            "description": "Mark a Locant capture as acted on. Sets resolved: true in its sidecar; Locant then keeps the capture instead of expiring it. Call it after the requested change is made.",
+            "description": "Call this after you have made the change a Locant capture asked for. Marks the capture resolved (sets resolved: true in its sidecar), so it no longer counts as open and Locant keeps it instead of expiring it.",
             "inputSchema": [
                 "type": "object",
                 "properties": [

@@ -3,6 +3,7 @@
 # Run scripts/release.sh first, then `git tag v0.9.0 && git push origin v0.9.0`, then this.
 # Two assets: Locant.dmg, so the site's link releases/latest/download/Locant.dmg never changes, and
 # Locant-<version>.dmg, which the Homebrew cask points at (a cask's url must change with the version).
+# R186: and locant-mcp.mcpb when scripts/mcpb.sh has built it, the file the MCP Registry entry points at.
 # The release notes are the CHANGELOG.md section for this version when it has one.
 # Usage: scripts/publish.sh            (version read from the project; tag v<version>, in full)
 #        TAG=v0.9.0 scripts/publish.sh (an explicit tag)
@@ -32,12 +33,20 @@ Download Locant.dmg and drag Locant to Applications; over an older copy, the per
 STAGE=$(mktemp -d)
 cp "$DMG" "$STAGE/Locant.dmg"
 cp "$DMG" "$STAGE/Locant-$VERSION.dmg"
+ASSETS=("$STAGE/Locant.dmg" "$STAGE/Locant-$VERSION.dmg")
+MCPB=build/release/locant-mcp.mcpb
+if [ -f "$MCPB" ]; then
+  grep -q "\"version\": \"$VERSION\"" packaging/mcp/server.json || { echo "packaging/mcp/server.json is not $VERSION; run scripts/mcpb.sh"; exit 1; }
+  grep -q "$(shasum -a 256 "$MCPB" | cut -d' ' -f1)" packaging/mcp/server.json || { echo "$MCPB does not match packaging/mcp/server.json; run scripts/mcpb.sh"; exit 1; }
+  cp "$MCPB" "$STAGE/"
+  ASSETS+=("$STAGE/locant-mcp.mcpb")
+fi
 if gh release view "$TAG" -R "$REPO" >/dev/null 2>&1; then
   echo "▸ Release $TAG exists; replacing the assets"
-  gh release upload "$TAG" "$STAGE/Locant.dmg" "$STAGE/Locant-$VERSION.dmg" -R "$REPO" --clobber
+  gh release upload "$TAG" "${ASSETS[@]}" -R "$REPO" --clobber
 else
   echo "▸ Creating release $TAG"
-  gh release create "$TAG" "$STAGE/Locant.dmg" "$STAGE/Locant-$VERSION.dmg" -R "$REPO" --title "Locant $VERSION" --notes "$NOTES" --latest
+  gh release create "$TAG" "${ASSETS[@]}" -R "$REPO" --title "Locant $VERSION" --notes "$NOTES" --latest
 fi
 rm -rf "$STAGE"
 echo "▸ https://github.com/$REPO/releases/latest/download/Locant.dmg"
